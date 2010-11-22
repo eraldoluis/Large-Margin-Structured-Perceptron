@@ -755,14 +755,14 @@ public class Dataset implements Iterable<DatasetExample> {
 
 		@Override
 		public String getFeatureValueAsString(int token, int feature) {
-			return featureValueEncoding.getStringByCode(getFeatureValue(token,
+			return featureValueEncoding.getLabelByCode(getFeatureValue(token,
 					feature));
 		}
 
 		@Override
 		public String getFeatureValueAsString(int token, String feature)
 				throws DatasetException {
-			return featureValueEncoding.getStringByCode(getFeatureValue(token,
+			return featureValueEncoding.getLabelByCode(getFeatureValue(token,
 					getFeatureIndex(feature)));
 		}
 

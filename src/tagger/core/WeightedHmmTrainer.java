@@ -116,11 +116,11 @@ public class WeightedHmmTrainer extends HmmTrainer {
 
 			// First state probability.
 			int ftrState = example.getFeatureValue(0, stateFeature);
-			model.incProbInitial(ftrState, weight[0]);
+			model.incProbInitialByFeature(ftrState, weight[0]);
 
 			// Emission probability.
 			int ftrObservation = example.getFeatureValue(0, observationFeature);
-			model.incProbEmission(ftrState, ftrObservation, weight[0]);
+			model.incProbEmissionByFeature(ftrState, ftrObservation, weight[0]);
 
 			// Remaining states.
 			for (int token = 1; token < lenEx; ++token) {
@@ -129,14 +129,14 @@ public class WeightedHmmTrainer extends HmmTrainer {
 				int stateTo = example.getFeatureValue(token, stateFeature);
 				ftrObservation = example.getFeatureValue(token,
 						observationFeature);
-				model.incProbTransition(stateFrom, stateTo,
+				model.incProbTransitionByFeature(stateFrom, stateTo,
 						(weight[token - 1] + weight[token]) / 2);
-				model.incProbEmission(stateTo, ftrObservation, weight[token]);
+				model.incProbEmissionByFeature(stateTo, ftrObservation, weight[token]);
 			}
 
 			// Terminal state.
 			ftrState = example.getFeatureValue(lenEx - 1, stateFeature);
-			model.incProbFinal(ftrState, weight[lenEx - 1]);
+			model.incProbFinalByFeature(ftrState, weight[lenEx - 1]);
 		}
 
 		// Calculate probabilities by normalizing counters and apply the log.

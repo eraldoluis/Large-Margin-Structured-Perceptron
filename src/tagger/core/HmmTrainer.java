@@ -91,8 +91,8 @@ public class HmmTrainer {
 			// First state.
 			int ftrState = example.getFeatureValue(0, stateFeature);
 			int ftrObservation = example.getFeatureValue(0, observationFeature);
-			model.incProbInitial(ftrState);
-			model.incProbEmission(ftrState, ftrObservation);
+			model.incProbInitialByFeature(ftrState);
+			model.incProbEmissionByFeature(ftrState, ftrObservation);
 
 			// Remaining states.
 			for (int token = 1; token < lenEx; ++token) {
@@ -101,12 +101,12 @@ public class HmmTrainer {
 				int stateTo = example.getFeatureValue(token, stateFeature);
 				ftrObservation = example.getFeatureValue(token,
 						observationFeature);
-				model.incProbTransition(stateFrom, stateTo);
-				model.incProbEmission(stateTo, ftrObservation);
+				model.incProbTransitionByFeature(stateFrom, stateTo);
+				model.incProbEmissionByFeature(stateTo, ftrObservation);
 			}
 
 			// Terminal state.
-			model.incProbFinal(example.getFeatureValue(lenEx - 1, stateFeature));
+			model.incProbFinalByFeature(example.getFeatureValue(lenEx - 1, stateFeature));
 		}
 
 		// Calculate probabilities by normalizing counters and take the log.

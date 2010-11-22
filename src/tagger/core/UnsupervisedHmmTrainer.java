@@ -276,7 +276,7 @@ public class UnsupervisedHmmTrainer {
 
 			// Emission probabilities.
 			Collection<Integer> symbols = model.getFeatureValueEncoding()
-					.getCollectionOfSymbols();
+					.getCollectionOfLabels();
 			HashMap<Integer, Double> emissionMap = new HashMap<Integer, Double>();
 			model.probEmission.set(stateFrom, emissionMap);
 			for (Integer symbol : symbols)

@@ -242,8 +242,8 @@ public class Gazetter extends FeatureBuilderBasic {
 							for (int r = 0; r < G_i.size(); ++r){
 								int left = i-j;
 								int G_i_r_id=G_i.get(r);
-								boolean isTrigger = LIS.get(G_i_r_id).startsWith(FEATURE_PREFIX_TRIGGER);
-								String G_i_r_Label = LIS.get(G_i_r_id);
+								boolean isTrigger = LIS.getLabelByCode(G_i_r_id).startsWith(FEATURE_PREFIX_TRIGGER);
+								String G_i_r_Label = LIS.getLabelByCode(G_i_r_id);
 								if (isTrigger)
 									if (left-1 >= 0)
 										O.get(left-1).add(FEATURE_PREFIX_RX+G_i_r_Label);

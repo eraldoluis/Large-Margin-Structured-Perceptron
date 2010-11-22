@@ -568,7 +568,7 @@ public class FeatureBuilderBasic implements FeatureBuilder {
 	 **/
 
 	public String FSIS(int nid) {
-		return FSIS.get(nid);
+		return FSIS.getLabelByCode(nid);
 	}
 
 	/**

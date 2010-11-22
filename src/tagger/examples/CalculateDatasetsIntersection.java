@@ -59,7 +59,7 @@ public class CalculateDatasetsIntersection {
 		Dataset dataset1 = new Dataset(fileName1);
 		int ftr1 = dataset1.getFeatureIndex(featureLabel);
 		int filterFtr1 = dataset1.getFeatureIndex(filterFtrLabel);
-		int filterValue1 = dataset1.getFeatureValueEncoding().getCodeByString(
+		int filterValue1 = dataset1.getFeatureValueEncoding().getCodeByLabel(
 				"0");
 
 		// Build the set of feature values in the first dataset.
@@ -79,7 +79,7 @@ public class CalculateDatasetsIntersection {
 				dataset1.getFeatureValueEncoding());
 		int ftr2 = dataset2.getFeatureIndex(featureLabel);
 		int filterFtr2 = dataset2.getFeatureIndex(filterFtrLabel);
-		int filterValue2 = dataset2.getFeatureValueEncoding().getCodeByString(
+		int filterValue2 = dataset2.getFeatureValueEncoding().getCodeByLabel(
 				"0");
 
 		// Build the set of feature values in the second dataset.
