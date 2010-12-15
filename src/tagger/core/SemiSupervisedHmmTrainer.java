@@ -248,16 +248,9 @@ public class SemiSupervisedHmmTrainer extends UnsupervisedHmmTrainer {
 	protected void backward(DatasetExample example) {
 		int size = example.size();
 
-		// TODO debug
-		int someTagged = -1;
-		boolean allTagged = true;
-
 		// Initialize the beta[size-1] values.
 		Vector<Double> last = beta.get(size - 1);
 		if (tagged[size - 1]) {
-			// TODO debug
-			someTagged = size - 1;
-
 			// Zero to every state.
 			for (int state = 0; state < numStates; ++state)
 				last.set(state, 0.0);
@@ -269,16 +262,12 @@ public class SemiSupervisedHmmTrainer extends UnsupervisedHmmTrainer {
 			// Set the correct state probability to one.
 			last.set(taggedState, 1.0);
 		} else {
-			allTagged = false;
 			for (int state = 0; state < numStates; ++state)
 				last.set(state, 1.0);
 		}
 
 		for (int token = size - 2; token >= 0; --token) {
 			if (tagged[token]) {
-				// TODO debug
-				someTagged = token;
-
 				// Set the probability of every state to zero.
 				for (int stateFrom = 0; stateFrom < numStates; ++stateFrom)
 					beta.get(token).set(stateFrom, 0.0);
@@ -307,7 +296,6 @@ public class SemiSupervisedHmmTrainer extends UnsupervisedHmmTrainer {
 				// Set the value for the correct state.
 				beta.get(token).set(taggedState, betaVal);
 			} else {
-				allTagged = false;
 				for (int stateFrom = 0; stateFrom < numStates; ++stateFrom) {
 					double betaVal = 0.0;
 					int emission = example.getFeatureValue(token + 1,
@@ -330,20 +318,6 @@ public class SemiSupervisedHmmTrainer extends UnsupervisedHmmTrainer {
 				}
 			}
 		}
-
-		// TODO debug
-		// if (!allTagged && someTagged >= 0) {
-		// System.out.println("Tagged token " + someTagged);
-		// for (int token = 0; token < size; ++token) {
-		// double probObservation = 0.0;
-		// for (int state = 0; state < numStates; ++state)
-		// probObservation += alpha.get(token).get(state)
-		// * beta.get(token).get(state);
-		// System.out.print("Tkn " + token + " = " + probObservation
-		// + " ; ");
-		// }
-		// System.out.println();
-		// }
 	}
 
 	/**

@@ -27,7 +27,18 @@ import tagger.data.HmmModelStrings;
 import tagger.utils.RandomGenerator;
 
 public class HmmModel {
+
 	static Logger logger = Logger.getLogger(HmmModel.class);
+
+	/**
+	 * For non-seen observations, use the state with this label.
+	 */
+	public static String defaultStateLabel = "0";
+
+	/**
+	 * For non-seen observations, use this state.
+	 */
+	private int defaultState = 0;
 
 	/**
 	 * Control the mapping from string feature values to integer values and
@@ -227,59 +238,6 @@ public class HmmModel {
 			load(fileName);
 	}
 
-	/**
-	 * Initialize the model with the given values (intialState, emissions and
-	 * transitions). Use the given feature-value encoding.
-	 * 
-	 * @param encoding
-	 * @param initialState
-	 * @param emissions
-	 * @param transitions
-	 */
-	public HmmModel(FeatureValueEncoding encoding,
-			HashMap<Integer, Double> initialState,
-			HashMap<Integer, HashMap<Integer, Double>> emissions,
-			HashMap<Integer, HashMap<Integer, Double>> transitions) {
-
-		featureValueEncoding = encoding;
-
-		// Set of states.
-		HashSet<Integer> featuresThatAreState = new HashSet<Integer>(
-				initialState.keySet());
-		featuresThatAreState.addAll(emissions.keySet());
-		featuresThatAreState.addAll(transitions.keySet());
-
-		// Initilize the basic variables.
-		initStateFeatures(featuresThatAreState);
-		allocProbabilityParameters();
-
-		// Initial state probabilities.
-		for (Entry<Integer, Double> entry : initialState.entrySet()) {
-			int state = featureToState.get(entry.getKey());
-			probInitialState[state] = entry.getValue();
-		}
-
-		// Emission probabilities.
-		for (Entry<Integer, HashMap<Integer, Double>> entry : emissions
-				.entrySet()) {
-			int state = featureToState.get(entry.getKey());
-			probEmission.set(state, entry.getValue());
-		}
-
-		// Transition probabilities.
-		for (Entry<Integer, HashMap<Integer, Double>> entry : transitions
-				.entrySet()) {
-			int stateFrom = featureToState.get(entry.getKey());
-			for (Entry<Integer, Double> distEntry : entry.getValue().entrySet()) {
-				int stateTo = featureToState.get(distEntry.getKey());
-				probTransition[stateFrom][stateTo] = distEntry.getValue();
-			}
-		}
-
-		// Apply the log to the probabilities (used by the Viterbi algorithm).
-		applyLog();
-	}
-
 	private void initStateFeatures(
 			Collection<Integer> featureValuesThatAreStates) {
 		numStates = featureValuesThatAreStates.size();
@@ -337,6 +295,9 @@ public class HmmModel {
 		this.stateFeature = dataset.getFeatureIndex(stateFeatureLabel);
 		if (this.stateFeature < 0)
 			this.stateFeature = dataset.createNewFeature(stateFeatureLabel);
+
+		// Get the default state.
+		this.defaultState = getStateByString(defaultStateLabel);
 
 		if (dataset.getFeatureValueEncoding() != featureValueEncoding)
 			throw new DatasetException(
@@ -589,9 +550,13 @@ public class HmmModel {
 			for (int state = 0; state < numStates; ++state)
 				viterbi(delta, psi, example, tkn, state);
 
+		// The default state is always the fisrt option.
+		int maxState = defaultState;
+		double maxLogProb = delta[lenExample - 1][defaultState];
+		if (useFinalProbabilities)
+			maxLogProb += getFinalStateParameter(maxState);
+
 		// Find the best last state.
-		int maxState = -1;
-		double maxLogProb = Double.NEGATIVE_INFINITY;
 		for (int state = 0; state < numStates; ++state) {
 			double logProb = delta[lenExample - 1][state];
 			if (useFinalProbabilities)
@@ -603,13 +568,6 @@ public class HmmModel {
 			}
 		}
 
-		if (maxState == -1) {
-			maxState = 0;
-			maxLogProb = delta[lenExample - 1][0];
-			if (useFinalProbabilities)
-				maxLogProb += getFinalStateParameter(0);
-		}
-
 		// Reconstruct the best path from the best final state, and tag the
 		// example.
 		decodeExample(example, delta, psi, maxState);
@@ -618,8 +576,10 @@ public class HmmModel {
 	protected void viterbi(double[][] delta, int[][] psi,
 			DatasetExample example, int token, int state) {
 
-		double maxLogProb = Double.NEGATIVE_INFINITY;
-		int maxState = -1;
+		// Choose the best previous state.
+		int maxState = defaultState;
+		double maxLogProb = delta[token - 1][defaultState]
+				+ getTransitionParameter(defaultState, state);
 		for (int stateFrom = 0; stateFrom < numStates; ++stateFrom) {
 			double logProb = delta[token - 1][stateFrom]
 					+ getTransitionParameter(stateFrom, state);
@@ -627,11 +587,6 @@ public class HmmModel {
 				maxLogProb = logProb;
 				maxState = stateFrom;
 			}
-		}
-
-		if (maxState == -1) {
-			maxLogProb = delta[token - 1][0] + getTransitionParameter(0, state);
-			maxState = 0;
 		}
 
 		double emissionLogProb = getEmissionParameter(
@@ -872,6 +827,11 @@ public class HmmModel {
 		probInitialState[stateCode] = value;
 	}
 
+	public void setInitialStateProbabilityByFeature(int stateFtr, double value) {
+		int stateCode = featureToState.get(stateFtr);
+		probInitialState[stateCode] = value;
+	}
+
 	/**
 	 * Increment by one unit the final state counter (that is accumulate in the
 	 * probability attribute).
@@ -923,6 +883,13 @@ public class HmmModel {
 		probTransition[stateFrom][stateTo] = value;
 	}
 
+	public void setProbTransitionByFeature(int stateFromFtr, int stateToFtr,
+			double value) {
+		int stateFrom = featureToState.get(stateFromFtr);
+		int stateTo = featureToState.get(stateToFtr);
+		probTransition[stateFrom][stateTo] = value;
+	}
+
 	/**
 	 * Increment by one unit the value
 	 * <code>probEmission.get(state).get(emission)</code>.
@@ -954,6 +921,7 @@ public class HmmModel {
 
 	public void incProbEmissionByFeature(int stateFtr, int emission,
 			double value) {
+
 		int state = featureToState.get(stateFtr);
 
 		HashMap<Integer, Double> emissionMap = probEmission.get(state);
@@ -969,6 +937,18 @@ public class HmmModel {
 	}
 
 	public void setProbEmission(int state, int emission, double prob) {
+		HashMap<Integer, Double> emissionMap = probEmission.get(state);
+		if (emissionMap == null) {
+			emissionMap = new HashMap<Integer, Double>();
+			probEmission.set(state, emissionMap);
+		}
+		emissionMap.put(emission, prob);
+	}
+
+	public void setProbEmissionByFeature(int stateFtr, int emission, double prob) {
+
+		int state = featureToState.get(stateFtr);
+
 		HashMap<Integer, Double> emissionMap = probEmission.get(state);
 		if (emissionMap == null) {
 			emissionMap = new HashMap<Integer, Double>();
@@ -1166,6 +1146,9 @@ public class HmmModel {
 		// State set.
 		String buff = skipComments(reader);
 		if (stateToFeature == null) {
+			if (buff == null)
+				throw new IOException("Empty model");
+
 			for (String label : buff.split("\\s"))
 				states.add(featureValueEncoding.putString(label));
 

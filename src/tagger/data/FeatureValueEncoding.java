@@ -233,6 +233,25 @@ public class FeatureValueEncoding {
 		}
 	}
 
+	public void loadTwoPasses(BufferedReader reader) throws IOException {
+		// Clear the previous values.
+		mapFromCodeToLabel.clear();
+		mapFromLabelToCode.clear();
+
+		int numberOfLabels = 0;
+		String label;
+		while ((label = reader.readLine()) != null)
+			++numberOfLabels;
+
+		mapFromCodeToLabel.setSize(numberOfLabels);
+		mapFromCodeToLabel.setSize(0);
+		while ((label = reader.readLine()) != null) {
+			int code = mapFromCodeToLabel.size();
+			mapFromCodeToLabel.add(label);
+			mapFromLabelToCode.put(label, code);
+		}
+	}
+
 	/**
 	 * Save this encoding in the given output stream. The given stream is not
 	 * closed in this method.

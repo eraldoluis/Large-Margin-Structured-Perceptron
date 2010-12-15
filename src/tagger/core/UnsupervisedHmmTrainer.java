@@ -450,6 +450,7 @@ public class UnsupervisedHmmTrainer {
 		}
 	}
 
+	// TODO debug
 	int myid = -1;
 	int mysize = 100000000;
 

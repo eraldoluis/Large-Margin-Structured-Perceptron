@@ -32,7 +32,7 @@ public class TestHmm {
 		String observationFeatureLabel = args[arg++];
 		String stateFeatureLabel = args[arg++];
 
-		double smooth = 10e-6;
+		double smooth = 1e-6;
 
 		System.out.println(String.format(
 				"Evaluating HMM with the following parameters: \n"
