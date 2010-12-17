@@ -46,7 +46,7 @@ public class FeatureValueEncoding {
 	/**
 	 * Indicate if this mapping is read-only.
 	 */
-	private final boolean readOnly;
+	private boolean readOnly;
 
 	/**
 	 * Default constructor. Create an empty mapping.
@@ -117,6 +117,14 @@ public class FeatureValueEncoding {
 		return mapFromCodeToLabel.size();
 	}
 
+	public boolean isReadOnly() {
+		return readOnly;
+	}
+
+	public void setReadOnly(boolean val) {
+		readOnly = val;
+	}
+
 	/**
 	 * Put the given label in this mapping and return its code. If the label
 	 * already is in the mapping, just return its code.
@@ -135,7 +143,7 @@ public class FeatureValueEncoding {
 		Integer code = mapFromLabelToCode.get(label);
 		if (code == null) {
 			// If this is a read-only mapping, return the unseen code.
-			if (readOnly)
+			if (readOnly || label.equals(UNSEEN_LABEL))
 				return UNSEEN_CODE;
 
 			code = mapFromCodeToLabel.size();
@@ -170,7 +178,7 @@ public class FeatureValueEncoding {
 	public int getCodeByLabel(String label) {
 		Integer code = mapFromLabelToCode.get(label);
 		if (code == null) {
-			if (label.equals(UNSEEN_LABEL))
+			if (readOnly || label.equals(UNSEEN_LABEL))
 				return UNSEEN_CODE;
 			return -1;
 		}

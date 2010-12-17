@@ -8,26 +8,25 @@ import tagger.evaluation.Evaluation;
 import tagger.learning.Verbose_res;
 
 /**
- * Evaluate a saved HMM model on the data within a given file. Write the results
- * in terms of precision, recall and F-1; and also the number of entities, the
- * number of predicted entities and the number of correct predicted entities.
+ * Evaluate an HMM model using a given encoding. This means that all symbols in
+ * the evaluation set that are not present in the model, are treated as the
+ * special __UNSEENSYMBOL__. The list of symbols is retrieved from the model
+ * file and not from an encoding file.
+ * 
  * 
  * @author eraldof
  * 
  */
-public class TestHmm {
-
-	private static void argumentError() {
-		System.err
-				.print("Syntax error: more arguments are necessary. Correct syntax:\n"
-						+ "	<testfile> <modelfile> <observation_feature> <golden_state_feature> [<smoothing probability> [perstate]]\n");
-		System.exit(1);
-	}
+public class TestHmmWithFixedEncoding {
 
 	public static void main(String[] args) throws Exception {
 
-		if (args.length < 4)
-			argumentError();
+		if (args.length != 4) {
+			System.err
+					.print("Syntax error: more arguments are necessary. Correct syntax:\n"
+							+ "	<testfile> <modelfile> <observation_feature> <golden_state_feature>\n");
+			System.exit(1);
+		}
 
 		int arg = 0;
 		String testFileName = args[arg++];
@@ -35,56 +34,30 @@ public class TestHmm {
 		String observationFeatureLabel = args[arg++];
 		String stateFeatureLabel = args[arg++];
 
-		// Smoothing configuration.
-		double smoothingProbability = 1e-6;
-		boolean perStateSmoothing = false;
-		if (arg < args.length) {
-			smoothingProbability = Double.parseDouble(args[arg++]);
-
-			if (arg < args.length) {
-				if (args[arg++].equals("perstate"))
-					perStateSmoothing = true;
-				else
-					argumentError();
-			}
-		}
+		double smooth = 1e-6;
 
 		System.out.println(String.format(
 				"Evaluating HMM with the following parameters: \n"
 						+ "\tTest file: %s\n" + "\tModel file: %s\n"
 						+ "\tObservation feature: %s\n"
-						+ "\tState feature: %s\n" + "\tSmoothing: %e\n"
-						+ "\tPer-state smoothing: %b\n", testFileName,
-				modelFileName, observationFeatureLabel, stateFeatureLabel,
-				smoothingProbability, perStateSmoothing));
+						+ "\tState feature: %s\n" + "\tSmoothing: %e\n",
+				testFileName, modelFileName, observationFeatureLabel,
+				stateFeatureLabel, smooth));
 
 		// Load the model.
 		HmmModel model = new HmmModel(modelFileName);
-		// TODO test
-		System.out.println("Min emission prob: "
-				+ model.getMinimumEmissionProbability());
-		System.out.println("# emissions: " + model.getNumberOfEmissions());
-
-		if (perStateSmoothing) {
-			System.out.println("Removing zero emission probs.");
-			model.removeZeroEmissionProbabilities();
-		} else {
-			System.out.println("Setting implicit zero emission probs.");
-			model.setImplicitZeroEmissionProbabilities();
+		if (smooth > 0.0) {
+			model.setEmissionSmoothingProbability(smooth);
+			model.normalizeProbabilities();
+			model.applyLog();
 		}
 
-		System.out.println("# emissions: " + model.getNumberOfEmissions());
+		// Restrict (fix) the seen symbols to the ones present in the model.
+		model.getFeatureValueEncoding().setReadOnly(true);
 
 		// Load the testset.
 		Dataset testset = new Dataset(testFileName,
 				model.getFeatureValueEncoding());
-
-		// Apply smoothing.
-		if (smoothingProbability > 0.0) {
-			model.setEmissionSmoothingProbability(smoothingProbability);
-			model.normalizeProbabilities();
-			model.applyLog();
-		}
 
 		// Test the model on a testset.
 		model.setUseFinalProbabilities(false);

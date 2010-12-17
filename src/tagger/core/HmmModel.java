@@ -538,17 +538,38 @@ public class HmmModel {
 		int[][] psi = new int[lenExample][numStates];
 
 		// The log probabilities for the first token.
+		boolean impossibleSymbol = true;
 		for (int state = 0; state < numStates; ++state) {
 			double emissionWeight = getEmissionParameter(
 					example.getFeatureValue(0, observationFeature), state);
+
 			psi[0][state] = -1;
 			delta[0][state] = emissionWeight + getInitialStateParameter(state);
+
+			if (delta[0][state] > Double.NEGATIVE_INFINITY)
+				impossibleSymbol = false;
 		}
 
+		// Avoid impossible symbols (never seen) to degenerate the whole
+		// prediction procedure.
+		if (impossibleSymbol)
+			delta[0][defaultState] = 0d;
+
 		// Apply each step of the Viterb's algorithm.
-		for (int tkn = 1; tkn < lenExample; ++tkn)
-			for (int state = 0; state < numStates; ++state)
+		for (int tkn = 1; tkn < lenExample; ++tkn) {
+			impossibleSymbol = true;
+			for (int state = 0; state < numStates; ++state) {
 				viterbi(delta, psi, example, tkn, state);
+
+				if (delta[tkn][state] > Double.NEGATIVE_INFINITY)
+					impossibleSymbol = false;
+			}
+
+			// Avoid impossible symbols (never seen) to degenerate the whole
+			// prediction procedure.
+			if (impossibleSymbol)
+				delta[tkn][defaultState] = 0d;
+		}
 
 		// The default state is always the fisrt option.
 		int maxState = defaultState;
@@ -1423,5 +1444,73 @@ public class HmmModel {
 	 */
 	public void setTransitionSmoothingProbability(double prob) {
 		transitionSmoothingProbability = prob;
+	}
+
+	/**
+	 * Return the number of transition probability parameters greater than zero.
+	 * 
+	 * @return
+	 */
+	public int getNumberOfTransitions() {
+		int count = 0;
+		for (int stateFrom = 0; stateFrom < numStates; ++stateFrom)
+			for (int stateTo = 0; stateTo < numStates; ++stateTo)
+				if (probTransition[stateFrom][stateTo] > 0d)
+					++count;
+		return count;
+	}
+
+	/**
+	 * Return the number of emission probability parameters greater than zero.
+	 * 
+	 * @return
+	 */
+	public int getNumberOfEmissions() {
+		int count = 0;
+		for (Map<Integer, Double> emissionMap : probEmission)
+			count += emissionMap.size();
+		return count;
+	}
+
+	/**
+	 * Return the minimum emission probability that is greater than zero.
+	 * 
+	 * @return
+	 */
+	public double getMinimumEmissionProbability() {
+		double min = Double.MAX_VALUE;
+		for (Map<Integer, Double> emissionMap : probEmission)
+			for (Double prob : emissionMap.values())
+				if (prob > 0d && prob < min)
+					min = prob;
+		return min;
+	}
+
+	/**
+	 * Remove emission probability values that have value equal to zero.
+	 */
+	public void removeZeroEmissionProbabilities() {
+		LinkedList<Integer> keysToRemove = new LinkedList<Integer>();
+		for (Map<Integer, Double> emissionMap : probEmission) {
+			for (Entry<Integer, Double> entry : emissionMap.entrySet())
+				if (entry.getValue() <= 0d)
+					keysToRemove.add(entry.getKey());
+			Iterator<Integer> it = keysToRemove.iterator();
+			while (it.hasNext()) {
+				emissionMap.remove(it.next());
+				it.remove();
+			}
+		}
+	}
+
+	/**
+	 * Create explicit zero probability emissions.
+	 */
+	public void setImplicitZeroEmissionProbabilities() {
+		for (int state = 0; state < numStates; ++state) {
+			for (Integer symbol : featureValueEncoding.getCollectionOfLabels())
+				if (probEmission.get(state).get(symbol) == null)
+					probEmission.get(state).put(symbol, 0d);
+		}
 	}
 }

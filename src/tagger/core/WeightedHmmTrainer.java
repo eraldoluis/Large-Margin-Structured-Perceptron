@@ -131,13 +131,22 @@ public class WeightedHmmTrainer extends HmmTrainer {
 						observationFeature);
 				model.incProbTransitionByFeature(stateFrom, stateTo,
 						(weight[token - 1] + weight[token]) / 2);
-				model.incProbEmissionByFeature(stateTo, ftrObservation, weight[token]);
+				model.incProbEmissionByFeature(stateTo, ftrObservation,
+						weight[token]);
 			}
 
 			// Terminal state.
 			ftrState = example.getFeatureValue(lenEx - 1, stateFeature);
 			model.incProbFinalByFeature(ftrState, weight[lenEx - 1]);
 		}
+
+		// TODO test
+		for (int symbol : model.getFeatureValueEncoding()
+				.getCollectionOfLabels()) {
+			for (int stateFtr : stateFeatures)
+				model.incProbEmissionByFeature(stateFtr, symbol, 0d);
+		}
+		System.out.println("# emissions: " + model.getNumberOfEmissions());
 
 		// Calculate probabilities by normalizing counters and apply the log.
 		model.normalizeProbabilities();

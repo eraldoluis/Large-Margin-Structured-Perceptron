@@ -111,12 +111,20 @@ public class SemiSupervisedHmmTrainer extends UnsupervisedHmmTrainer {
 	}
 
 	protected void preIteration(int iter) throws DatasetException {
+		// TODO debug
+		System.out.println("# transitions: " + model.getNumberOfTransitions());
+		System.out.println("# emission: " + model.getNumberOfEmissions());
+
 		if (iter == 0)
 			postIteration(iter);
 	}
 
 	@Override
 	protected void postIteration(int iter) throws DatasetException {
+		// TODO debug
+		System.out.println("# transitions: " + model.getNumberOfTransitions());
+		System.out.println("# emission: " + model.getNumberOfEmissions());
+
 		if (testset == null)
 			return;
 
@@ -128,7 +136,7 @@ public class SemiSupervisedHmmTrainer extends UnsupervisedHmmTrainer {
 		String stateFtrLabel = trainset.getFeatureLabel(stateFeature);
 
 		// Test the model on a testset.
-		model.setEmissionSmoothingProbability(10e-6);
+		model.setEmissionSmoothingProbability(1e-6);
 		model.normalizeProbabilities();
 		model.applyLog();
 		model.tag(testset, observationFtrLabel, "ne");

@@ -171,7 +171,7 @@ public class UnsupervisedHmmTrainer {
 			model = new HmmModel(fve, stateFeatures);
 			numStates = model.getNumberOfStates();
 			// Init the model with random distributions.
-			initModel();
+			initRandomModel();
 		} else if (model.getFeatureValueEncoding() != trainset
 				.getFeatureValueEncoding())
 			throw new DatasetException(
@@ -239,7 +239,7 @@ public class UnsupervisedHmmTrainer {
 									: ")"));
 
 			if (logProbObservations < prevLogProbObservations)
-				System.err.println("WARNING! Log-likelihood incresead!");
+				System.err.println("WARNING! Log-likelihood decreased!");
 
 			prevLogProbObservations = logProbObservations;
 
@@ -262,8 +262,10 @@ public class UnsupervisedHmmTrainer {
 	protected void postIteration(int iter) throws DatasetException {
 	}
 
-	// Fill the model with uniform probabilities.
-	protected void initModel() {
+	/**
+	 * Fill the model with uniformly-random probabilities.
+	 */
+	protected void initRandomModel() {
 		Random rand = RandomGenerator.gen;
 
 		for (int stateFrom = 0; stateFrom < numStates; ++stateFrom) {
@@ -471,17 +473,17 @@ public class UnsupervisedHmmTrainer {
 		// Calculate the probability of the current observation sequence given
 		// the model: p(Y | model). This is the denominator necessary to
 		// normalize all the gamma's and xi's values.
-		double probObservation = 0.0;
+		double probExample = 0.0;
 		for (int state = 0; state < numStates; ++state)
-			probObservation += alpha.get(size - 1).get(state);
+			probExample += alpha.get(size - 1).get(state);
 
 		// If the example has zero probability, just skip it.
-		if (probObservation <= 0.0) {
+		if (probExample <= 0.0) {
 			if (size < mysize) {
 				mysize = size;
 				myid = example.getIndex();
 			}
-			return probObservation;
+			return probExample;
 		}
 
 		for (int token = 0; token < size; ++token) {
@@ -502,7 +504,7 @@ public class UnsupervisedHmmTrainer {
 
 				// Normalize by the probability of the current observation
 				// sequence.
-				gammaVal /= probObservation;
+				gammaVal /= probExample;
 
 				// Scale the gamma value with the weight of the current example
 				// before accounting it in the parameter reestimation.
@@ -539,7 +541,7 @@ public class UnsupervisedHmmTrainer {
 
 						// Normalize by the probability of the current
 						// observation sequence.
-						xiVal /= probObservation;
+						xiVal /= probExample;
 
 						// Scale the Xi value with the weight of the current
 						// example before accounting it in the parameter
@@ -563,7 +565,7 @@ public class UnsupervisedHmmTrainer {
 			}
 		}
 
-		return probObservation;
+		return probExample;
 	}
 
 	/**
@@ -619,6 +621,10 @@ public class UnsupervisedHmmTrainer {
 	protected void incProbabilityEmissionNew(int state, int symbol, double value) {
 		HashMap<Integer, Double> emissionMap = probEmissionNew.get(state);
 		Double prevValue = emissionMap.get(symbol);
-		emissionMap.put(symbol, prevValue == null ? value : prevValue + value);
+		double newValue = ((prevValue == null) ? value : prevValue + value);
+		if (newValue > 0d)
+			emissionMap.put(symbol, newValue);
+		else
+			emissionMap.remove(symbol);
 	}
 }
