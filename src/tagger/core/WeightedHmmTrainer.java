@@ -140,17 +140,10 @@ public class WeightedHmmTrainer extends HmmTrainer {
 			model.incProbFinalByFeature(ftrState, weight[lenEx - 1]);
 		}
 
-		// TODO test
-		for (int symbol : model.getFeatureValueEncoding()
-				.getCollectionOfLabels()) {
-			for (int stateFtr : stateFeatures)
-				model.incProbEmissionByFeature(stateFtr, symbol, 0d);
-		}
-		System.out.println("# emissions: " + model.getNumberOfEmissions());
-
 		// Calculate probabilities by normalizing counters and apply the log.
-		model.normalizeProbabilities();
-		model.applyLog();
+		// TODO smoothing need the original counters.
+		// model.normalizeProbabilities();
+		// model.applyLog();
 
 		return model;
 	}

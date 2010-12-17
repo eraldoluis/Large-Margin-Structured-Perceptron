@@ -13,8 +13,8 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Map;
-import java.util.Random;
 import java.util.Map.Entry;
+import java.util.Random;
 import java.util.Vector;
 
 import org.apache.log4j.Logger;
@@ -26,6 +26,13 @@ import tagger.data.FeatureValueEncoding;
 import tagger.data.HmmModelStrings;
 import tagger.utils.RandomGenerator;
 
+/**
+ * Store a hidden Markov model parameters and provide some services over this
+ * model. Implement some smoothing techniques and a tagging algorithm (Viterbi).
+ * 
+ * @author eraldof
+ * 
+ */
 public class HmmModel {
 
 	static Logger logger = Logger.getLogger(HmmModel.class);
@@ -33,12 +40,12 @@ public class HmmModel {
 	/**
 	 * For non-seen observations, use the state with this label.
 	 */
-	public static String defaultStateLabel = "0";
+	private String defaultStateLabel = "0";
 
 	/**
 	 * For non-seen observations, use this state.
 	 */
-	private int defaultState = 0;
+	private int defaultState = -1;
 
 	/**
 	 * Control the mapping from string feature values to integer values and
@@ -148,14 +155,38 @@ public class HmmModel {
 	protected boolean useFinalProbabilities;
 
 	/**
-	 * Probability that is distributed over the unseen symbols in each state.
+	 * Smoothing techniques.
+	 * 
+	 * @author eraldof
+	 * 
 	 */
-	protected double emissionSmoothingProbability;
+	public enum Smoothing {
+		/**
+		 * No smoothing.
+		 */
+		NONE,
+
+		/**
+		 * Laplace smoothing.
+		 */
+		LAPLACE,
+
+		/**
+		 * Absolute-discount smoothing.
+		 */
+		ABSOLUTE_DISCOUNTING,
+	}
 
 	/**
-	 * Minimal value of every transition probability.
+	 * If true, use absolute discount smoothing.
 	 */
-	protected double transitionSmoothingProbability;
+	protected Smoothing smoothing;
+
+	/**
+	 * Indicate if the model has already been normalized or, otherwise, still
+	 * contains the occurrences counters.
+	 */
+	protected boolean normalized;
 
 	/**
 	 * Create a new HMM model using the given <code>FeatureValueEncoding</code>.
@@ -168,7 +199,6 @@ public class HmmModel {
 	 */
 	public HmmModel(FeatureValueEncoding featureValueEncoding,
 			Collection<Integer> featureValuesThatAreStates) {
-		useFinalProbabilities = false;
 		this.featureValueEncoding = featureValueEncoding;
 		initStateFeatures(featureValuesThatAreStates);
 		allocProbabilityParameters();
@@ -187,7 +217,6 @@ public class HmmModel {
 	 */
 	public HmmModel(String fileName, FeatureValueEncoding featureValueEncoding)
 			throws IOException {
-		useFinalProbabilities = false;
 		this.featureValueEncoding = featureValueEncoding;
 		load(fileName);
 	}
@@ -203,7 +232,6 @@ public class HmmModel {
 	 *             file.
 	 */
 	public HmmModel(String fileName) throws IOException {
-		useFinalProbabilities = false;
 		this.featureValueEncoding = new FeatureValueEncoding();
 		load(fileName);
 	}
@@ -217,7 +245,6 @@ public class HmmModel {
 	 * @throws IOException
 	 */
 	public HmmModel(String fileName, boolean fromHadoop) throws IOException {
-		useFinalProbabilities = false;
 		this.featureValueEncoding = new FeatureValueEncoding();
 		if (fromHadoop)
 			loadFromHadoopModel(fileName);
@@ -227,11 +254,12 @@ public class HmmModel {
 
 	public HmmModel(String fileName, boolean fromHadoop, HmmModel baseModel)
 			throws IOException {
-		useFinalProbabilities = false;
-		this.featureValueEncoding = baseModel.featureValueEncoding;
+
 		this.numStates = baseModel.numStates;
 		this.featureToState = baseModel.featureToState;
 		this.stateToFeature = baseModel.stateToFeature;
+		this.featureValueEncoding = baseModel.featureValueEncoding;
+
 		if (fromHadoop)
 			loadFromHadoopModel(fileName);
 		else
@@ -256,18 +284,10 @@ public class HmmModel {
 
 	private void allocProbabilityParameters() {
 		probInitialState = new double[numStates];
-		lnProbInitialState = new double[numStates];
-
 		probFinalState = new double[numStates];
-		lnProbFinalState = new double[numStates];
-
 		probTransition = new double[numStates][numStates];
-		lnProbTransition = new double[numStates][numStates];
-
 		probEmission = new Vector<HashMap<Integer, Double>>(numStates);
-		lnProbEmission = new Vector<HashMap<Integer, Double>>(numStates);
 		probEmission.setSize(numStates);
-		lnProbEmission.setSize(numStates);
 	}
 
 	public boolean getUseFinalProbabilities() {
@@ -276,6 +296,14 @@ public class HmmModel {
 
 	public void setUseFinalProbabilities(boolean useFinalProbabilities) {
 		this.useFinalProbabilities = useFinalProbabilities;
+	}
+
+	public String getDefaultStateLabel() {
+		return defaultStateLabel;
+	}
+
+	public void setDefaultStateLabel(String defaultStateLabel) {
+		this.defaultStateLabel = defaultStateLabel;
 	}
 
 	/**
@@ -394,7 +422,7 @@ public class HmmModel {
 	 * @param length
 	 *            length of the example.
 	 */
-	private void generateExample(Dataset dataset, String id,
+	protected void generateExample(Dataset dataset, String id,
 			Vector<Integer> baseToken, int observationFeature,
 			int stateFeature, int length) {
 
@@ -531,6 +559,11 @@ public class HmmModel {
 		applyLog();
 	}
 
+	/**
+	 * Tag the given example using the Viterbi algorithm.
+	 * 
+	 * @param example
+	 */
 	protected void viterbi(DatasetExample example) {
 		int lenExample = example.size();
 
@@ -572,10 +605,10 @@ public class HmmModel {
 		}
 
 		// The default state is always the fisrt option.
-		int maxState = defaultState;
+		int bestState = defaultState;
 		double maxLogProb = delta[lenExample - 1][defaultState];
 		if (useFinalProbabilities)
-			maxLogProb += getFinalStateParameter(maxState);
+			maxLogProb += getFinalStateParameter(bestState);
 
 		// Find the best last state.
 		for (int state = 0; state < numStates; ++state) {
@@ -585,13 +618,13 @@ public class HmmModel {
 
 			if (logProb > maxLogProb) {
 				maxLogProb = logProb;
-				maxState = state;
+				bestState = state;
 			}
 		}
 
 		// Reconstruct the best path from the best final state, and tag the
 		// example.
-		decodeExample(example, delta, psi, maxState);
+		tagExample(example, psi, bestState);
 	}
 
 	protected void viterbi(double[][] delta, int[][] psi,
@@ -617,18 +650,25 @@ public class HmmModel {
 		delta[token][state] = maxLogProb + emissionLogProb;
 	}
 
-	protected void decodeExample(DatasetExample example, double[][] delta,
-			int[][] psi, int finalState) {
+	/**
+	 * Tag the given example using the given psi table.
+	 * 
+	 * @param example
+	 * @param delta
+	 * @param psi
+	 * @param bestFinalState
+	 */
+	protected void tagExample(DatasetExample example, int[][] psi,
+			int bestFinalState) {
 		// Example length.
-		int len = delta.length;
+		int len = psi.length;
 
-		int best = finalState;
 		example.setFeatureValue(len - 1, stateFeature,
-				stateToFeature[finalState]);
+				stateToFeature[bestFinalState]);
 		for (int token = len - 1; token > 0; --token) {
-			int stateFeatureVal = stateToFeature[psi[token][best]];
+			int stateFeatureVal = stateToFeature[psi[token][bestFinalState]];
 			example.setFeatureValue(token - 1, stateFeature, stateFeatureVal);
-			best = psi[token][best];
+			bestFinalState = psi[token][bestFinalState];
 		}
 	}
 
@@ -773,18 +813,12 @@ public class HmmModel {
 	 */
 	public double getEmissionParameter(int symbol, int state) {
 		HashMap<Integer, Double> lnEmissionMap = lnProbEmission.get(state);
-		if (lnEmissionMap == null) {
-			if (emissionSmoothingProbability > 0.0)
-				return Math.log(getEmissionProbability(symbol, state));
+		if (lnEmissionMap == null)
 			return Double.NEGATIVE_INFINITY;
-		}
 
 		Double lnProb = lnEmissionMap.get(symbol);
-		if (lnProb == null) {
-			if (emissionSmoothingProbability > 0.0)
-				return Math.log(getEmissionProbability(symbol, state));
+		if (lnProb == null)
 			return Double.NEGATIVE_INFINITY;
-		}
 
 		return lnProb;
 	}
@@ -802,23 +836,12 @@ public class HmmModel {
 	 */
 	public double getEmissionProbability(int symbol, int state) {
 		HashMap<Integer, Double> emissionMap = probEmission.get(state);
-		if (emissionMap == null) {
-			if (emissionSmoothingProbability > 0.0) {
-				int numUnseenSymbols = featureValueEncoding.size();
-				return emissionSmoothingProbability / numUnseenSymbols;
-			}
+		if (emissionMap == null)
 			return 0.0;
-		}
 
 		Double prob = emissionMap.get(symbol);
-		if (prob == null) {
-			if (emissionSmoothingProbability > 0.0) {
-				int numUnseenSymbols = featureValueEncoding.size()
-						- emissionMap.size();
-				return emissionSmoothingProbability / numUnseenSymbols;
-			}
+		if (prob == null)
 			return 0.0;
-		}
 
 		return prob;
 	}
@@ -979,21 +1002,28 @@ public class HmmModel {
 	}
 
 	/**
-	 * Normalize the counters of occurrence to calculate the probabilities and
-	 * then take the log.
+	 * Normalize the probability distributions to sum 1.
 	 */
 	public void normalizeProbabilities() {
-		// Initial probabilities.
-		normalizeArray(probInitialState, transitionSmoothingProbability);
+		normalizeInitialAndFinalProbabilities();
+		normalizeTransitionProbabilities();
+		normalizeEmissionProbabilities();
+		normalized = true;
+	}
 
-		// Final probabilities.
-		normalizeArray(probFinalState, transitionSmoothingProbability);
+	/**
+	 * Normalize the transition distributions.
+	 */
+	public void normalizeTransitionProbabilities() {
+		for (int state = 0; state < numStates; ++state)
+			normalizeArray(probTransition[state]);
+	}
 
-		// Transition and emission probabilities.
+	/**
+	 * Normalize the emission distributions.
+	 */
+	public void normalizeEmissionProbabilities() {
 		for (int state = 0; state < numStates; ++state) {
-			normalizeArray(probTransition[state],
-					transitionSmoothingProbability);
-
 			// Skip unseen states.
 			HashMap<Integer, Double> emissionMap = probEmission.get(state);
 			if (emissionMap == null)
@@ -1004,9 +1034,6 @@ public class HmmModel {
 			for (Double val : emissionMap.values())
 				sum += val;
 
-			if (emissionSmoothingProbability > 0.0)
-				sum += emissionSmoothingProbability;
-
 			// Normalize the values by the sum.
 			for (Entry<Integer, Double> emission : emissionMap.entrySet()) {
 				double prob = emission.getValue() / sum;
@@ -1015,7 +1042,29 @@ public class HmmModel {
 		}
 	}
 
+	/**
+	 * Normalize the initial and final state distributions.
+	 */
+	public void normalizeInitialAndFinalProbabilities() {
+		// Initial probabilities.
+		normalizeArray(probInitialState);
+
+		// Final probabilities.
+		normalizeArray(probFinalState);
+	}
+
+	/**
+	 * Calculate the log of the probability parameters to be used in the Viterbi
+	 * algorithm.
+	 */
 	public void applyLog() {
+		// Allocate the structures.
+		lnProbInitialState = new double[numStates];
+		lnProbFinalState = new double[numStates];
+		lnProbTransition = new double[numStates][numStates];
+		lnProbEmission = new Vector<HashMap<Integer, Double>>(numStates);
+		lnProbEmission.setSize(numStates);
+
 		// Initial state probabilities.
 		applyLog(probInitialState, lnProbInitialState);
 
@@ -1070,7 +1119,7 @@ public class HmmModel {
 	 *            the corresponding log-array where the log of the calculated
 	 *            probabilities are stored.
 	 */
-	private void normalizeArray(double[] values, double smooth) {
+	protected void normalizeArray(double[] values) {
 		// Calculate the sum of all values within the array.
 		int numZeroValues = 0;
 		double sum = 0.0;
@@ -1080,17 +1129,12 @@ public class HmmModel {
 			sum += val;
 		}
 
-		sum += smooth;
-
 		if (sum <= 0.0)
 			return;
 
 		// Normalize by the sum.
-		for (int idx = 0; idx < values.length; ++idx) {
-			if (values[idx] <= 0.0 && smooth > 0.0)
-				values[idx] = smooth / numZeroValues;
-			values[idx] = values[idx] /= sum;
-		}
+		for (int idx = 0; idx < values.length; ++idx)
+			values[idx] /= sum;
 	}
 
 	private double mean(Iterable<Double> values) {
@@ -1210,9 +1254,6 @@ public class HmmModel {
 				setProbEmission(state, emission, prob);
 			}
 		}
-
-		// Calculate the log of the probabilities.
-		applyLog();
 	}
 
 	/**
@@ -1410,42 +1451,6 @@ public class HmmModel {
 		return featureValueEncoding;
 	}
 
-	public double getEmissionSmoothingProbability() {
-		return emissionSmoothingProbability;
-	}
-
-	/**
-	 * Set the smoothing value for emission probabilities.
-	 * 
-	 * The given probability is equaly distributed over the unseen symbols in
-	 * each state, i.e., if K symbols were not seen in a state i then the
-	 * probability of emiting an unseen symbol in this state will be
-	 * emissionSmoothingProbability/K. The number of unseen symbols are
-	 * extracted from the total symbols in the feature-value encoding mapping at
-	 * the moment of normalizing the probabilities. The normalization method
-	 * must be called after changing the smoothing value to garantee that the
-	 * sum of all emission probabilities on each state will be one.
-	 * 
-	 * @param prob
-	 */
-	public void setEmissionSmoothingProbability(double prob) {
-		emissionSmoothingProbability = prob;
-	}
-
-	/**
-	 * Set the smoothing value for transition probabilities.
-	 * 
-	 * The normalization method MUST be called after setting this value. Only
-	 * setting this smooth value has no effect. In the normalization method, the
-	 * transition probabilities are updated in the proper way. Moreover, this
-	 * method must be called only once after the model has been calculated.
-	 * 
-	 * @param prob
-	 */
-	public void setTransitionSmoothingProbability(double prob) {
-		transitionSmoothingProbability = prob;
-	}
-
 	/**
 	 * Return the number of transition probability parameters greater than zero.
 	 * 
@@ -1512,5 +1517,116 @@ public class HmmModel {
 				if (probEmission.get(state).get(symbol) == null)
 					probEmission.get(state).put(symbol, 0d);
 		}
+	}
+
+	/**
+	 * Apply (or not) a smoothing technique to this model. This method expects
+	 * the model has not been normalized yet, i.e., it still contains the
+	 * occurrence counters, since most smoothing techniques use the counters.
+	 * 
+	 * @param type
+	 * @throws HmmException
+	 */
+	public void applySmoothing(Smoothing type) throws HmmException {
+		if (normalized)
+			throw new HmmException(
+					"One can not apply a smoothing technique to a normalized model.");
+
+		switch (type) {
+		case NONE:
+			applyNoSmoothing();
+			break;
+		case LAPLACE:
+			applyLaplaceSmoothing();
+			break;
+		case ABSOLUTE_DISCOUNTING:
+			applyAbsoluteDiscountSmoothing();
+			break;
+		}
+
+		// Normalize the initial, final and transition distributions and apply
+		// log to use in tagging.
+		normalizeInitialAndFinalProbabilities();
+		normalizeTransitionProbabilities();
+		applyLog();
+	}
+
+	/**
+	 * Just normalize the counters, i.e., do not apply any smoothing.
+	 */
+	private void applyNoSmoothing() {
+		normalizeEmissionProbabilities();
+	}
+
+	/**
+	 * Apply to this model the absolute discount smoothing technique.
+	 */
+	private void applyAbsoluteDiscountSmoothing() {
+		Collection<Integer> symbols = featureValueEncoding
+				.getCollectionOfLabels();
+		HashMap<Integer, Double> probDistribution;
+		for (int state = 0; state < numStates; ++state) {
+			probDistribution = probEmission.get(state);
+			if (probDistribution == null) {
+				probDistribution = new HashMap<Integer, Double>();
+				probEmission.set(state, probDistribution);
+			}
+
+			// Count the number of occurences of this state.
+			double sum = 0;
+			int numberOfSeenSymbolsInThisState = 0;
+			for (int symbol : symbols) {
+				double count = getEmissionProbability(symbol, state);
+				sum += count;
+				if (count > 0d)
+					++numberOfSeenSymbolsInThisState;
+			}
+
+			// Apply the smoothing and normalized at the same time.
+			int numberOfSymbols = featureValueEncoding.size();
+			double discountValue = 1e-6 / numberOfSeenSymbolsInThisState;
+			double probUnseen = discountValue * numberOfSeenSymbolsInThisState
+					/ (numberOfSymbols - probDistribution.size());
+
+			for (int symbol : symbols) {
+				Double count = probDistribution.get(symbol);
+				if (count == null)
+					probDistribution.put(symbol, probUnseen);
+				else if (count > 0d)
+					probDistribution.put(symbol, (count / sum) - discountValue);
+			}
+		}
+	}
+
+	/**
+	 * Apply one of the most used and simple smoothing techniques: Laplace
+	 * smoothing. Just sum one to each counter and then normalize. This method
+	 * assumes that the values in the emission probability parameters of this
+	 * model are in fact the occurence counters, i.e., they are not normalized
+	 * yet.
+	 */
+	private void applyLaplaceSmoothing() {
+		Collection<Integer> symbols = featureValueEncoding
+				.getCollectionOfLabels();
+		HashMap<Integer, Double> probDistribution;
+		for (int state = 0; state < numStates; ++state) {
+			probDistribution = probEmission.get(state);
+			if (probDistribution == null) {
+				probDistribution = new HashMap<Integer, Double>();
+				probEmission.set(state, probDistribution);
+			}
+
+			// Sum 1 to all the probability values.
+			double ALPHA = 0.01;
+			for (int symbol : symbols) {
+				Double prob = probDistribution.get(symbol);
+				if (prob == null)
+					probDistribution.put(symbol, ALPHA);
+				else if (prob > 0d)
+					probDistribution.put(symbol, prob + ALPHA);
+			}
+		}
+
+		normalizeEmissionProbabilities();
 	}
 }

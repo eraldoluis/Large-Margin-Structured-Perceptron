@@ -106,12 +106,14 @@ public class HmmTrainer {
 			}
 
 			// Terminal state.
-			model.incProbFinalByFeature(example.getFeatureValue(lenEx - 1, stateFeature));
+			model.incProbFinalByFeature(example.getFeatureValue(lenEx - 1,
+					stateFeature));
 		}
 
 		// Calculate probabilities by normalizing counters and take the log.
-		model.normalizeProbabilities();
-		model.applyLog();
+		// TODO testing for smoothing
+		// model.normalizeProbabilities();
+		// model.applyLog();
 
 		return model;
 	}

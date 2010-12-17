@@ -3,6 +3,7 @@ package tagger.examples;
 import java.util.Map;
 
 import tagger.core.HmmModel;
+import tagger.core.HmmModel.Smoothing;
 import tagger.data.Dataset;
 import tagger.evaluation.Evaluation;
 import tagger.learning.Verbose_res;
@@ -20,7 +21,12 @@ public class TestHmm {
 	private static void argumentError() {
 		System.err
 				.print("Syntax error: more arguments are necessary. Correct syntax:\n"
-						+ "	<testfile> <modelfile> <observation_feature> <golden_state_feature> [<smoothing probability> [perstate]]\n");
+						+ "	<testfile>"
+						+ " <modelfile>"
+						+ " <observation_feature>"
+						+ " <golden_state_feature>"
+						+ " [<smoothing technique> [perstate]]\n");
+		System.err.print("\t<smoothing>: NONE | LAPLACE | ABSOLUTE_DISCOUNT\n");
 		System.exit(1);
 	}
 
@@ -36,16 +42,15 @@ public class TestHmm {
 		String stateFeatureLabel = args[arg++];
 
 		// Smoothing configuration.
-		double smoothingProbability = 1e-6;
+		Smoothing smoothing = Smoothing.ABSOLUTE_DISCOUNTING;
 		boolean perStateSmoothing = false;
 		if (arg < args.length) {
-			smoothingProbability = Double.parseDouble(args[arg++]);
+			smoothing = Smoothing.valueOf(args[arg++]);
 
 			if (arg < args.length) {
-				if (args[arg++].equals("perstate"))
-					perStateSmoothing = true;
-				else
+				if (!args[arg++].equals("perstate"))
 					argumentError();
+				perStateSmoothing = true;
 			}
 		}
 
@@ -53,41 +58,28 @@ public class TestHmm {
 				"Evaluating HMM with the following parameters: \n"
 						+ "\tTest file: %s\n" + "\tModel file: %s\n"
 						+ "\tObservation feature: %s\n"
-						+ "\tState feature: %s\n" + "\tSmoothing: %e\n"
+						+ "\tState feature: %s\n" + "\tSmoothing: %s\n"
 						+ "\tPer-state smoothing: %b\n", testFileName,
 				modelFileName, observationFeatureLabel, stateFeatureLabel,
-				smoothingProbability, perStateSmoothing));
+				smoothing.toString(), perStateSmoothing));
 
 		// Load the model.
 		HmmModel model = new HmmModel(modelFileName);
-		// TODO test
-		System.out.println("Min emission prob: "
-				+ model.getMinimumEmissionProbability());
-		System.out.println("# emissions: " + model.getNumberOfEmissions());
 
-		if (perStateSmoothing) {
-			System.out.println("Removing zero emission probs.");
+		// Remove or add implicit probabilities.
+		if (perStateSmoothing)
 			model.removeZeroEmissionProbabilities();
-		} else {
-			System.out.println("Setting implicit zero emission probs.");
+		else
 			model.setImplicitZeroEmissionProbabilities();
-		}
-
-		System.out.println("# emissions: " + model.getNumberOfEmissions());
 
 		// Load the testset.
 		Dataset testset = new Dataset(testFileName,
 				model.getFeatureValueEncoding());
 
 		// Apply smoothing.
-		if (smoothingProbability > 0.0) {
-			model.setEmissionSmoothingProbability(smoothingProbability);
-			model.normalizeProbabilities();
-			model.applyLog();
-		}
+		model.applySmoothing(smoothing);
 
 		// Test the model on a testset.
-		model.setUseFinalProbabilities(false);
 		model.tag(testset, observationFeatureLabel, "ne");
 
 		// Evaluate the predicted values.
