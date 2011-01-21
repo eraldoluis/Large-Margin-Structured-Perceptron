@@ -26,7 +26,7 @@ public class TestHmm {
 						+ " <observation_feature>"
 						+ " <golden_state_feature>"
 						+ " [<smoothing technique> [perstate]]\n");
-		System.err.print("\t<smoothing>: NONE | LAPLACE | ABSOLUTE_DISCOUNT\n");
+		System.err.print("\t<smoothing>: NONE | LAPLACE | ABSOLUTE_DISCOUNTING\n");
 		System.exit(1);
 	}
 
