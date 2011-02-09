@@ -16,9 +16,11 @@ public class Evaluation {
 	private String nullTag;
 	private Set<String> validChunkTypes;
 
+	public Evaluation() {
+	}
+
 	public Evaluation(String nullTag) {
 		this.nullTag = nullTag;
-		this.validChunkTypes = null;
 	}
 
 	public void setValidChunkTypes(Iterable<String> listOfValidChunkTypes) {
@@ -31,6 +33,38 @@ public class Evaluation {
 		validChunkTypes = new HashSet<String>();
 		for (String validType : listOfValidChunkTypes)
 			validChunkTypes.add(validType);
+	}
+
+	/**
+	 * Return the factor of tokens that are correctly classified.
+	 * 
+	 * @param dataset
+	 *            contains at least two features with the correct and the
+	 *            predicted labels.
+	 * @param goldFeatureLabel
+	 *            the name of the feature that contains the correct labels.
+	 * @param predictedFeatureLabel
+	 *            the name of the feature that contains the predicted labels.
+	 * @return
+	 */
+	public double evaluateAccuracy(Dataset dataset, String goldFeatureLabel,
+			String predictedFeatureLabel) {
+
+		int goldFeature = dataset.getFeatureIndex(goldFeatureLabel);
+		int predictedFeature = dataset.getFeatureIndex(predictedFeatureLabel);
+
+		int numTokens = 0;
+		int numCorrectClassified = 0;
+		for (DatasetExample example : dataset) {
+			for (int tkn = 0; tkn < example.size(); ++tkn) {
+				++numTokens;
+				if (example.getFeatureValue(tkn, goldFeature) == example
+						.getFeatureValue(tkn, predictedFeature))
+					++numCorrectClassified;
+			}
+		}
+
+		return ((double) numCorrectClassified) / numTokens;
 	}
 
 	/**

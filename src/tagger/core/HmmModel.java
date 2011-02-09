@@ -326,6 +326,8 @@ public class HmmModel {
 
 		// Get the default state.
 		this.defaultState = getStateByString(defaultStateLabel);
+		if (this.defaultState < 0)
+			this.defaultState = 0;
 
 		if (dataset.getFeatureValueEncoding() != featureValueEncoding)
 			throw new DatasetException(
@@ -1436,6 +1438,8 @@ public class HmmModel {
 
 	public int getStateByString(String stateLabel) {
 		int stateFtr = featureValueEncoding.getCodeByLabel(stateLabel);
+		if (stateFtr < 0 || stateFtr == FeatureValueEncoding.UNSEEN_CODE)
+			return -1;
 		return featureToState.get(stateFtr);
 	}
 
