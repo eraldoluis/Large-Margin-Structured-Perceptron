@@ -4,8 +4,7 @@ import java.util.Map.Entry;
 import java.util.TreeMap;
 
 /**
- * Sparse representation of a feature vector along with one weight for each
- * feature.
+ * Sparse representation of a feature-weight vector.
  * 
  * @author eraldof
  * 
@@ -23,14 +22,17 @@ public class FeatureVector {
 	}
 
 	public FeatureVector increment(FeatureVector inc) {
+		// TODO
 		return this;
 	}
 
 	public FeatureVector decrement(FeatureVector dec) {
+		// TODO
 		return this;
 	}
 
 	public FeatureVector difference(FeatureVector diff) {
+		// TODO
 		return this;
 	}
 

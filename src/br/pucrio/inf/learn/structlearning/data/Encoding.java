@@ -12,6 +12,13 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Vector;
 
+/**
+ * Encode a dictionary of arbitrarily-typed values as integer values.
+ * 
+ * @author eraldo
+ * 
+ * @param <ValueType>
+ */
 public abstract class Encoding<ValueType> {
 
 	private HashMap<ValueType, Integer> mapFromValueToCode;
@@ -42,7 +49,7 @@ public abstract class Encoding<ValueType> {
 		return mapFromCodeToValue.size();
 	}
 
-	public int putFeature(ValueType value) {
+	public int putValue(ValueType value) {
 		if (value == null)
 			throw new NullPointerException("You can not insert a null feature.");
 
@@ -67,8 +74,12 @@ public abstract class Encoding<ValueType> {
 		return code;
 	}
 
-	public Collection<Integer> getCollectionOfCodes() {
+	public Collection<Integer> getCodes() {
 		return mapFromValueToCode.values();
+	}
+
+	public Collection<ValueType> getOrderedValues() {
+		return mapFromCodeToValue;
 	}
 
 	public abstract void load(BufferedReader reader) throws IOException;
