@@ -1,6 +1,9 @@
-package br.pucrio.inf.learn.structlearning.application.hmm;
+package br.pucrio.inf.learn.structlearning.application.sequence.feature;
 
+import br.pucrio.inf.learn.structlearning.application.sequence.SequenceInput;
+import br.pucrio.inf.learn.structlearning.application.sequence.SequenceOutput;
 import br.pucrio.inf.learn.structlearning.data.Feature;
+import br.pucrio.inf.learn.util.HashCodeUtil;
 
 public class TransitionFeature implements Feature {
 
@@ -8,13 +11,13 @@ public class TransitionFeature implements Feature {
 
 	private int[] labelSequence;
 
-	public TransitionFeature(HmmInput inputSequence, HmmOutput outputSequence,
-			int centralToken, int order) {
-		instantiate(inputSequence, outputSequence, centralToken, order);
+	public TransitionFeature(SequenceInput inputSequence,
+			SequenceOutput outputSequence, int centralToken, int order) {
+		instance(inputSequence, outputSequence, centralToken, order);
 	}
 
-	public void instantiate(HmmInput inputSequence, HmmOutput outputSequence,
-			int centralToken, int order) {
+	public void instance(SequenceInput inputSequence,
+			SequenceOutput outputSequence, int centralToken, int order) {
 		labelSequence = new int[order + 1];
 
 		// First valid token (first token can be out of the sequence, i.e., less
@@ -61,8 +64,7 @@ public class TransitionFeature implements Feature {
 
 	@Override
 	public int hashCode() {
-		// TODO Auto-generated method stub
-		return super.hashCode();
+		return HashCodeUtil.hash(labelSequence);
 	}
 
 }

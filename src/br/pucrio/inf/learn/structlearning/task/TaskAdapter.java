@@ -13,9 +13,23 @@ import br.pucrio.inf.learn.structlearning.data.ExampleOutput;
  */
 public interface TaskAdapter {
 
+	/**
+	 * Feature map. Create the joint features for the given input-output pair.
+	 * 
+	 * @param input
+	 * @param output
+	 * @return
+	 */
 	public FeatureVector extractFeatures(ExampleInput input,
 			ExampleOutput output);
 
+	/**
+	 * Inference algorithm.
+	 * 
+	 * @param weight
+	 * @param input
+	 * @return
+	 */
 	public ExampleOutput inference(FeatureVector weight, ExampleInput input);
 
 }

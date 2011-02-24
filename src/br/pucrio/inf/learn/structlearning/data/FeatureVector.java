@@ -1,5 +1,6 @@
 package br.pucrio.inf.learn.structlearning.data;
 
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.TreeMap;
 
@@ -11,7 +12,7 @@ import java.util.TreeMap;
  */
 public class FeatureVector {
 
-	private TreeMap<Feature, Double> featureWeights;
+	private Map<Feature, Double> featureWeights;
 
 	public FeatureVector() {
 		featureWeights = new TreeMap<Feature, Double>();
