@@ -3,60 +3,56 @@ package br.pucrio.inf.learn.structlearning.algorithm;
 import java.util.Iterator;
 import java.util.LinkedList;
 
-import br.pucrio.inf.learn.structlearning.data.FeatureVector;
 import br.pucrio.inf.learn.structlearning.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.data.ExampleOutput;
-import br.pucrio.inf.learn.structlearning.task.TaskAdapter;
+import br.pucrio.inf.learn.structlearning.task.Model;
 
+/**
+ * Perceptron-trained linear classifier with structural examples.
+ * 
+ * @author eraldof
+ * 
+ */
 public class Perceptron {
 
-	protected FeatureVector weightVector;
-	protected TaskAdapter taskAdapter;
+	/**
+	 * Task-specific model.
+	 */
+	protected Model model;
+
+	/**
+	 * Learning rate.
+	 */
 	protected double learningRate;
+
+	/**
+	 * Number of iterations.
+	 */
 	protected int numberOfIterations;
 
-	public Perceptron(TaskAdapter taskAdapter) {
-		this.taskAdapter = taskAdapter;
-		weightVector = new FeatureVector();
-		learningRate = 1d; // Collins' original learning rate
+	/**
+	 * Create a perceptron to train the given initial model using the default
+	 * Collins' learning rate (1) and the default number of iterations (10).
+	 * 
+	 * @param initialModel
+	 */
+	public Perceptron(Model initialModel) {
+		this(initialModel, 10, 1d);
 	}
 
-	public void train(Iterable<ExampleInput> exampleInputs,
-			Iterable<ExampleOutput> exampleOutputs) {
-
-		LinkedList<FeatureVector> correctExamplesAsFeatures = new LinkedList<FeatureVector>();
-
-		// Create feature representations of each input-output example.
-		Iterator<ExampleInput> inIt = exampleInputs.iterator();
-		Iterator<ExampleOutput> outIt = exampleOutputs.iterator();
-		while (inIt.hasNext() && outIt.hasNext()) {
-			correctExamplesAsFeatures.add(taskAdapter.extractFeatures(inIt
-					.next(), outIt.next()));
-		}
-
-		for (int iter = 0; iter < numberOfIterations; ++iter) {
-			// Iterate over the training examples, updating the weight vector.
-			inIt = exampleInputs.iterator();
-			outIt = exampleOutputs.iterator();
-			Iterator<FeatureVector> ftrsIt = correctExamplesAsFeatures
-					.iterator();
-			while (inIt.hasNext() && outIt.hasNext() && ftrsIt.hasNext())
-				train(inIt.next(), outIt.next(), ftrsIt.next());
-		}
-	}
-
-	public void train(ExampleInput example, ExampleOutput correctOutput,
-			FeatureVector correctExampleFeatures) {
-
-		ExampleOutput predictedOutput = taskAdapter.inference(weightVector,
-				example);
-		FeatureVector predictedExampleFeatures = taskAdapter.extractFeatures(
-				example, predictedOutput);
-
-		// Update the current weight vector.
-		weightVector.increment(correctExampleFeatures.difference(
-				predictedExampleFeatures).scale(learningRate));
-
+	/**
+	 * Create a perceptron to train the given initial model using the given
+	 * number of iterations and learning rate.
+	 * 
+	 * @param initialModel
+	 * @param numberOfIterations
+	 * @param learningRate
+	 */
+	public Perceptron(Model initialModel, int numberOfIterations,
+			double learningRate) {
+		this.model = initialModel;
+		this.numberOfIterations = numberOfIterations;
+		this.learningRate = learningRate;
 	}
 
 	public double getLearningRate() {
@@ -73,6 +69,55 @@ public class Perceptron {
 
 	public void setNumberOfIterations(int numberOfIterations) {
 		this.numberOfIterations = numberOfIterations;
+	}
+
+	/**
+	 * Train the model with the given examples, iterating according to the
+	 * number of iterations. Corresponding inputs and outputs must be in the
+	 * same order.
+	 * 
+	 * @param inputs
+	 * @param outputs
+	 */
+	public void train(Iterable<ExampleInput> inputs,
+			Iterable<ExampleOutput> outputs) {
+
+		// Iterators for inputs and outputs (correct and predicted).
+		Iterator<ExampleInput> itIn;
+		Iterator<ExampleOutput> itOut, itPred;
+
+		// Create a predicted output object for each example.
+		LinkedList<ExampleOutput> predicteds = new LinkedList<ExampleOutput>();
+		itOut = outputs.iterator();
+		while (itOut.hasNext())
+			predicteds.add(itOut.next().createNewObject());
+
+		for (int iter = 0; iter < numberOfIterations; ++iter) {
+			// Iterate over the training examples, updating the weight vector.
+			itIn = inputs.iterator();
+			itOut = outputs.iterator();
+			itPred = predicteds.iterator();
+			while (itIn.hasNext() && itOut.hasNext() && itPred.hasNext())
+				train(itIn.next(), itOut.next(), itPred.next());
+		}
+	}
+
+	/**
+	 * Update the current model using the two given outputs for one input.
+	 * 
+	 * @param input
+	 * @param correctOutput
+	 * @param predictedOutput
+	 */
+	public void train(ExampleInput input, ExampleOutput correctOutput,
+			ExampleOutput predictedOutput) {
+
+		// Predict the best output with the current mobel.
+		model.inference(input, predictedOutput);
+
+		// Update the current model.
+		model.update(input, correctOutput, predictedOutput, learningRate);
+
 	}
 
 }
