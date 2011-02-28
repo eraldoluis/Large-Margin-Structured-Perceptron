@@ -31,6 +31,12 @@ public class Perceptron {
 	protected int numberOfIterations;
 
 	/**
+	 * This is the current iteration but counting one iteration for each
+	 * example. This is necessary for the averaged-Perceptron implementation.
+	 */
+	protected int averagingIteration;
+
+	/**
 	 * Create a perceptron to train the given initial model using the default
 	 * Collins' learning rate (1) and the default number of iterations (10).
 	 * 
@@ -92,14 +98,25 @@ public class Perceptron {
 		while (itOut.hasNext())
 			predicteds.add(itOut.next().createNewObject());
 
+		averagingIteration = 0;
 		for (int iter = 0; iter < numberOfIterations; ++iter) {
 			// Iterate over the training examples, updating the weight vector.
 			itIn = inputs.iterator();
 			itOut = outputs.iterator();
 			itPred = predicteds.iterator();
-			while (itIn.hasNext() && itOut.hasNext() && itPred.hasNext())
+			while (itIn.hasNext() && itOut.hasNext() && itPred.hasNext()) {
+				// Update the current model weights according with the predicted
+				// output for this training example.
 				train(itIn.next(), itOut.next(), itPred.next());
+				// Averaged-Perceptron: account the updates into the averaged
+				// weights.
+				model.sumAfterIteration(averagingIteration);
+				++averagingIteration;
+			}
 		}
+
+		// Averaged-Perceptron: average the final weights.
+		model.average(averagingIteration);
 	}
 
 	/**

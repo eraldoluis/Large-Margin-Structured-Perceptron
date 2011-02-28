@@ -31,4 +31,19 @@ public interface Model {
 	public void update(ExampleInput input, ExampleOutput outputCorrect,
 			ExampleOutput outputPredicted, double learningRate);
 
+	/**
+	 * Account the last iteration updates in the summation used by the averaged
+	 * Perceptron after the training method.
+	 * 
+	 * @param iteration
+	 */
+	public void sumAfterIteration(int iteration);
+
+	/**
+	 * Average all the parameters to get the final values.
+	 * 
+	 * @param numberOfIterations
+	 */
+	public void average(int numberOfIterations);
+
 }

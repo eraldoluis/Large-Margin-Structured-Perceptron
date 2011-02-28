@@ -184,7 +184,7 @@ public abstract class Hmm implements Model {
 			}
 		}
 
-		// Set delta and psi according the best from-state.
+		// Set delta and psi according to the best from-state.
 		psi[token][toState] = maxState;
 		delta[token][toState] = maxWeight
 				+ getTokenEmissionWeight(input, token, toState);
