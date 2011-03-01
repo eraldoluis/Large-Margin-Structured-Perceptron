@@ -4,6 +4,7 @@ import java.util.Collection;
 import java.util.Iterator;
 
 import br.pucrio.inf.learn.structlearning.data.ExampleInput;
+import br.pucrio.inf.learn.structlearning.data.ExampleOutput;
 
 /**
  * Sequence of tokens. Each token comprises an array of features.
@@ -125,6 +126,11 @@ public class SequenceInput implements ExampleInput {
 			return this;
 		}
 
+	}
+
+	@Override
+	public ExampleOutput createOutput() {
+		return new SequenceOutput(tokens.length);
 	}
 
 }

@@ -1,7 +1,7 @@
 package br.pucrio.inf.learn.structlearning.algorithm;
 
-import java.util.Iterator;
-import java.util.LinkedList;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 
 import br.pucrio.inf.learn.structlearning.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.data.ExampleOutput;
@@ -14,6 +14,8 @@ import br.pucrio.inf.learn.structlearning.task.Model;
  * 
  */
 public class Perceptron {
+
+	private static final Log LOG = LogFactory.getLog(Perceptron.class);
 
 	/**
 	 * Task-specific model.
@@ -85,38 +87,35 @@ public class Perceptron {
 	 * @param inputs
 	 * @param outputs
 	 */
-	public void train(Iterable<ExampleInput> inputs,
-			Iterable<ExampleOutput> outputs) {
-
-		// Iterators for inputs and outputs (correct and predicted).
-		Iterator<ExampleInput> itIn;
-		Iterator<ExampleOutput> itOut, itPred;
+	public void train(ExampleInput[] inputs, ExampleOutput[] outputs) {
 
 		// Create a predicted output object for each example.
-		LinkedList<ExampleOutput> predicteds = new LinkedList<ExampleOutput>();
-		itOut = outputs.iterator();
-		while (itOut.hasNext())
-			predicteds.add(itOut.next().createNewObject());
+		ExampleOutput[] predicteds = new ExampleOutput[outputs.length];
+		int idx = 0;
+		for (ExampleInput input : inputs) {
+			predicteds[idx] = input.createOutput();
+			++idx;
+		}
 
 		averagingIteration = 0;
 		for (int iter = 0; iter < numberOfIterations; ++iter) {
+			LOG.info("Perceptron iteration: " + iter + "...");
 			// Iterate over the training examples, updating the weight vector.
-			itIn = inputs.iterator();
-			itOut = outputs.iterator();
-			itPred = predicteds.iterator();
-			while (itIn.hasNext() && itOut.hasNext() && itPred.hasNext()) {
+			idx = 0;
+			for (ExampleInput input : inputs) {
 				// Update the current model weights according with the predicted
 				// output for this training example.
-				train(itIn.next(), itOut.next(), itPred.next());
+				train(input, outputs[idx], predicteds[idx]);
 				// Averaged-Perceptron: account the updates into the averaged
 				// weights.
-				model.sumAfterIteration(averagingIteration);
+				model.posIteration(averagingIteration);
 				++averagingIteration;
+				++idx;
 			}
 		}
 
 		// Averaged-Perceptron: average the final weights.
-		model.average(averagingIteration);
+		model.posTraining(averagingIteration);
 	}
 
 	/**

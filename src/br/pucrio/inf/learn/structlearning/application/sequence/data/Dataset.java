@@ -182,16 +182,12 @@ public class Dataset {
 	 */
 	public void load(BufferedReader reader) throws IOException,
 			DatasetException {
-		// Search for the feature labels line.
-		String buff = skipBlanksAndComments(reader);
-		if (buff == null)
-			return;
-
 		LinkedList<String> ids = new LinkedList<String>();
 		LinkedList<SequenceInput> inputSequences = new LinkedList<SequenceInput>();
 		LinkedList<SequenceOutput> outputSequences = new LinkedList<SequenceOutput>();
 
 		// Parse each example.
+		String buff;
 		while ((buff = skipBlanksAndComments(reader)) != null)
 			parseExample(ids, inputSequences, outputSequences, buff);
 
@@ -210,9 +206,15 @@ public class Dataset {
 	protected String skipBlanksAndComments(BufferedReader reader)
 			throws IOException {
 		String buff;
-		while ((buff = reader.readLine()) != null
-				&& (buff.trim().length() == 0 || buff.startsWith("#")))
-			;
+		while ((buff = reader.readLine()) != null) {
+			// Skip empty lines.
+			if (buff.trim().length() == 0)
+				continue;
+			// Skip comment lines.
+			if (buff.startsWith("#"))
+				continue;
+			break;
+		}
 		return buff;
 	}
 
@@ -252,7 +254,7 @@ public class Dataset {
 			String token = tokens[idxTkn];
 
 			// Parse the token features.
-			String[] features = token.split("\\b");
+			String[] features = token.split("[ ]");
 			LinkedList<Integer> featureList = new LinkedList<Integer>();
 			for (int idxFtr = 0; idxFtr < features.length - 1; ++idxFtr)
 				featureList.add(featureEncoding.putValue(features[idxFtr]));

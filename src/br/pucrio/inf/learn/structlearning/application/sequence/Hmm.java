@@ -127,10 +127,15 @@ public abstract class Hmm implements Model {
 		// Best partial-path backward table.
 		int[][] psi = new int[lenExample][numberOfStates];
 
+		// The default state is always the fisrt option.
+		int bestState = defaultState;
+		double bestWeight = delta[lenExample - 1][defaultState];
+
 		// Weights for the first token.
-		for (int state = 0; state < numberOfStates; ++state)
+		for (int state = 0; state < numberOfStates; ++state) {
 			delta[0][state] = getTokenEmissionWeight(input, 0, state)
 					+ getInitialStateParameter(state);
+		}
 
 		// Apply each step of the Viterbi algorithm.
 		for (int tkn = 1; tkn < lenExample; ++tkn)
@@ -138,8 +143,8 @@ public abstract class Hmm implements Model {
 				viterbi(delta, psi, input, tkn, state, defaultState);
 
 		// The default state is always the fisrt option.
-		int bestState = defaultState;
-		double bestWeight = delta[lenExample - 1][defaultState];
+		bestState = defaultState;
+		bestWeight = delta[lenExample - 1][defaultState];
 
 		// Find the best last state.
 		for (int state = 0; state < numberOfStates; ++state) {
@@ -176,10 +181,10 @@ public abstract class Hmm implements Model {
 		double maxWeight = delta[token - 1][defaultState]
 				+ getTransitionParameter(defaultState, toState);
 		for (int fromState = 0; fromState < numStates; ++fromState) {
-			double logProb = delta[token - 1][fromState]
+			double weight = delta[token - 1][fromState]
 					+ getTransitionParameter(fromState, toState);
-			if (logProb > maxWeight) {
-				maxWeight = logProb;
+			if (weight > maxWeight) {
+				maxWeight = weight;
 				maxState = fromState;
 			}
 		}
@@ -201,9 +206,9 @@ public abstract class Hmm implements Model {
 	protected void backwardTag(SequenceOutput output, int[][] psi,
 			int bestFinalState) {
 		int len = output.size();
-		for (int token = len - 1; token > 0; --token) {
+		for (int token = len - 1; token >= 0; --token) {
 			output.setLabel(token, bestFinalState);
-			bestFinalState = psi[token - 1][bestFinalState];
+			bestFinalState = psi[token][bestFinalState];
 		}
 	}
 
@@ -245,13 +250,14 @@ public abstract class Hmm implements Model {
 						learningRate);
 				updateTransitionParameter(prevLabelPredicted, labelPredicted,
 						-learningRate);
-			} else if (prevLabelCorrect != prevLabelPredicted) {
-				// Transition parameters.
-				updateTransitionParameter(prevLabelCorrect, labelCorrect,
-						learningRate);
-				updateTransitionParameter(prevLabelPredicted, labelPredicted,
-						-learningRate);
 			}
+			/*
+			 * TODO only to compare with SST else if (prevLabelCorrect !=
+			 * prevLabelPredicted) { // Transition parameters.
+			 * updateTransitionParameter(prevLabelCorrect, labelCorrect,
+			 * learningRate); updateTransitionParameter(prevLabelPredicted,
+			 * labelPredicted, -learningRate); }
+			 */
 
 			prevLabelCorrect = labelCorrect;
 			prevLabelPredicted = labelPredicted;

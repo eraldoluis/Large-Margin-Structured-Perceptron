@@ -4,8 +4,8 @@ import java.util.Set;
 import java.util.TreeSet;
 
 /**
- * Implementation of an HMM using primitive-type arrays to store the parameters.
- * This implementation also supports the averaged perceptron.
+ * Implementation of an HMM using primitive arrays to store the parameters. This
+ * class implements the averaged version of the Perceptron algorithm.
  * 
  * @author eraldof
  * 
@@ -34,6 +34,10 @@ public class ArrayBasedHmm extends Hmm {
 	 */
 	private int defaultState;
 
+	/**
+	 * Set of weights updated in the current iteration. Used to speedup the
+	 * averaged-Perceptron.
+	 */
 	private Set<AveragedWeight> updatedWeights;
 
 	/**
@@ -111,14 +115,16 @@ public class ArrayBasedHmm extends Hmm {
 	}
 
 	@Override
-	public void sumAfterIteration(int iteration) {
+	public void posIteration(int iteration) {
+		// Update the sum (used by the averaged-Perceptron) in each weight.
 		for (AveragedWeight weight : updatedWeights)
 			weight.sum(iteration);
 		updatedWeights.clear();
 	}
 
 	@Override
-	public void average(int numberOfIterations) {
+	public void posTraining(int numberOfIterations) {
+		// Average all the weights.
 		for (int state = 0; state < getNumberOfStates(); ++state) {
 			initialState[state].average(numberOfIterations);
 			for (int toState = 0; toState < getNumberOfStates(); ++toState)
@@ -134,7 +140,7 @@ public class ArrayBasedHmm extends Hmm {
 	 * @author eraldof
 	 * 
 	 */
-	private static class AveragedWeight {
+	private static class AveragedWeight implements Comparable<AveragedWeight> {
 		/**
 		 * The current (non-averaged) weight. This value must be used by the
 		 * inference algorithm through the Perceptron execution.
@@ -159,21 +165,44 @@ public class ArrayBasedHmm extends Hmm {
 		 */
 		private int lastSummedIteration;
 
+		/**
+		 * Add the given value <code>val</code> to this weight. In fact, this
+		 * value is added to the <code>update</code> before being incorporated
+		 * in the weight itself.
+		 * 
+		 * @param val
+		 */
 		public void update(double val) {
 			update += val;
 		}
 
+		/**
+		 * Return the current value of this weight.
+		 * 
+		 * @return
+		 */
 		public double get() {
 			return weight;
 		}
 
+		/**
+		 * Account the last updates in its weight and in its summed (for later
+		 * averaging) value.
+		 * 
+		 * @param iteration
+		 */
 		public void sum(int iteration) {
-			sum = sum * (iteration - lastSummedIteration) + update;
+			sum += weight * (iteration - lastSummedIteration) + update;
 			weight += update;
 			update = 0d;
 			lastSummedIteration = iteration;
 		}
 
+		/**
+		 * Average this weight.
+		 * 
+		 * @param numberOfIterations
+		 */
 		public void average(int numberOfIterations) {
 			// Account any residual value.
 			sum(numberOfIterations - 1);
@@ -181,6 +210,11 @@ public class ArrayBasedHmm extends Hmm {
 			weight = sum / numberOfIterations;
 			// Keep track that this weight was already averaged.
 			sum = Double.NEGATIVE_INFINITY;
+		}
+
+		@Override
+		public int compareTo(AveragedWeight other) {
+			return toString().compareTo(other.toString());
 		}
 	}
 
