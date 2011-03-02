@@ -10,6 +10,7 @@ import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.Vector;
 
 /**
@@ -21,40 +22,118 @@ import java.util.Vector;
  */
 public abstract class Encoding<ValueType> {
 
-	private HashMap<ValueType, Integer> mapFromValueToCode;
+	/**
+	 * Special (invalid) code to unseen values. This code is returned when the
+	 * user asks for the code of an previously unseen value (
+	 * <code>getCodeByValue</code>) or tries to put a new symbol in a read-only
+	 * encoding object (<code>put</code>).
+	 */
+	public static final int UNSEEN_VALUE_CODE = -1;
 
+	/**
+	 * Map from values to codes.
+	 */
+	private Map<ValueType, Integer> mapFromValueToCode;
+
+	/**
+	 * Map from codes to values.
+	 */
 	private Vector<ValueType> mapFromCodeToValue;
 
+	/**
+	 * If <code>true</code>, the user cannot add more values to this encoding.
+	 */
+	private boolean readOnly;
+
+	/**
+	 * Default constructor. Create an empty encoding.
+	 */
 	public Encoding() {
 		mapFromValueToCode = new HashMap<ValueType, Integer>();
 		mapFromCodeToValue = new Vector<ValueType>();
+		readOnly = false;
 	}
 
+	/**
+	 * Create an encoding with the given values.
+	 * 
+	 * @param values
+	 */
+	public Encoding(ValueType[] values) {
+		this();
+		for (ValueType val : values)
+			put(val);
+		readOnly = true;
+	}
+
+	/**
+	 * Create an encoding and add the values in <code>is</code>. The encoding is
+	 * set to read-only. The user can change this calling the method
+	 * <code>setReadOnly</code>.
+	 * 
+	 * @param is
+	 * @throws IOException
+	 */
 	public Encoding(InputStream is) throws IOException {
 		this();
 		load(is);
+		readOnly = true;
 	}
 
+	/**
+	 * Create an encoding and add the values in <code>reader</code>. The
+	 * encoding is set to read-only. The user can change this calling the method
+	 * <code>setReadOnly</code>.
+	 * 
+	 * @param reader
+	 * @throws IOException
+	 */
 	public Encoding(BufferedReader reader) throws IOException {
 		this();
 		load(reader);
+		readOnly = true;
 	}
 
+	/**
+	 * Create an encoding and add the values read from the file named
+	 * <code>fileName</code>. The encoding is set to read-only. The user can
+	 * change this calling the method <code>setReadOnly</code>.
+	 * 
+	 * @param fileName
+	 * @throws IOException
+	 */
 	public Encoding(String fileName) throws IOException {
 		this();
 		load(fileName);
+		readOnly = true;
 	}
 
+	/**
+	 * Return the number of values in this encoding.
+	 * 
+	 * @return
+	 */
 	public int size() {
 		return mapFromCodeToValue.size();
 	}
 
-	public int putValue(ValueType value) {
+	/**
+	 * Inset a value in this encoding and return its code. If the value already
+	 * exists in the encoding, only return its code. If <code>readOnly</code> is
+	 * <code>true</code> and the given value is not present in the encoding, do
+	 * not add it and return <code>UNSEEN_VALUE_CODE</code>.
+	 * 
+	 * @param value
+	 * @return
+	 */
+	public int put(ValueType value) {
 		if (value == null)
-			throw new NullPointerException("You can not insert a null feature.");
+			throw new NullPointerException("You can not insert a null value.");
 
 		Integer code = mapFromValueToCode.get(value);
 		if (code == null) {
+			if (readOnly)
+				return UNSEEN_VALUE_CODE;
 			code = mapFromCodeToValue.size();
 			mapFromCodeToValue.add(value);
 			mapFromValueToCode.put(value, code);
@@ -63,49 +142,116 @@ public abstract class Encoding<ValueType> {
 		return code;
 	}
 
-	public ValueType getFeatureByCode(int code) {
+	/**
+	 * Return the value associated with the given code. If this code does not
+	 * exist, an exception is launched.
+	 * 
+	 * @param code
+	 * @return
+	 */
+	public ValueType getValueByCode(int code) {
 		return mapFromCodeToValue.get(code);
 	}
 
-	public int getCodeByFeature(ValueType value) {
+	/**
+	 * Return the code of the given value. If the value is not in the encoding,
+	 * return <code>UNSEEN_VALUE_CODE</code>.
+	 * 
+	 * @param value
+	 * @return
+	 */
+	public int getCodeByValue(ValueType value) {
 		Integer code = mapFromValueToCode.get(value);
 		if (code == null)
-			return -1;
+			return UNSEEN_VALUE_CODE;
 		return code;
 	}
 
+	/**
+	 * Return a collection with all codes used in this encoding.
+	 * 
+	 * @return
+	 */
 	public Collection<Integer> getCodes() {
 		return mapFromValueToCode.values();
 	}
 
-	public Collection<ValueType> getOrderedValues() {
+	/**
+	 * Return a collection with all the values in this encoding.
+	 * 
+	 * @return
+	 */
+	public Collection<ValueType> getValues() {
 		return mapFromCodeToValue;
 	}
 
-	public abstract void load(BufferedReader reader) throws IOException;
+	public void setReadOnly(boolean b) {
+		readOnly = b;
+	}
 
-	public abstract void save(PrintStream ps);
-
+	/**
+	 * Read values from <code>is</code> and add them to this encoding.
+	 * 
+	 * @param is
+	 * @throws IOException
+	 */
 	public void load(InputStream is) throws IOException {
 		BufferedReader reader = new BufferedReader(new InputStreamReader(is));
 		load(reader);
 	}
 
+	/**
+	 * Read values from the file named <code>fileName</code> and add them to
+	 * this encoding.
+	 * 
+	 * @param fileName
+	 * @throws IOException
+	 */
 	public void load(String fileName) throws IOException {
 		BufferedReader reader = new BufferedReader(new FileReader(fileName));
 		load(reader);
 		reader.close();
 	}
 
+	/**
+	 * Write the values of this encoding to <code>os</code>.
+	 * 
+	 * @param os
+	 */
 	public void save(OutputStream os) {
 		PrintStream ps = new PrintStream(os);
 		save(ps);
 		ps.flush();
 	}
 
+	/**
+	 * Write the values of this encoding to the file named <code>fileName</code>
+	 * 
+	 * @param fileName
+	 * @throws FileNotFoundException
+	 */
 	public void save(String fileName) throws FileNotFoundException {
 		PrintStream ps = new PrintStream(fileName);
 		save(ps);
 		ps.close();
 	}
+
+	/**
+	 * Read values from <code>reader</code> and add them to this encoding.
+	 * Concrete sub-classes of <code>Encoding</code> must implement this method
+	 * to provide the required funcionality.
+	 * 
+	 * @param reader
+	 * @throws IOException
+	 */
+	public abstract void load(BufferedReader reader) throws IOException;
+
+	/**
+	 * Write the values of this encoding to <code>ps</code>. Concrete
+	 * sub-classes of <code>Encoding</code> must implement this method to
+	 * provide the required funcionality.
+	 * 
+	 * @param ps
+	 */
+	public abstract void save(PrintStream ps);
 }

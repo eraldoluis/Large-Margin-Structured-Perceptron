@@ -1,7 +1,10 @@
 package br.pucrio.inf.learn.structlearning.application.sequence;
 
+import java.io.PrintStream;
+
 import br.pucrio.inf.learn.structlearning.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.data.ExampleOutput;
+import br.pucrio.inf.learn.structlearning.data.StringEncoding;
 import br.pucrio.inf.learn.structlearning.task.Model;
 
 /**
@@ -250,14 +253,13 @@ public abstract class Hmm implements Model {
 						learningRate);
 				updateTransitionParameter(prevLabelPredicted, labelPredicted,
 						-learningRate);
+			} else if (prevLabelCorrect != prevLabelPredicted) {
+				// Transition parameters.
+				updateTransitionParameter(prevLabelCorrect, labelCorrect,
+						learningRate);
+				updateTransitionParameter(prevLabelPredicted, labelPredicted,
+						-learningRate);
 			}
-			/*
-			 * TODO only to compare with SST else if (prevLabelCorrect !=
-			 * prevLabelPredicted) { // Transition parameters.
-			 * updateTransitionParameter(prevLabelCorrect, labelCorrect,
-			 * learningRate); updateTransitionParameter(prevLabelPredicted,
-			 * labelPredicted, -learningRate); }
-			 */
 
 			prevLabelCorrect = labelCorrect;
 			prevLabelPredicted = labelPredicted;
@@ -274,6 +276,27 @@ public abstract class Hmm implements Model {
 			ExampleOutput outputPredicted, double learningRate) {
 		update((SequenceInput) input, (SequenceOutput) outputCorrect,
 				(SequenceOutput) outputPredicted, learningRate);
+	}
+
+	public void save(PrintStream ps, StringEncoding featureEncoding,
+			StringEncoding stateEncoding) {
+		ps.println("# initial state");
+		for (int state = 0; state < getNumberOfStates(); ++state)
+			ps.println(stateEncoding.getValueByCode(state) + "\t"
+					+ getInitialStateParameter(state));
+		ps.println("# transitions");
+		for (int fromState = 0; fromState < getNumberOfStates(); ++fromState)
+			for (int toState = 0; toState < getNumberOfStates(); ++toState)
+				ps.println(stateEncoding.getValueByCode(fromState) + " "
+						+ stateEncoding.getValueByCode(toState) + "\t"
+						+ getTransitionParameter(fromState, toState));
+		ps.println("# emissions");
+		for (int state = 0; state < getNumberOfStates(); ++state)
+			for (int symbol = 0; symbol < featureEncoding.size(); ++symbol) {
+				ps.println(stateEncoding.getValueByCode(state) + " "
+						+ featureEncoding.getValueByCode(symbol) + "\t"
+						+ getEmissionParameter(state, symbol));
+			}
 	}
 
 }

@@ -3,8 +3,10 @@ package br.pucrio.inf.learn.structlearning.algorithm;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import br.pucrio.inf.learn.structlearning.application.sequence.Hmm;
 import br.pucrio.inf.learn.structlearning.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.data.ExampleOutput;
+import br.pucrio.inf.learn.structlearning.data.StringEncoding;
 import br.pucrio.inf.learn.structlearning.task.Model;
 
 /**
@@ -79,6 +81,10 @@ public class Perceptron {
 		this.numberOfIterations = numberOfIterations;
 	}
 
+	public Model getModel() {
+		return model;
+	}
+
 	/**
 	 * Train the model with the given examples, iterating according to the
 	 * number of iterations. Corresponding inputs and outputs must be in the
@@ -87,7 +93,8 @@ public class Perceptron {
 	 * @param inputs
 	 * @param outputs
 	 */
-	public void train(ExampleInput[] inputs, ExampleOutput[] outputs) {
+	public void train(ExampleInput[] inputs, ExampleOutput[] outputs,
+			StringEncoding featureEncoding, StringEncoding stateEncoding) {
 
 		// Create a predicted output object for each example.
 		ExampleOutput[] predicteds = new ExampleOutput[outputs.length];
@@ -97,6 +104,7 @@ public class Perceptron {
 			++idx;
 		}
 
+		double sum = 0d;
 		averagingIteration = 0;
 		for (int iter = 0; iter < numberOfIterations; ++iter) {
 			LOG.info("Perceptron iteration: " + iter + "...");
@@ -109,6 +117,34 @@ public class Perceptron {
 				// Averaged-Perceptron: account the updates into the averaged
 				// weights.
 				model.posIteration(averagingIteration);
+
+//				try {
+//					PrintStream ps = new PrintStream(new FileOutputStream(
+//							"trace.txt", true));
+//					ps.print("  Correct:");
+//					SequenceOutput co = (SequenceOutput) outputs[idx];
+//					for (int i = 0; i < co.size(); ++i)
+//						ps.print(" " + co.getLabel(i));
+//					ps.println();
+//
+//					ps.print("Predicted:");
+//					SequenceOutput po = (SequenceOutput) predicteds[idx];
+//					for (int i = 0; i < po.size(); ++i)
+//						ps.print(" " + po.getLabel(i));
+//					ps.println();
+//
+//					model.save(ps, featureEncoding, stateEncoding);
+//					
+//					ps.println();
+//
+//					ps.close();
+//
+//				} catch (FileNotFoundException e) {
+//					// TODO Auto-generated catch block
+//					e.printStackTrace();
+//				}
+
+				sum += ((Hmm) model).getTransitionParameter(1, 0);
 				++averagingIteration;
 				++idx;
 			}
@@ -116,6 +152,8 @@ public class Perceptron {
 
 		// Averaged-Perceptron: average the final weights.
 		model.posTraining(averagingIteration);
+		LOG.info("Avg: " + (sum / averagingIteration) + " / "
+				+ ((Hmm) model).getTransitionParameter(1, 0));
 	}
 
 	/**

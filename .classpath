@@ -7,6 +7,10 @@
 			<attribute name="javadoc_location" value="jar:file:/home/eraldof/work/crossner/library/commons-cli-1.2/commons-cli-1.2-javadoc.jar!/"/>
 		</attributes>
 	</classpathentry>
-	<classpathentry kind="lib" path="/home/eraldof/work/hadoop-0.20.2/lib/commons-logging-1.0.4.jar"/>
+	<classpathentry kind="lib" path="/home/eraldof/work/crossner/library/commons-logging-1.1.1/commons-logging-1.1.1.jar" sourcepath="/home/eraldof/work/crossner/library/commons-logging-1.1.1/commons-logging-1.1.1-sources.jar">
+		<attributes>
+			<attribute name="javadoc_location" value="jar:file:/home/eraldof/work/crossner/library/commons-logging-1.1.1/commons-logging-1.1.1-javadoc.jar!/"/>
+		</attributes>
+	</classpathentry>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

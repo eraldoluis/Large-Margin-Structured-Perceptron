@@ -89,6 +89,8 @@ public class ArrayBasedHmm extends Hmm {
 
 	@Override
 	public double getEmissionParameter(int state, int symbol) {
+		if (symbol < 0)
+			return 0d;
 		return emissions[state][symbol].get();
 	}
 

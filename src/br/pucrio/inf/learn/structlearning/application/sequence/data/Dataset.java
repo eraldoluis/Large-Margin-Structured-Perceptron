@@ -59,14 +59,15 @@ public class Dataset {
 	}
 
 	/**
-	 * Create a dataset using the given feature-value and state-value encodings.
+	 * Create a dataset using the given feature-value and state-label encodings.
+	 * One can use this constructor to create a dataset compatible with a
+	 * previous loaded model, for instance.
 	 * 
-	 * @param featureValueEncoding
+	 * @param featureEncoding
 	 * @param stateEncoding
 	 */
-	public Dataset(StringEncoding featureValueEncoding,
-			StringEncoding stateEncoding) {
-		this.featureEncoding = featureValueEncoding;
+	public Dataset(StringEncoding featureEncoding, StringEncoding stateEncoding) {
+		this.featureEncoding = featureEncoding;
 		this.stateEncoding = stateEncoding;
 	}
 
@@ -92,27 +93,30 @@ public class Dataset {
 	 * @throws DatasetException
 	 */
 	public Dataset(InputStream is) throws IOException, DatasetException {
-		featureEncoding = new StringEncoding();
+		this(new StringEncoding(), new StringEncoding());
 		load(is);
 	}
 
 	/**
-	 * Load the dataset from the given file and use the given feature-value
-	 * encoding.
+	 * Load the dataset from the given file and use the given feature-value and
+	 * state-label encodings. One can use this constructor to load a dataset
+	 * compatible with a previous loaded model, for instance.
 	 * 
 	 * @param fileName
 	 *            name and path of a file.
-	 * @param featureValueEncoding
-	 *            a feature-value encoding.
+	 * @param featureEncoding
+	 *            use a determined feature values encoding.
+	 * @param stateEncoding
+	 *            use a determined state labels encoding.
 	 * 
 	 * @throws IOException
 	 *             if occurs some problem reading the file.
 	 * @throws DatasetException
 	 *             if the file contains invalid data.
 	 */
-	public Dataset(String fileName, StringEncoding featureValueEncoding)
-			throws IOException, DatasetException {
-		this.featureEncoding = featureValueEncoding;
+	public Dataset(String fileName, StringEncoding featureEncoding,
+			StringEncoding stateEncoding) throws IOException, DatasetException {
+		this(featureEncoding, stateEncoding);
 		load(fileName);
 	}
 
@@ -257,11 +261,11 @@ public class Dataset {
 			String[] features = token.split("[ ]");
 			LinkedList<Integer> featureList = new LinkedList<Integer>();
 			for (int idxFtr = 0; idxFtr < features.length - 1; ++idxFtr)
-				featureList.add(featureEncoding.putValue(features[idxFtr]));
+				featureList.add(featureEncoding.put(features[idxFtr]));
 
 			// The last feature is the token label.
 			sequenceOutputAsList.add(stateEncoding
-					.putValue(features[features.length - 1]));
+					.put(features[features.length - 1]));
 
 			sequenceInputAsList.add(featureList);
 		}
@@ -310,18 +314,16 @@ public class Dataset {
 
 				// Token features.
 				for (int ftr : input.getFeatures(token))
-					ps.print(featureEncoding.getFeatureByCode(ftr) + " ");
+					ps.print(featureEncoding.getValueByCode(ftr) + " ");
 
 				// Label of this token.
-				ps.println(featureEncoding.getFeatureByCode(output
+				ps.println(featureEncoding.getValueByCode(output
 						.getLabel(token)));
 			}
 
 			// Next line for the next sequence.
 			ps.println();
 		}
-
-		ps.flush();
 	}
 
 	/**
@@ -336,10 +338,26 @@ public class Dataset {
 		return inputSequences[idxExample].size();
 	}
 
+	/**
+	 * Return the number of symbols in the dataset feature-value encoding
+	 * object. In general, this corresponds to the total number of different
+	 * symbols in the dataset, but can be a different number if the encoding was
+	 * used by other code despite this dataset.
+	 * 
+	 * @return
+	 */
 	public int getNumberOfSymbols() {
 		return featureEncoding.size();
 	}
 
+	/**
+	 * Return the number of different state labels within the dataset
+	 * state-label encoding. In general, this corresponds to the total number of
+	 * different state labels in the dataset, but can be a different number if
+	 * the encoding was used by other code despite this dataset.
+	 * 
+	 * @return
+	 */
 	public int getNumberOfStates() {
 		return stateEncoding.size();
 	}
