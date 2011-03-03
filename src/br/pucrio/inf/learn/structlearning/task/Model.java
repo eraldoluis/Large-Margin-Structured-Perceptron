@@ -30,24 +30,24 @@ public interface Model {
 	 * @param outputCorrect
 	 * @param outputPredicted
 	 * @param learningRate
+	 * @return the loss between the correct and the predicted outputs.
 	 */
-	public void update(ExampleInput input, ExampleOutput outputCorrect,
+	public double update(ExampleInput input, ExampleOutput outputCorrect,
 			ExampleOutput outputPredicted, double learningRate);
 
 	/**
-	 * Called before the end of each iteration, i.e., just after processing an
-	 * example.
+	 * Account the updates done during the last iteration.
 	 * 
 	 * @param iteration
 	 */
-	public void posIteration(int iteration);
+	public void sumUpdates(int iteration);
 
 	/**
-	 * Called before the end of the training process.
+	 * Average the parameters of all iterations.
 	 * 
 	 * @param numberOfIterations
 	 */
-	public void posTraining(int numberOfIterations);
+	public void average(int numberOfIterations);
 
 	/**
 	 * Serialize the model to the given stream.
@@ -58,5 +58,7 @@ public interface Model {
 	 */
 	public void save(PrintStream ps, StringEncoding featureEncoding,
 			StringEncoding stateEncoding);
+
+	public Object clone() throws CloneNotSupportedException;
 
 }

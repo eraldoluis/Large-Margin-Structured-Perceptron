@@ -10,7 +10,7 @@ import java.util.TreeSet;
  * @author eraldof
  * 
  */
-public class ArrayBasedHmm extends Hmm {
+public class ArrayBasedHmm extends Hmm implements Cloneable {
 
 	/**
 	 * Model parameters: initial state weights. The array index is the state.
@@ -117,7 +117,7 @@ public class ArrayBasedHmm extends Hmm {
 	}
 
 	@Override
-	public void posIteration(int iteration) {
+	public void sumUpdates(int iteration) {
 		// Update the sum (used by the averaged-Perceptron) in each weight.
 		for (AveragedWeight weight : updatedWeights)
 			weight.sum(iteration);
@@ -125,7 +125,7 @@ public class ArrayBasedHmm extends Hmm {
 	}
 
 	@Override
-	public void posTraining(int numberOfIterations) {
+	public void average(int numberOfIterations) {
 		// Average all the weights.
 		for (int state = 0; state < getNumberOfStates(); ++state) {
 			initialState[state].average(numberOfIterations);
@@ -136,13 +136,35 @@ public class ArrayBasedHmm extends Hmm {
 		}
 	}
 
+	@Override
+	public Object clone() throws CloneNotSupportedException {
+		// Allocate an empty model.
+		ArrayBasedHmm copy = new ArrayBasedHmm(getNumberOfStates(),
+				emissions[0].length, defaultState);
+
+		// Clone each weight.
+		for (int state = 0; state < getNumberOfStates(); ++state) {
+			copy.initialState[state] = (AveragedWeight) initialState[state]
+					.clone();
+			for (int toState = 0; toState < getNumberOfStates(); ++toState)
+				copy.transitions[state][toState] = (AveragedWeight) transitions[state][toState]
+						.clone();
+			for (int symbol = 0; symbol < emissions[state].length; ++symbol)
+				copy.emissions[state][symbol] = (AveragedWeight) emissions[state][symbol]
+						.clone();
+		}
+
+		return copy;
+	}
+
 	/**
 	 * Weight that supports an averaged-Perceptron implementation.
 	 * 
 	 * @author eraldof
 	 * 
 	 */
-	private static class AveragedWeight implements Comparable<AveragedWeight> {
+	private static class AveragedWeight implements Comparable<AveragedWeight>,
+			Cloneable {
 		/**
 		 * The current (non-averaged) weight. This value must be used by the
 		 * inference algorithm through the Perceptron execution.
@@ -218,6 +240,12 @@ public class ArrayBasedHmm extends Hmm {
 		public int compareTo(AveragedWeight other) {
 			return toString().compareTo(other.toString());
 		}
+
+		@Override
+		protected Object clone() throws CloneNotSupportedException {
+			return super.clone();
+		}
+
 	}
 
 }

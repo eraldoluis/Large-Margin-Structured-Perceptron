@@ -92,6 +92,8 @@ public abstract class Hmm implements Model {
 	protected abstract void updateTransitionParameter(int fromToken,
 			int toToken, double value);
 
+	public abstract Object clone() throws CloneNotSupportedException;
+
 	/**
 	 * Return the sum of the emission weights associated with the features in
 	 * the token <code>token</code> of the sequence <code>input</code>.
@@ -223,9 +225,13 @@ public abstract class Hmm implements Model {
 	 * @param outputCorrect
 	 * @param outputPredicted
 	 * @param learningRate
+	 * @return the loss between the correct and the predicted output.
 	 */
-	public void update(SequenceInput input, SequenceOutput outputCorrect,
+	public double update(SequenceInput input, SequenceOutput outputCorrect,
 			SequenceOutput outputPredicted, double learningRate) {
+
+		double loss = 0d;
+
 		// First token.
 		int labelCorrect = outputCorrect.getLabel(0);
 		int labelPredicted = outputPredicted.getLabel(0);
@@ -236,6 +242,8 @@ public abstract class Hmm implements Model {
 			// Emission parameters.
 			updateEmissionParameters(input, 0, labelCorrect, learningRate);
 			updateEmissionParameters(input, 0, labelPredicted, -learningRate);
+			// Update loss (per-token).
+			loss += 1;
 		}
 
 		int prevLabelCorrect = labelCorrect;
@@ -253,6 +261,8 @@ public abstract class Hmm implements Model {
 						learningRate);
 				updateTransitionParameter(prevLabelPredicted, labelPredicted,
 						-learningRate);
+				// Update loss (per-token).
+				loss += 1;
 			} else if (prevLabelCorrect != prevLabelPredicted) {
 				// Transition parameters.
 				updateTransitionParameter(prevLabelCorrect, labelCorrect,
@@ -264,6 +274,8 @@ public abstract class Hmm implements Model {
 			prevLabelCorrect = labelCorrect;
 			prevLabelPredicted = labelPredicted;
 		}
+
+		return loss;
 	}
 
 	@Override
@@ -272,9 +284,9 @@ public abstract class Hmm implements Model {
 	}
 
 	@Override
-	public void update(ExampleInput input, ExampleOutput outputCorrect,
+	public double update(ExampleInput input, ExampleOutput outputCorrect,
 			ExampleOutput outputPredicted, double learningRate) {
-		update((SequenceInput) input, (SequenceOutput) outputCorrect,
+		return update((SequenceInput) input, (SequenceOutput) outputCorrect,
 				(SequenceOutput) outputPredicted, learningRate);
 	}
 
