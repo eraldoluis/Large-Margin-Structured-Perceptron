@@ -52,6 +52,16 @@ public class Dataset {
 	protected SequenceOutput[] outputSequences;
 
 	/**
+	 * Special label that indicates non-annotated tokens.
+	 */
+	protected String nonAnnotatedStateLabel;
+
+	/**
+	 * Invalid state code to be used for the non-annotated tokens.
+	 */
+	protected int nonAnnotatedStateCode;
+
+	/**
 	 * Default constructor.
 	 */
 	public Dataset() {
@@ -71,6 +81,15 @@ public class Dataset {
 		this.stateEncoding = stateEncoding;
 	}
 
+	public Dataset(StringEncoding featureEncoding,
+			StringEncoding stateEncoding, String nonAnnotatedStateLabel,
+			int nonAnnotatedStateCode) {
+		this.featureEncoding = featureEncoding;
+		this.stateEncoding = stateEncoding;
+		this.nonAnnotatedStateLabel = nonAnnotatedStateLabel;
+		this.nonAnnotatedStateCode = nonAnnotatedStateCode;
+	}
+
 	/**
 	 * Load the dataset from a file.
 	 * 
@@ -82,6 +101,14 @@ public class Dataset {
 	 */
 	public Dataset(String fileName) throws IOException, DatasetException {
 		this(new StringEncoding(), new StringEncoding());
+		load(fileName);
+	}
+
+	public Dataset(String fileName, String nonAnnotatedStateLabel,
+			int nonAnnotatedStateCode) throws IOException, DatasetException {
+		this(new StringEncoding(), new StringEncoding());
+		this.nonAnnotatedStateLabel = nonAnnotatedStateLabel;
+		this.nonAnnotatedStateCode = nonAnnotatedStateCode;
 		load(fileName);
 	}
 
@@ -117,6 +144,15 @@ public class Dataset {
 	public Dataset(String fileName, StringEncoding featureEncoding,
 			StringEncoding stateEncoding) throws IOException, DatasetException {
 		this(featureEncoding, stateEncoding);
+		load(fileName);
+	}
+
+	public Dataset(String fileName, StringEncoding featureEncoding,
+			StringEncoding stateEncoding, String nonAnnotatedStateLabel,
+			int nonAnnotateStateCode) throws IOException, DatasetException {
+		this(featureEncoding, stateEncoding);
+		this.nonAnnotatedStateLabel = nonAnnotatedStateLabel;
+		this.nonAnnotatedStateCode = nonAnnotateStateCode;
 		load(fileName);
 	}
 
@@ -264,8 +300,15 @@ public class Dataset {
 				featureList.add(featureEncoding.put(features[idxFtr]));
 
 			// The last feature is the token label.
-			sequenceOutputAsList.add(stateEncoding
-					.put(features[features.length - 1]));
+			String label = features[features.length - 1];
+			if (label.equals(nonAnnotatedStateLabel))
+				// The label indicates a non-annotated token and then we use the
+				// non-annotated state code, instead of encoding this special
+				// label. Note that the above test always returns false if the
+				// special label is null (totally annotated dataset).
+				sequenceOutputAsList.add(nonAnnotatedStateCode);
+			else
+				sequenceOutputAsList.add(stateEncoding.put(label));
 
 			sequenceInputAsList.add(featureList);
 		}

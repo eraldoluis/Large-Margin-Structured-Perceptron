@@ -12,16 +12,19 @@ import org.apache.commons.cli.PosixParser;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import br.pucrio.inf.learn.structlearning.algorithm.PartiallyAnnotatedPerceptron;
 import br.pucrio.inf.learn.structlearning.algorithm.Perceptron;
 import br.pucrio.inf.learn.structlearning.algorithm.Perceptron.Listener;
 import br.pucrio.inf.learn.structlearning.application.sequence.ArrayBasedHmm;
 import br.pucrio.inf.learn.structlearning.application.sequence.SequenceInput;
 import br.pucrio.inf.learn.structlearning.application.sequence.SequenceOutput;
+import br.pucrio.inf.learn.structlearning.application.sequence.ViterbiInference;
 import br.pucrio.inf.learn.structlearning.application.sequence.data.Dataset;
 import br.pucrio.inf.learn.structlearning.application.sequence.evaluation.F1Measure;
 import br.pucrio.inf.learn.structlearning.application.sequence.evaluation.IobChunkEvaluation;
 import br.pucrio.inf.learn.structlearning.data.StringEncoding;
 import br.pucrio.inf.learn.structlearning.task.Model;
+import br.pucrio.inf.learn.structlearning.task.TaskImplementation;
 import br.pucrio.inf.learn.util.CommandLineOptionsUtil;
 
 public class TrainHmmMain implements Driver.Command {
@@ -35,9 +38,6 @@ public class TrainHmmMain implements Driver.Command {
 		options.addOption(OptionBuilder.withLongOpt("incorpus").isRequired()
 				.withArgName("input corpus").hasArg()
 				.withDescription("Input corpus file name.").create('i'));
-		options.addOption(OptionBuilder.withLongOpt("testcorpus")
-				.withArgName("test corpus").hasArg()
-				.withDescription("Test corpus file name.").create('t'));
 		options.addOption(OptionBuilder
 				.withLongOpt("numepochs")
 				.withArgName("number of epochs")
@@ -80,6 +80,32 @@ public class TrainHmmMain implements Driver.Command {
 						"Name of a file that contains the list of labels, one per line. "
 								+ "This can be usefull to specify the preference order of state labels.")
 				.create());
+		options.addOption(OptionBuilder.withLongOpt("testcorpus")
+				.withArgName("test corpus").hasArg()
+				.withDescription("Test corpus file name.").create('t'));
+		options.addOption(OptionBuilder
+				.withLongOpt("perepoch")
+				.withDescription(
+						"The evaluation on the test corpus will "
+								+ "be performed after each training epoch.")
+				.create());
+		options.addOption(OptionBuilder
+				.withLongOpt("nonannlabel")
+				.withArgName("non-annotated state label")
+				.hasArg()
+				.withDescription(
+						"Set the special state label that indicates "
+								+ "non-annotated tokens and, consequently, it "
+								+ "will an HMM considering this information")
+				.create());
+		options.addOption(OptionBuilder
+				.withLongOpt("progress")
+				.withArgName("interval in number of examples")
+				.hasArg()
+				.withDescription(
+						"Interval in number of examples to report "
+								+ "training progress within each epoch.")
+				.create());
 		options.addOption(OptionBuilder
 				.withLongOpt("verbose")
 				.withDescription(
@@ -101,15 +127,19 @@ public class TrainHmmMain implements Driver.Command {
 
 		// Get the options specified in the command-line.
 		String inputCorpusFileName = cmdLine.getOptionValue('i');
-		String testCorpusFileName = cmdLine.getOptionValue('t');
 		int numEpochs = Integer.parseInt(cmdLine.getOptionValue('T', "10"));
 		double learningRate = Double.parseDouble(cmdLine.getOptionValue(
 				"learnrate", "1"));
 		String defaultLabel = cmdLine.getOptionValue('d', "0");
 		String nullLabel = cmdLine.getOptionValue("nullstate", defaultLabel);
-		// boolean verbose = cmdLine.hasOption('v');
+		String testCorpusFileName = cmdLine.getOptionValue('t');
+		boolean evalPerEpoch = cmdLine.hasOption("perepoch");
 		String labels = cmdLine.getOptionValue("labels");
 		String tagsetFileName = cmdLine.getOptionValue("tagset");
+		String nonAnnotatedLabel = cmdLine.getOptionValue("nonannlabel");
+		int progressInterval = Integer.parseInt(cmdLine.getOptionValue(
+				"progress", "0"));
+		// boolean verbose = cmdLine.hasOption('v');
 
 		Dataset inputCorpus = null;
 		try {
@@ -118,18 +148,24 @@ public class TrainHmmMain implements Driver.Command {
 
 			if (labels != null)
 				// State set provided explicitly as a command-line argument.
-				inputCorpus = new Dataset(inputCorpusFileName,
-						new StringEncoding(), new StringEncoding(
-								labels.split(",")));
+				inputCorpus = new Dataset(new StringEncoding(),
+						new StringEncoding(labels.split(",")),
+						nonAnnotatedLabel, -1);
 			else if (tagsetFileName != null)
 				// State set provided in a tagset file.
-				inputCorpus = new Dataset(inputCorpusFileName,
-						new StringEncoding(),
-						new StringEncoding(tagsetFileName));
+				inputCorpus = new Dataset(new StringEncoding(),
+						new StringEncoding(tagsetFileName), nonAnnotatedLabel,
+						-1);
 			else
 				// State set automatically retrieved from training data (codes
 				// depend on order of appereance of the labels).
-				inputCorpus = new Dataset(inputCorpusFileName);
+				inputCorpus = new Dataset(new StringEncoding(),
+						new StringEncoding(), nonAnnotatedLabel, -1);
+
+			if (inputCorpusFileName.equals("stdin"))
+				inputCorpus.load(System.in);
+			else
+				inputCorpus.load(inputCorpusFileName);
 
 		} catch (Exception e) {
 			LOG.error("Loading input corpus", e);
@@ -137,15 +173,27 @@ public class TrainHmmMain implements Driver.Command {
 		}
 
 		LOG.info("Allocating initial model...");
+		ViterbiInference viterbi = new ViterbiInference(inputCorpus
+				.getStateEncoding().put(defaultLabel));
 		ArrayBasedHmm hmm = new ArrayBasedHmm(inputCorpus.getNumberOfStates(),
-				inputCorpus.getNumberOfSymbols(), inputCorpus
-						.getStateEncoding().put(defaultLabel));
+				inputCorpus.getNumberOfSymbols());
 
-		Perceptron alg = new Perceptron(hmm);
-		alg.setNumberOfEpochs(numEpochs);
-		alg.setLearningRate(learningRate);
+		Perceptron alg;
+		if (nonAnnotatedLabel == null)
+			alg = new Perceptron(viterbi, hmm, numEpochs, learningRate);
+		else {
+			// Non-annotated state label was specified and therefore the input
+			// dataset can contain non-annotated tokens that must be properly
+			// tackled by the inference algorithms.
+			viterbi.setNonAnnotatedStateCode(-1);
+			alg = new PartiallyAnnotatedPerceptron(viterbi, hmm, numEpochs,
+					learningRate);
+		}
 
-		if (testCorpusFileName != null) {
+		alg.setProgressReportInterval(progressInterval);
+
+		// Evaluation after each training epoch.
+		if (testCorpusFileName != null && evalPerEpoch) {
 			// Ignore features not seen in the training corpus.
 			inputCorpus.getFeatureEncoding().setReadOnly(true);
 			inputCorpus.getStateEncoding().setReadOnly(true);
@@ -171,53 +219,53 @@ public class TrainHmmMain implements Driver.Command {
 				inputCorpus.getFeatureEncoding(),
 				inputCorpus.getStateEncoding());
 
-//		if (testCorpusFileName != null) {
-//			try {
-//
-//				LOG.info("Loading and preparing test data...");
-//				Dataset testset = new Dataset(testCorpusFileName,
-//						inputCorpus.getFeatureEncoding(),
-//						inputCorpus.getStateEncoding());
-//
-//				// Allocate output sequences for predictions.
-//				SequenceInput[] inputs = testset.getInputs();
-//				SequenceOutput[] outputs = testset.getOutputs();
-//				SequenceOutput[] predicteds = new SequenceOutput[inputs.length];
-//				for (int idx = 0; idx < inputs.length; ++idx)
-//					predicteds[idx] = (SequenceOutput) inputs[idx]
-//							.createOutput();
-//				IobChunkEvaluation eval = new IobChunkEvaluation(
-//						inputCorpus.getStateEncoding(), nullLabel);
-//
-//				// Fill the list of predicted outputs.
-//				for (int idx = 0; idx < inputs.length; ++idx)
-//					// Predict (tag the output sequence).
-//					hmm.inference(inputs[idx], predicteds[idx]);
-//
-//				// Evaluate the sequences.
-//				Map<String, F1Measure> results = eval.evaluateSequences(inputs,
-//						outputs, predicteds);
-//
-//				// Write results: precision, recall and F-1 values.
-//				System.out.println();
-//				System.out.println("|  *Class*  |  *P*  |  *R*  |  *F*  |");
-//				String[] labelOrder = { "LOC", "MISC", "ORG", "PER", "overall" };
-//				for (String label : labelOrder) {
-//					F1Measure res = results.get(label);
-//					if (res == null)
-//						continue;
-//					System.out.println(String.format(
-//							"|  %s  |  %6.2f |  %6.2f |  %6.2f |", label,
-//							100 * res.getPrecision(), 100 * res.getRecall(),
-//							100 * res.getF1()));
-//				}
-//				System.out.println();
-//
-//			} catch (Exception e) {
-//				LOG.error("Loading testset " + testCorpusFileName, e);
-//				System.exit(1);
-//			}
-//		}
+		if (testCorpusFileName != null && !evalPerEpoch) {
+			try {
+
+				LOG.info("Loading and preparing test data...");
+				Dataset testset = new Dataset(testCorpusFileName,
+						inputCorpus.getFeatureEncoding(),
+						inputCorpus.getStateEncoding());
+
+				// Allocate output sequences for predictions.
+				SequenceInput[] inputs = testset.getInputs();
+				SequenceOutput[] outputs = testset.getOutputs();
+				SequenceOutput[] predicteds = new SequenceOutput[inputs.length];
+				for (int idx = 0; idx < inputs.length; ++idx)
+					predicteds[idx] = (SequenceOutput) inputs[idx]
+							.createOutput();
+				IobChunkEvaluation eval = new IobChunkEvaluation(
+						inputCorpus.getStateEncoding(), nullLabel);
+
+				// Fill the list of predicted outputs.
+				for (int idx = 0; idx < inputs.length; ++idx)
+					// Predict (tag the output sequence).
+					viterbi.inference(hmm, inputs[idx], predicteds[idx]);
+
+				// Evaluate the sequences.
+				Map<String, F1Measure> results = eval.evaluateSequences(inputs,
+						outputs, predicteds);
+
+				// Write results: precision, recall and F-1 values.
+				System.out.println();
+				System.out.println("|  *Class*  |  *P*  |  *R*  |  *F*  |");
+				String[] labelOrder = { "LOC", "MISC", "ORG", "PER", "overall" };
+				for (String label : labelOrder) {
+					F1Measure res = results.get(label);
+					if (res == null)
+						continue;
+					System.out.println(String.format(
+							"|  %s  |  %6.2f |  %6.2f |  %6.2f |", label,
+							100 * res.getPrecision(), 100 * res.getRecall(),
+							100 * res.getF1()));
+				}
+				System.out.println();
+
+			} catch (Exception e) {
+				LOG.error("Loading testset " + testCorpusFileName, e);
+				System.exit(1);
+			}
+		}
 
 		LOG.info("Saving final model...");
 		PrintStream ps;
@@ -257,26 +305,27 @@ public class TrainHmmMain implements Driver.Command {
 		}
 
 		@Override
-		public boolean beforeTraining(Model curModel) {
+		public boolean beforeTraining(TaskImplementation impl, Model curModel) {
 			return true;
 		}
 
 		@Override
-		public void afterTraining(Model curModel) {
+		public void afterTraining(TaskImplementation impl, Model curModel) {
 		}
 
 		@Override
-		public boolean beforeEpoch(Model curModel, int epoch, int iteration) {
+		public boolean beforeEpoch(TaskImplementation impl, Model curModel,
+				int epoch, int iteration) {
 			return true;
 		}
 
 		@Override
-		public boolean afterEpoch(Model curModel, int epoch, double loss,
-				int iteration) {
+		public boolean afterEpoch(TaskImplementation viterbi, Model hmm,
+				int epoch, double loss, int iteration) {
 
 			try {
 				// Clone the current model to average it.
-				curModel = (Model) curModel.clone();
+				hmm = (Model) hmm.clone();
 			} catch (CloneNotSupportedException e) {
 				LOG.error("Cloning current model on epoch " + epoch
 						+ " and iteration " + iteration, e);
@@ -284,12 +333,12 @@ public class TrainHmmMain implements Driver.Command {
 			}
 
 			// Average the current model.
-			curModel.average(iteration);
+			hmm.average(iteration);
 
 			// Fill the list of predicted outputs.
 			for (int idx = 0; idx < inputs.length; ++idx)
 				// Predict (tag the output sequence).
-				curModel.inference(inputs[idx], predicteds[idx]);
+				viterbi.inference(hmm, inputs[idx], predicteds[idx]);
 
 			// Evaluate the sequences.
 			Map<String, F1Measure> results = eval.evaluateSequences(inputs,

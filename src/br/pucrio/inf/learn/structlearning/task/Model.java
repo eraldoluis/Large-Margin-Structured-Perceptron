@@ -7,20 +7,12 @@ import br.pucrio.inf.learn.structlearning.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.data.StringEncoding;
 
 /**
- * Interface for a model. One shall implement this interface for any task.
+ * Interface of a task-specific model.
  * 
  * @author eraldof
  * 
  */
 public interface Model {
-
-	/**
-	 * Fill the output structure using the given input and this model.
-	 * 
-	 * @param input
-	 * @param output
-	 */
-	public void inference(ExampleInput input, ExampleOutput output);
 
 	/**
 	 * Update this model according to the two outputs (correct and predicted)
@@ -32,7 +24,7 @@ public interface Model {
 	 * @param learningRate
 	 * @return the loss between the correct and the predicted outputs.
 	 */
-	public double update(ExampleInput input, ExampleOutput outputCorrect,
+	double update(ExampleInput input, ExampleOutput outputCorrect,
 			ExampleOutput outputPredicted, double learningRate);
 
 	/**
@@ -40,14 +32,14 @@ public interface Model {
 	 * 
 	 * @param iteration
 	 */
-	public void sumUpdates(int iteration);
+	void sumUpdates(int iteration);
 
 	/**
 	 * Average the parameters of all iterations.
 	 * 
 	 * @param numberOfIterations
 	 */
-	public void average(int numberOfIterations);
+	void average(int numberOfIterations);
 
 	/**
 	 * Serialize the model to the given stream.
@@ -56,9 +48,9 @@ public interface Model {
 	 * @param featureEncoding
 	 * @param stateEncoding
 	 */
-	public void save(PrintStream ps, StringEncoding featureEncoding,
+	void save(PrintStream ps, StringEncoding featureEncoding,
 			StringEncoding stateEncoding);
 
-	public Object clone() throws CloneNotSupportedException;
+	Object clone() throws CloneNotSupportedException;
 
 }

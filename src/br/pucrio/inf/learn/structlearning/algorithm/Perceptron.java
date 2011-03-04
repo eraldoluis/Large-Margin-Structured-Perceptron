@@ -9,6 +9,7 @@ import br.pucrio.inf.learn.structlearning.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.data.StringEncoding;
 import br.pucrio.inf.learn.structlearning.task.Model;
+import br.pucrio.inf.learn.structlearning.task.TaskImplementation;
 
 /**
  * Perceptron-trained linear classifier with structural examples. This class
@@ -20,6 +21,11 @@ import br.pucrio.inf.learn.structlearning.task.Model;
 public class Perceptron {
 
 	private static final Log LOG = LogFactory.getLog(Perceptron.class);
+
+	/**
+	 * Task-specific implementation of inference algorithms.
+	 */
+	protected TaskImplementation taskImpl;
 
 	/**
 	 * Task-specific model.
@@ -57,7 +63,17 @@ public class Perceptron {
 	 */
 	protected Random random;
 
+	/**
+	 * If this value is <code>false</code>, do not randomize the order to
+	 * process the training examples. This value is <code>true</code> by
+	 * default.
+	 */
 	protected boolean randomize;
+
+	/**
+	 * Report progress after processing this number of examples.
+	 */
+	protected int progressReportInterval;
 
 	/**
 	 * Create a perceptron to train the given initial model using the default
@@ -65,8 +81,8 @@ public class Perceptron {
 	 * 
 	 * @param initialModel
 	 */
-	public Perceptron(Model initialModel) {
-		this(initialModel, 10, 1d);
+	public Perceptron(TaskImplementation taskImpl, Model initialModel) {
+		this(taskImpl, initialModel, 10, 1d);
 	}
 
 	/**
@@ -74,13 +90,14 @@ public class Perceptron {
 	 * number of iterations and learning rate.
 	 * 
 	 * @param initialModel
-	 * @param numberOfIterations
+	 * @param numberOfEpochs
 	 * @param learningRate
 	 */
-	public Perceptron(Model initialModel, int numberOfIterations,
-			double learningRate) {
+	public Perceptron(TaskImplementation taskImpl, Model initialModel,
+			int numberOfEpochs, double learningRate) {
+		this.taskImpl = taskImpl;
 		this.model = initialModel;
-		this.numberOfEpochs = numberOfIterations;
+		this.numberOfEpochs = numberOfEpochs;
 		this.learningRate = learningRate;
 		this.random = new Random();
 		this.randomize = true;
@@ -137,22 +154,22 @@ public class Perceptron {
 	}
 
 	/**
-	 * Train the model with the given examples, iterating according to the
-	 * number of iterations. Corresponding inputs and outputs must be in the
-	 * same order.
+	 * Train the model with the given examples. Corresponding inputs and outputs
+	 * must be in the same order.
 	 * 
 	 * @param inputs
 	 * @param outputs
 	 */
 	public void train(ExampleInput[] inputs, ExampleOutput[] outputs,
 			StringEncoding featureEncoding, StringEncoding stateEncoding) {
-		// Create a predicted output object for each example.
+
+		// Allocate predicted output objects for the training example.
 		ExampleOutput[] predicteds = new ExampleOutput[outputs.length];
 		for (int idx = 0; idx < inputs.length; ++idx)
 			predicteds[idx] = inputs[idx].createOutput();
 
 		if (listener != null)
-			if (!listener.beforeTraining(model))
+			if (!listener.beforeTraining(taskImpl, model))
 				return;
 
 		iteration = 0;
@@ -162,19 +179,20 @@ public class Perceptron {
 			LOG.info("Perceptron epoch: " + epoch + "...");
 
 			if (listener != null)
-				if (!listener.beforeEpoch(model, epoch, iteration))
+				if (!listener.beforeEpoch(taskImpl, model, epoch, iteration))
 					// Stop training.
 					break;
 
-			// Loss accumulated over all training examples.
-			double loss = train(inputs, outputs, predicteds, featureEncoding,
-					stateEncoding);
+			// Train one epoch and get the accumulated loss.
+			double loss = trainOneEpoch(inputs, outputs, predicteds,
+					featureEncoding, stateEncoding);
 
 			LOG.info("Training loss: " + loss);
 
 			if (listener != null) {
-				if (!listener.afterEpoch(model, epoch, loss, iteration)) {
-					// Account the current epoch since it was concluded.
+				if (!listener.afterEpoch(taskImpl, model, epoch, loss,
+						iteration)) {
+					// Account the current epoch since it is concluded.
 					++epoch;
 					// Stop training.
 					break;
@@ -184,14 +202,14 @@ public class Perceptron {
 		}
 
 		if (listener != null)
-			listener.afterTraining(model);
+			listener.afterTraining(taskImpl, model);
 
 		// Averaged-Perceptron: average the final weights.
 		model.average(iteration);
 	}
 
 	/**
-	 * Train one epoch over the given input/output/predicted triples.
+	 * Train one epoch over the given input/output pairs.
 	 * 
 	 * @param inputs
 	 *            list of input sequences
@@ -205,20 +223,42 @@ public class Perceptron {
 	 *            encoding of state labels
 	 * @return the sum of the losses over all examples through this epoch
 	 */
-	public double train(ExampleInput[] inputs, ExampleOutput[] outputs,
+	public double trainOneEpoch(ExampleInput[] inputs, ExampleOutput[] outputs,
 			ExampleOutput[] predicteds, StringEncoding featureEncoding,
 			StringEncoding stateEncoding) {
+
+		// Accumulate the loss over all examples in this epoch.
 		double loss = 0d;
+
+		if (progressReportInterval > 0)
+			System.out.print("Progress: ");
+
 		// Iterate over the training examples, updating the weight vector.
 		for (int idx = 0; idx < inputs.length; ++idx, ++iteration) {
+
 			int idxEx = idx;
 			if (randomize)
+				// Randomize the order to process the training examples.
 				idxEx = random.nextInt(inputs.length);
+
 			// Update the current model weights according with the predicted
 			// output for this training example.
-			loss += train(inputs[idxEx], outputs[idxEx], predicteds[idxEx]);
+			loss += trainOneExample(inputs[idxEx], outputs[idxEx],
+					predicteds[idxEx]);
+
+			if (progressReportInterval > 0
+					&& (iteration + 1) % progressReportInterval == 0)
+				System.out
+						.print((100 * (iteration % inputs.length) / inputs.length)
+								+ "% ");
+
 		}
+
+		if (progressReportInterval > 0)
+			System.out.println("done.");
+
 		return loss;
+
 	}
 
 	/**
@@ -229,10 +269,10 @@ public class Perceptron {
 	 * @param predictedOutput
 	 * @return the loss between the correct and the predicted outputs.
 	 */
-	public double train(ExampleInput input, ExampleOutput correctOutput,
-			ExampleOutput predictedOutput) {
+	public double trainOneExample(ExampleInput input,
+			ExampleOutput correctOutput, ExampleOutput predictedOutput) {
 		// Predict the best output with the current mobel.
-		model.inference(input, predictedOutput);
+		taskImpl.inference(model, input, predictedOutput);
 
 		// Update the current model and return the loss for this example.
 		double loss = model.update(input, correctOutput, predictedOutput,
@@ -242,6 +282,16 @@ public class Perceptron {
 		model.sumUpdates(iteration);
 
 		return loss;
+	}
+
+	/**
+	 * Set the interval in number of examples to report the training progress
+	 * within each epoch. If this value is zero, no progress is reported.
+	 * 
+	 * @param progressReportInterval
+	 */
+	public void setProgressReportInterval(int progressReportInterval) {
+		this.progressReportInterval = progressReportInterval;
 	}
 
 	/**
@@ -255,34 +305,47 @@ public class Perceptron {
 		/**
 		 * Called before starting the training procedure.
 		 * 
+		 * @param impl
+		 *            task-specific inference algorithms.
 		 * @param curModel
+		 *            the current model (no averaging).
+		 * 
 		 * @return <code>false</code> to not start the training procedure.
 		 */
-		boolean beforeTraining(Model curModel);
+		boolean beforeTraining(TaskImplementation impl, Model curModel);
 
 		/**
 		 * Called after the training procedure ends.
 		 * 
+		 * @param impl
+		 *            task-specific inference algorithms.
 		 * @param curModel
+		 *            the current model (no averaging).
 		 */
-		void afterTraining(Model curModel);
+		void afterTraining(TaskImplementation impl, Model curModel);
 
 		/**
 		 * Called before starting an epoch (processing the whole training set).
 		 * 
+		 * @param impl
+		 *            task-specific inference algorithms.
 		 * @param curModel
 		 *            the current model (no averaging).
 		 * @param epoch
 		 *            the current epoch (starts in zero).
 		 * @param iteration
 		 *            current iteration (number of inference/update steps).
+		 * 
 		 * @return <code>false</code> to stop the training procedure.
 		 */
-		boolean beforeEpoch(Model curModel, int epoch, int iteration);
+		boolean beforeEpoch(TaskImplementation impl, Model curModel, int epoch,
+				int iteration);
 
 		/**
 		 * Called after an epoch (processing the whole training set).
 		 * 
+		 * @param impl
+		 *            task-specific inference algorithms.
 		 * @param curModel
 		 *            the current model (no averaging).
 		 * @param epoch
@@ -292,9 +355,11 @@ public class Perceptron {
 		 *            epoch.
 		 * @param iteration
 		 *            current iteration (number of inference/update steps).
+		 * 
 		 * @return
 		 */
-		boolean afterEpoch(Model curModel, int epoch, double loss, int iteration);
+		boolean afterEpoch(TaskImplementation impl, Model curModel, int epoch,
+				double loss, int iteration);
 
 	}
 

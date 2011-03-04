@@ -17,6 +17,9 @@ public class SequenceOutput implements ExampleOutput {
 	 */
 	private int[] labels;
 
+	protected SequenceOutput() {
+	}
+
 	public SequenceOutput(int size) {
 		labels = new int[size];
 	}
@@ -66,6 +69,13 @@ public class SequenceOutput implements ExampleOutput {
 	@Override
 	public ExampleOutput createNewObject() {
 		return new SequenceOutput(labels.length);
+	}
+
+	@Override
+	public Object clone() throws CloneNotSupportedException {
+		SequenceOutput copy = new SequenceOutput();
+		copy.labels = labels.clone();
+		return copy;
 	}
 
 }

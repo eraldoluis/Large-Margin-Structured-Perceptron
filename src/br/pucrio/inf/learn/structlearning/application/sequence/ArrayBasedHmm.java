@@ -30,11 +30,6 @@ public class ArrayBasedHmm extends Hmm implements Cloneable {
 	private AveragedWeight[][] emissions;
 
 	/**
-	 * Default state to choose when all states weight the same.
-	 */
-	private int defaultState;
-
-	/**
 	 * Set of weights updated in the current iteration. Used to speedup the
 	 * averaged-Perceptron.
 	 */
@@ -45,10 +40,8 @@ public class ArrayBasedHmm extends Hmm implements Cloneable {
 	 * 
 	 * @param numberOfStates
 	 * @param numberOfSymbols
-	 * @param defaultState
 	 */
-	public ArrayBasedHmm(int numberOfStates, int numberOfSymbols,
-			int defaultState) {
+	public ArrayBasedHmm(int numberOfStates, int numberOfSymbols) {
 		// Allocate arrays.
 		initialState = new AveragedWeight[numberOfStates];
 		transitions = new AveragedWeight[numberOfStates][numberOfStates];
@@ -63,18 +56,12 @@ public class ArrayBasedHmm extends Hmm implements Cloneable {
 				emissions[state][symbol] = new AveragedWeight();
 		}
 
-		this.defaultState = defaultState;
 		this.updatedWeights = new TreeSet<AveragedWeight>();
 	}
 
 	@Override
 	public int getNumberOfStates() {
 		return initialState.length;
-	}
-
-	@Override
-	protected int getDefaultState() {
-		return defaultState;
 	}
 
 	@Override
@@ -140,7 +127,7 @@ public class ArrayBasedHmm extends Hmm implements Cloneable {
 	public Object clone() throws CloneNotSupportedException {
 		// Allocate an empty model.
 		ArrayBasedHmm copy = new ArrayBasedHmm(getNumberOfStates(),
-				emissions[0].length, defaultState);
+				emissions[0].length);
 
 		// Clone each weight.
 		for (int state = 0; state < getNumberOfStates(); ++state) {

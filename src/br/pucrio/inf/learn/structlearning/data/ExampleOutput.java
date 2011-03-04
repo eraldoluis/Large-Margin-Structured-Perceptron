@@ -14,6 +14,14 @@ public interface ExampleOutput {
 	 * 
 	 * @return
 	 */
-	public ExampleOutput createNewObject();
+	ExampleOutput createNewObject();
+
+	/**
+	 * Create a new object with the same content.
+	 * 
+	 * @return
+	 * @throws CloneNotSupportedException
+	 */
+	Object clone() throws CloneNotSupportedException;
 
 }

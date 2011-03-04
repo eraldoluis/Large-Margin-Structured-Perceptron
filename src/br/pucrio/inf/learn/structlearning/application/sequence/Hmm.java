@@ -26,14 +26,6 @@ public abstract class Hmm implements Model {
 	public abstract int getNumberOfStates();
 
 	/**
-	 * Return the code (index) of the default state that is used by the
-	 * inference algorithm wherever all states have the same weight.
-	 * 
-	 * @return
-	 */
-	protected abstract int getDefaultState();
-
-	/**
 	 * Return the weight associated with the given initial state.
 	 * 
 	 * @param state
@@ -92,6 +84,11 @@ public abstract class Hmm implements Model {
 	protected abstract void updateTransitionParameter(int fromToken,
 			int toToken, double value);
 
+	/**
+	 * The sub-classes must implement this to ease some use cases (e.g.,
+	 * evaluating itermediate models during the execution of a training
+	 * algorithm).
+	 */
 	public abstract Object clone() throws CloneNotSupportedException;
 
 	/**
@@ -109,112 +106,6 @@ public abstract class Hmm implements Model {
 		for (int ftr : input.getFeatures(token))
 			weight += getEmissionParameter(state, ftr);
 		return weight;
-	}
-
-	/**
-	 * Given an input sequence, tag the given output sequence with the best
-	 * label sequence for this HMM.
-	 * 
-	 * @param input
-	 * @param output
-	 * @param defaultState
-	 */
-	public void tag(SequenceInput input, SequenceOutput output) {
-		// State used wherever all labels have equal weight.
-		int defaultState = getDefaultState();
-
-		// Example length.
-		int numberOfStates = getNumberOfStates();
-		int lenExample = input.size();
-
-		// Best partial-path weights.
-		double[][] delta = new double[lenExample][numberOfStates];
-		// Best partial-path backward table.
-		int[][] psi = new int[lenExample][numberOfStates];
-
-		// The default state is always the fisrt option.
-		int bestState = defaultState;
-		double bestWeight = delta[lenExample - 1][defaultState];
-
-		// Weights for the first token.
-		for (int state = 0; state < numberOfStates; ++state) {
-			delta[0][state] = getTokenEmissionWeight(input, 0, state)
-					+ getInitialStateParameter(state);
-		}
-
-		// Apply each step of the Viterbi algorithm.
-		for (int tkn = 1; tkn < lenExample; ++tkn)
-			for (int state = 0; state < numberOfStates; ++state)
-				viterbi(delta, psi, input, tkn, state, defaultState);
-
-		// The default state is always the fisrt option.
-		bestState = defaultState;
-		bestWeight = delta[lenExample - 1][defaultState];
-
-		// Find the best last state.
-		for (int state = 0; state < numberOfStates; ++state) {
-			double weight = delta[lenExample - 1][state];
-			if (weight > bestWeight) {
-				bestWeight = weight;
-				bestState = state;
-			}
-		}
-
-		// Reconstruct the best path from the best final state, and tag the
-		// input.
-		backwardTag(output, psi, bestState);
-	}
-
-	/**
-	 * Calculate the best previous state (fromState) for the given
-	 * <code>toState</code> at the given <code>token</code>.
-	 * 
-	 * @param delta
-	 * @param psi
-	 * @param input
-	 * @param token
-	 * @param toState
-	 * @param defaultState
-	 */
-	protected void viterbi(double[][] delta, int[][] psi, SequenceInput input,
-			int token, int toState, int defaultState) {
-		// Number of states.
-		int numStates = getNumberOfStates();
-
-		// Choose the best previous state (consider only the transition weight).
-		int maxState = defaultState;
-		double maxWeight = delta[token - 1][defaultState]
-				+ getTransitionParameter(defaultState, toState);
-		for (int fromState = 0; fromState < numStates; ++fromState) {
-			double weight = delta[token - 1][fromState]
-					+ getTransitionParameter(fromState, toState);
-			if (weight > maxWeight) {
-				maxWeight = weight;
-				maxState = fromState;
-			}
-		}
-
-		// Set delta and psi according to the best from-state.
-		psi[token][toState] = maxState;
-		delta[token][toState] = maxWeight
-				+ getTokenEmissionWeight(input, token, toState);
-	}
-
-	/**
-	 * Follow the given psi map (starting at the <code>bestFinalState</code>)
-	 * and tag the given output sequence.
-	 * 
-	 * @param output
-	 * @param psi
-	 * @param bestFinalState
-	 */
-	protected void backwardTag(SequenceOutput output, int[][] psi,
-			int bestFinalState) {
-		int len = output.size();
-		for (int token = len - 1; token >= 0; --token) {
-			output.setLabel(token, bestFinalState);
-			bestFinalState = psi[token][bestFinalState];
-		}
 	}
 
 	/**
@@ -276,11 +167,6 @@ public abstract class Hmm implements Model {
 		}
 
 		return loss;
-	}
-
-	@Override
-	public void inference(ExampleInput input, ExampleOutput output) {
-		tag((SequenceInput) input, (SequenceOutput) output);
 	}
 
 	@Override
