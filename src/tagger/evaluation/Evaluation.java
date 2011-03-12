@@ -10,7 +10,6 @@ import java.util.Set;
 import tagger.data.Dataset;
 import tagger.data.DatasetExample;
 import tagger.data.DatasetException;
-import tagger.learning.Verbose_res;
 
 public class Evaluation {
 	private String nullTag;
@@ -83,7 +82,7 @@ public class Evaluation {
 	 * 
 	 * @throws DatasetException
 	 */
-	public Map<String, Verbose_res> evaluateSequences(Dataset dataset,
+	public Map<String, Performance> evaluateSequences(Dataset dataset,
 			String goldFeatureLabel, String predictedFeatureLabel)
 			throws DatasetException {
 
@@ -95,9 +94,9 @@ public class Evaluation {
 
 		// Store the results for each class and one more for the overall
 		// performance.
-		HashMap<String, Verbose_res> res = new HashMap<String, Verbose_res>();
+		HashMap<String, Performance> res = new HashMap<String, Performance>();
 
-		Verbose_res overall = new Verbose_res("overall");
+		Performance overall = new Performance("overall");
 		res.put(overall.L, overall);
 
 		int numSentences = dataset.getNumberOfExamples();
@@ -116,7 +115,7 @@ public class Evaluation {
 			// Count the total number of entities (nobjects) and the number of
 			// correctly identified entities (nfullycorrect).
 			for (TypedChunk ent : correct) {
-				Verbose_res resCurClass = getResultByClass(res, ent.type);
+				Performance resCurClass = getResultByClass(res, ent.type);
 				++resCurClass.nobjects;
 				++overall.nobjects;
 
@@ -128,7 +127,7 @@ public class Evaluation {
 
 			// Count the number of misidentified entities.
 			for (TypedChunk ent : predicted) {
-				Verbose_res resCurClass = getResultByClass(res, ent.type);
+				Performance resCurClass = getResultByClass(res, ent.type);
 				++resCurClass.nanswers;
 				++overall.nanswers;
 			}
@@ -141,11 +140,11 @@ public class Evaluation {
 		return res;
 	}
 
-	private Verbose_res getResultByClass(HashMap<String, Verbose_res> map,
+	private Performance getResultByClass(HashMap<String, Performance> map,
 			String type) {
-		Verbose_res res = map.get(type);
+		Performance res = map.get(type);
 		if (res == null) {
-			res = new Verbose_res(type);
+			res = new Performance(type);
 			map.put(type, res);
 		}
 		return res;

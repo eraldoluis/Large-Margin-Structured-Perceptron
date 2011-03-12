@@ -5,7 +5,7 @@ import java.util.Map;
 import tagger.core.HmmModel;
 import tagger.data.Dataset;
 import tagger.evaluation.Evaluation;
-import tagger.learning.Verbose_res;
+import tagger.evaluation.Performance;
 
 /**
  * Evaluate an HMM model using a given encoding. This means that all symbols in
@@ -65,7 +65,7 @@ public class TestHmmWithFixedEncoding {
 
 		// Evaluate the predicted values.
 		Evaluation ev = new Evaluation("0");
-		Map<String, Verbose_res> results = ev.evaluateSequences(testset,
+		Map<String, Performance> results = ev.evaluateSequences(testset,
 				stateFeatureLabel, "ne");
 
 		String[] labelOrder = { "LOC", "MISC", "ORG", "PER", "overall" };
@@ -74,7 +74,7 @@ public class TestHmmWithFixedEncoding {
 		System.out.println();
 		System.out.println("|  *Class*  |  *P*  |  *R*  |  *F*  |");
 		for (String label : labelOrder) {
-			Verbose_res res = results.get(label);
+			Performance res = results.get(label);
 			if (res == null)
 				continue;
 			System.out.println(String.format(

@@ -6,7 +6,7 @@ import tagger.core.HmmModel;
 import tagger.core.HmmModel.Smoothing;
 import tagger.data.Dataset;
 import tagger.evaluation.Evaluation;
-import tagger.learning.Verbose_res;
+import tagger.evaluation.Performance;
 
 /**
  * Evaluate a saved HMM model on the data within a given file. Write the results
@@ -84,7 +84,7 @@ public class TestHmm {
 
 		// Evaluate the predicted values.
 		Evaluation ev = new Evaluation("0");
-		Map<String, Verbose_res> results = ev.evaluateSequences(testset,
+		Map<String, Performance> results = ev.evaluateSequences(testset,
 				stateFeatureLabel, "ne");
 
 		String[] labelOrder = { "LOC", "MISC", "ORG", "PER", "overall" };
@@ -93,7 +93,7 @@ public class TestHmm {
 		System.out.println();
 		System.out.println("|  *Class*  |  *P*  |  *R*  |  *F*  |");
 		for (String label : labelOrder) {
-			Verbose_res res = results.get(label);
+			Performance res = results.get(label);
 			if (res == null)
 				continue;
 			System.out.println(String.format(

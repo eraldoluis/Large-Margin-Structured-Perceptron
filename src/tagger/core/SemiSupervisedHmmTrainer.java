@@ -7,7 +7,7 @@ import tagger.data.Dataset;
 import tagger.data.DatasetExample;
 import tagger.data.DatasetException;
 import tagger.evaluation.Evaluation;
-import tagger.learning.Verbose_res;
+import tagger.evaluation.Performance;
 
 /**
  * Generative semi-supervised HMM trainer.
@@ -146,7 +146,7 @@ public class SemiSupervisedHmmTrainer extends UnsupervisedHmmTrainer {
 
 		// Evaluate the predicted values.
 		Evaluation ev = new Evaluation("0");
-		Map<String, Verbose_res> results = ev.evaluateSequences(testset,
+		Map<String, Performance> results = ev.evaluateSequences(testset,
 				stateFtrLabel, "ne");
 
 		String[] labelOrder = { "LOC", "MISC", "ORG", "PER", "overall" };
@@ -155,7 +155,7 @@ public class SemiSupervisedHmmTrainer extends UnsupervisedHmmTrainer {
 		System.out.println("Iteration #" + iter);
 		System.out.println("|  *Class*  |  *P*  |  *R*  |  *F*  |");
 		for (String label : labelOrder) {
-			Verbose_res res = results.get(label);
+			Performance res = results.get(label);
 			if (res == null)
 				continue;
 			System.out.println(String.format(

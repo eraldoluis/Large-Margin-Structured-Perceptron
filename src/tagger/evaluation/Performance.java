@@ -1,26 +1,26 @@
-package tagger.learning;
+package tagger.evaluation;
 
 import java.io.PrintStream;
 
-public class Verbose_res {
+public class Performance {
 	public String L;
 	public int nobjects, nanswers, nfullycorrect;
 
-	public Verbose_res() {
+	public Performance() {
 		L = "";
 		nobjects = 0;
 		nanswers = 0;
 		nfullycorrect = 0;
 	}
 
-	public Verbose_res(String label) {
+	public Performance(String label) {
 		L = label;
 		nobjects = 0;
 		nanswers = 0;
 		nfullycorrect = 0;
 	}
 
-	public Verbose_res(String _L, int _no, int _na) {
+	public Performance(String _L, int _no, int _na) {
 		L = _L;
 		nobjects = _no;
 		nanswers = _na;
