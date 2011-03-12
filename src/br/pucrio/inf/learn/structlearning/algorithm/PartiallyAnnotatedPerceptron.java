@@ -32,8 +32,8 @@ public class PartiallyAnnotatedPerceptron extends Perceptron {
 	}
 
 	@Override
-	public double trainOneExample(ExampleInput input, ExampleOutput correctOutput,
-			ExampleOutput predictedOutput) {
+	public double trainOneExample(ExampleInput input,
+			ExampleOutput correctOutput, ExampleOutput predictedOutput) {
 
 		try {
 

@@ -1,5 +1,6 @@
 package br.pucrio.inf.learn.structlearning.application.sequence;
 
+import java.util.Arrays;
 import java.util.Collection;
 
 import br.pucrio.inf.learn.structlearning.data.ExampleOutput;
@@ -76,6 +77,13 @@ public class SequenceOutput implements ExampleOutput {
 		SequenceOutput copy = new SequenceOutput();
 		copy.labels = labels.clone();
 		return copy;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (getClass() != obj.getClass())
+			return false;
+		return Arrays.equals(labels, ((SequenceOutput) obj).labels);
 	}
 
 }

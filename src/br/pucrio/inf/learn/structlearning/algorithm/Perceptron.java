@@ -208,6 +208,59 @@ public class Perceptron {
 		model.average(iteration);
 	}
 
+	public void train(ExampleInput[] inputsA, ExampleOutput[] outputsA,
+			double weightA, ExampleInput[] inputsB, ExampleOutput[] outputsB,
+			StringEncoding featureEncoding, StringEncoding stateEncoding) {
+
+		// Allocate predicted output objects for the training example.
+		ExampleOutput[] predictedsA = new ExampleOutput[outputsA.length];
+		for (int idx = 0; idx < inputsA.length; ++idx)
+			predictedsA[idx] = inputsA[idx].createOutput();
+		ExampleOutput[] predictedsB = new ExampleOutput[outputsB.length];
+		for (int idx = 0; idx < inputsB.length; ++idx)
+			predictedsB[idx] = inputsB[idx].createOutput();
+
+		if (listener != null)
+			if (!listener.beforeTraining(taskImpl, model))
+				return;
+
+		iteration = 0;
+		int epoch;
+		for (epoch = 0; epoch < numberOfEpochs; ++epoch) {
+
+			LOG.info("Perceptron epoch: " + epoch + "...");
+
+			if (listener != null)
+				if (!listener.beforeEpoch(taskImpl, model, epoch, iteration))
+					// Stop training.
+					break;
+
+			// Train one epoch and get the accumulated loss.
+			double loss = trainOneEpoch(inputsA, outputsA, predictedsA,
+					weightA, inputsB, outputsB, predictedsB, featureEncoding,
+					stateEncoding);
+
+			LOG.info("Training loss: " + loss);
+
+			if (listener != null) {
+				if (!listener.afterEpoch(taskImpl, model, epoch, loss,
+						iteration)) {
+					// Account the current epoch since it is concluded.
+					++epoch;
+					// Stop training.
+					break;
+				}
+			}
+
+		}
+
+		if (listener != null)
+			listener.afterTraining(taskImpl, model);
+
+		// Averaged-Perceptron: average the final weights.
+		model.average(iteration);
+	}
+
 	/**
 	 * Train one epoch over the given input/output pairs.
 	 * 
@@ -250,6 +303,56 @@ public class Perceptron {
 					&& (iteration + 1) % progressReportInterval == 0)
 				System.out
 						.print((100 * (iteration % inputs.length) / inputs.length)
+								+ "% ");
+
+		}
+
+		if (progressReportInterval > 0)
+			System.out.println("done.");
+
+		return loss;
+
+	}
+
+	public double trainOneEpoch(ExampleInput[] inputsA,
+			ExampleOutput[] outputsA, ExampleOutput[] predictedsA,
+			double weightA, ExampleInput[] inputsB, ExampleOutput[] outputsB,
+			ExampleOutput[] predictedsB, StringEncoding featureEncoding,
+			StringEncoding stateEncoding) {
+
+		// Accumulate the loss over all examples in this epoch.
+		double loss = 0d;
+
+		if (progressReportInterval > 0)
+			System.out.print("Progress: ");
+
+		int totalLength = inputsA.length + inputsB.length;
+
+		// Iterate over the training examples, updating the weight vector.
+		for (int idx = 0; idx < totalLength; ++idx, ++iteration) {
+
+			// Randomize the order to process the training examples.
+			double aOrB = random.nextDouble();
+			if (aOrB <= weightA) {
+				// Train on A example.
+				int idxEx = random.nextInt(inputsA.length);
+				// Update the current model weights according with the predicted
+				// output for this training example.
+				loss += trainOneExample(inputsA[idxEx], outputsA[idxEx],
+						predictedsA[idxEx]);
+			} else {
+				// Train on B example.
+				int idxEx = random.nextInt(inputsB.length);
+				// Update the current model weights according with the predicted
+				// output for this training example.
+				loss += trainOneExample(inputsB[idxEx], outputsB[idxEx],
+						predictedsB[idxEx]);
+			}
+
+			if (progressReportInterval > 0
+					&& (iteration + 1) % progressReportInterval == 0)
+				System.out
+						.print((100 * (iteration % totalLength) / totalLength)
 								+ "% ");
 
 		}

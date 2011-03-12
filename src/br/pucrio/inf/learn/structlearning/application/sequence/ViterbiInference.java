@@ -26,6 +26,7 @@ public class ViterbiInference implements TaskImplementation {
 
 	public ViterbiInference(int defaultState) {
 		this.defaultState = defaultState;
+		this.nonAnnotatedStateCode = -1;
 	}
 
 	public ViterbiInference(int defaultState, int nonAnnotatedStateCode) {

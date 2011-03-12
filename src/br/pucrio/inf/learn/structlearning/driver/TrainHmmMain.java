@@ -31,6 +31,8 @@ public class TrainHmmMain implements Driver.Command {
 
 	private static final Log LOG = LogFactory.getLog(TrainHmmMain.class);
 
+	private static final int NON_ANNOTATED_LABEL_CODE = -33;
+
 	@SuppressWarnings("static-access")
 	@Override
 	public void run(String[] args) {
@@ -38,6 +40,21 @@ public class TrainHmmMain implements Driver.Command {
 		options.addOption(OptionBuilder.withLongOpt("incorpus").isRequired()
 				.withArgName("input corpus").hasArg()
 				.withDescription("Input corpus file name.").create('i'));
+		options.addOption(OptionBuilder
+				.withLongOpt("inadd")
+				.withArgName("additional corpus,weight")
+				.hasArg()
+				.withDescription(
+						"Additional corpus file name "
+								+ "and its weight separated by comma.")
+				.create());
+		options.addOption(OptionBuilder
+				.withLongOpt("model")
+				.hasArg()
+				.withArgName("model filename")
+				.withDescription(
+						"Name of the file to save the resulting model.")
+				.create('o'));
 		options.addOption(OptionBuilder
 				.withLongOpt("numepochs")
 				.withArgName("number of epochs")
@@ -71,6 +88,14 @@ public class TrainHmmMain implements Driver.Command {
 						"List of state labels separated by commas. "
 								+ "This can be usefull to specify the preference order of state labels. "
 								+ "This option overwrite the following 'tagset' option.")
+				.create());
+		options.addOption(OptionBuilder
+				.withLongOpt("encoding")
+				.withArgName("feature values encoding file")
+				.hasArg()
+				.withDescription(
+						"Filename that contains a list of considered feature values."
+								+ " Any feature value not present in this file is ignored.")
 				.create());
 		options.addOption(OptionBuilder
 				.withLongOpt("tagset")
@@ -126,7 +151,9 @@ public class TrainHmmMain implements Driver.Command {
 		CommandLineOptionsUtil.printOptionValues(cmdLine, options);
 
 		// Get the options specified in the command-line.
-		String inputCorpusFileName = cmdLine.getOptionValue('i');
+		String[] inputCorpusFileNames = cmdLine.getOptionValues('i');
+		String additionalCorpusFileName = cmdLine.getOptionValue("inadd");
+		String modelFileName = cmdLine.getOptionValue('o');
 		int numEpochs = Integer.parseInt(cmdLine.getOptionValue('T', "10"));
 		double learningRate = Double.parseDouble(cmdLine.getOptionValue(
 				"learnrate", "1"));
@@ -135,37 +162,70 @@ public class TrainHmmMain implements Driver.Command {
 		String testCorpusFileName = cmdLine.getOptionValue('t');
 		boolean evalPerEpoch = cmdLine.hasOption("perepoch");
 		String labels = cmdLine.getOptionValue("labels");
+		String encodingFile = cmdLine.getOptionValue("encoding");
 		String tagsetFileName = cmdLine.getOptionValue("tagset");
 		String nonAnnotatedLabel = cmdLine.getOptionValue("nonannlabel");
 		int progressInterval = Integer.parseInt(cmdLine.getOptionValue(
 				"progress", "0"));
 		// boolean verbose = cmdLine.hasOption('v');
 
-		Dataset inputCorpus = null;
+		LOG.info("Loading input corpus...");
+		Dataset inputCorpusA = null;
+		Dataset inputCorpusB = null;
+		double weightAdditionalCorpus = 0d;
 		try {
 
-			LOG.info("Loading input corpus: " + inputCorpusFileName + "...");
+			// Create (or load) feature values encoding.
+			StringEncoding featureEncoding;
+			if (encodingFile != null)
+				featureEncoding = new StringEncoding(encodingFile);
+			else
+				featureEncoding = new StringEncoding();
 
+			// Create state labels encoding.
+			StringEncoding stateEncoding = null;
 			if (labels != null)
-				// State set provided explicitly as a command-line argument.
-				inputCorpus = new Dataset(new StringEncoding(),
-						new StringEncoding(labels.split(",")),
-						nonAnnotatedLabel, -1);
+				// State set given in the command-line.
+				stateEncoding = new StringEncoding(labels.split(","));
 			else if (tagsetFileName != null)
-				// State set provided in a tagset file.
-				inputCorpus = new Dataset(new StringEncoding(),
-						new StringEncoding(tagsetFileName), nonAnnotatedLabel,
-						-1);
+				// State set given in a file.
+				stateEncoding = new StringEncoding(tagsetFileName);
 			else
 				// State set automatically retrieved from training data (codes
 				// depend on order of appereance of the labels).
-				inputCorpus = new Dataset(new StringEncoding(),
-						new StringEncoding(), nonAnnotatedLabel, -1);
+				stateEncoding = new StringEncoding();
 
-			if (inputCorpusFileName.equals("stdin"))
-				inputCorpus.load(System.in);
+			// Get the list of input paths and concatenate the corpora in them.
+			inputCorpusA = new Dataset(featureEncoding, stateEncoding,
+					nonAnnotatedLabel, NON_ANNOTATED_LABEL_CODE);
+
+			// Load the first data file, which can be the standard input.
+			if (inputCorpusFileNames[0].equals("stdin"))
+				inputCorpusA.load(System.in);
 			else
-				inputCorpus.load(inputCorpusFileName);
+				inputCorpusA.load(inputCorpusFileNames[0]);
+
+			// Load other data files.
+			for (int idxFile = 1; idxFile < inputCorpusFileNames.length; ++idxFile) {
+				Dataset other = new Dataset(inputCorpusFileNames[idxFile],
+						featureEncoding, stateEncoding, nonAnnotatedLabel,
+						NON_ANNOTATED_LABEL_CODE);
+				inputCorpusA.add(other);
+			}
+
+			if (additionalCorpusFileName != null) {
+				if (additionalCorpusFileName.contains(",")) {
+					String[] fileNameAndWeight = additionalCorpusFileName
+							.split(",");
+					additionalCorpusFileName = fileNameAndWeight[0];
+					weightAdditionalCorpus = Double
+							.parseDouble(fileNameAndWeight[1]);
+				}
+
+				inputCorpusB = new Dataset(additionalCorpusFileName,
+						featureEncoding, stateEncoding, nonAnnotatedLabel,
+						NON_ANNOTATED_LABEL_CODE);
+			}
 
 		} catch (Exception e) {
 			LOG.error("Loading input corpus", e);
@@ -173,39 +233,38 @@ public class TrainHmmMain implements Driver.Command {
 		}
 
 		LOG.info("Allocating initial model...");
-		ViterbiInference viterbi = new ViterbiInference(inputCorpus
+		ViterbiInference viterbi = new ViterbiInference(inputCorpusA
 				.getStateEncoding().put(defaultLabel));
-		ArrayBasedHmm hmm = new ArrayBasedHmm(inputCorpus.getNumberOfStates(),
-				inputCorpus.getNumberOfSymbols());
+		ArrayBasedHmm hmm = new ArrayBasedHmm(inputCorpusA.getNumberOfStates(),
+				inputCorpusA.getNumberOfSymbols());
 
-		Perceptron alg;
-		if (nonAnnotatedLabel == null)
-			alg = new Perceptron(viterbi, hmm, numEpochs, learningRate);
-		else {
+		Perceptron alg = null;
+		if (nonAnnotatedLabel != null) {
 			// Non-annotated state label was specified and therefore the input
 			// dataset can contain non-annotated tokens that must be properly
 			// tackled by the inference algorithms.
-			viterbi.setNonAnnotatedStateCode(-1);
+			viterbi.setNonAnnotatedStateCode(NON_ANNOTATED_LABEL_CODE);
 			alg = new PartiallyAnnotatedPerceptron(viterbi, hmm, numEpochs,
 					learningRate);
-		}
+		} else
+			alg = new Perceptron(viterbi, hmm, numEpochs, learningRate);
 
 		alg.setProgressReportInterval(progressInterval);
 
+		// Ignore features not seen in the training corpus.
+		inputCorpusA.getFeatureEncoding().setReadOnly(true);
+		inputCorpusA.getStateEncoding().setReadOnly(true);
+
 		// Evaluation after each training epoch.
 		if (testCorpusFileName != null && evalPerEpoch) {
-			// Ignore features not seen in the training corpus.
-			inputCorpus.getFeatureEncoding().setReadOnly(true);
-			inputCorpus.getStateEncoding().setReadOnly(true);
-
 			try {
 
 				LOG.info("Loading and preparing test data...");
 				Dataset testset = new Dataset(testCorpusFileName,
-						inputCorpus.getFeatureEncoding(),
-						inputCorpus.getStateEncoding());
+						inputCorpusA.getFeatureEncoding(),
+						inputCorpusA.getStateEncoding());
 				alg.setListener(new EvaluateModelListener(testset.getInputs(),
-						testset.getOutputs(), inputCorpus.getStateEncoding(),
+						testset.getOutputs(), inputCorpusA.getStateEncoding(),
 						nullLabel));
 
 			} catch (Exception e) {
@@ -215,17 +274,34 @@ public class TrainHmmMain implements Driver.Command {
 		}
 
 		LOG.info("Training model...");
-		alg.train(inputCorpus.getInputs(), inputCorpus.getOutputs(),
-				inputCorpus.getFeatureEncoding(),
-				inputCorpus.getStateEncoding());
+		if (inputCorpusB == null) {
+			// Train on only one type of examples.
+			alg.train(inputCorpusA.getInputs(), inputCorpusA.getOutputs(),
+					inputCorpusA.getFeatureEncoding(),
+					inputCorpusA.getStateEncoding());
+		} else {
+			// Train on two types of examples for which you have different
+			// weights.
+			if (weightAdditionalCorpus <= 0d)
+				weightAdditionalCorpus = ((double) inputCorpusB
+						.getNumberOfExamples())
+						/ (inputCorpusA.getNumberOfExamples() + inputCorpusB
+								.getNumberOfExamples());
+			alg.train(inputCorpusA.getInputs(), inputCorpusA.getOutputs(),
+					1d - weightAdditionalCorpus, inputCorpusB.getInputs(),
+					inputCorpusB.getOutputs(),
+					inputCorpusA.getFeatureEncoding(),
+					inputCorpusA.getStateEncoding());
+		}
 
+		// Evaluation but only for the final model.
 		if (testCorpusFileName != null && !evalPerEpoch) {
 			try {
 
 				LOG.info("Loading and preparing test data...");
 				Dataset testset = new Dataset(testCorpusFileName,
-						inputCorpus.getFeatureEncoding(),
-						inputCorpus.getStateEncoding());
+						inputCorpusA.getFeatureEncoding(),
+						inputCorpusA.getStateEncoding());
 
 				// Allocate output sequences for predictions.
 				SequenceInput[] inputs = testset.getInputs();
@@ -235,7 +311,7 @@ public class TrainHmmMain implements Driver.Command {
 					predicteds[idx] = (SequenceOutput) inputs[idx]
 							.createOutput();
 				IobChunkEvaluation eval = new IobChunkEvaluation(
-						inputCorpus.getStateEncoding(), nullLabel);
+						inputCorpusA.getStateEncoding(), nullLabel);
 
 				// Fill the list of predicted outputs.
 				for (int idx = 0; idx < inputs.length; ++idx)
@@ -267,15 +343,17 @@ public class TrainHmmMain implements Driver.Command {
 			}
 		}
 
-		LOG.info("Saving final model...");
-		PrintStream ps;
-		try {
-			ps = new PrintStream("model.simple");
-			hmm.save(ps, inputCorpus.getFeatureEncoding(),
-					inputCorpus.getStateEncoding());
-			ps.close();
-		} catch (FileNotFoundException e) {
-			LOG.error("Saving model", e);
+		if (modelFileName != null) {
+			LOG.info("Saving final model...");
+			PrintStream ps;
+			try {
+				ps = new PrintStream(modelFileName);
+				hmm.save(ps, inputCorpusA.getFeatureEncoding(),
+						inputCorpusA.getStateEncoding());
+				ps.close();
+			} catch (FileNotFoundException e) {
+				LOG.error("Saving model " + modelFileName, e);
+			}
 		}
 
 		LOG.info("Training done!");

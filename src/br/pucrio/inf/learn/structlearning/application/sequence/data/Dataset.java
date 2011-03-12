@@ -237,6 +237,46 @@ public class Dataset {
 	}
 
 	/**
+	 * Add the examples in the given dataset to this dataset.
+	 * 
+	 * @param other
+	 */
+	public void add(Dataset other) throws DatasetException {
+		if (!featureEncoding.equals(other.featureEncoding)
+				|| !stateEncoding.equals(other.stateEncoding))
+			throw new DatasetException("Different encodings");
+
+		// Alloc room to store both datasets (this one and the given one).
+		String[] newExampleIDs = new String[exampleIDs.length
+				+ other.exampleIDs.length];
+		SequenceInput[] newInputSequences = new SequenceInput[inputSequences.length
+				+ other.inputSequences.length];
+		SequenceOutput[] newOutputSequences = new SequenceOutput[outputSequences.length
+				+ other.outputSequences.length];
+
+		// Copy (only reference) the examples in this dataset to the new arrays.
+		int idx = 0;
+		for (; idx < inputSequences.length; ++idx) {
+			newExampleIDs[idx] = exampleIDs[idx];
+			newInputSequences[idx] = inputSequences[idx];
+			newOutputSequences[idx] = outputSequences[idx];
+		}
+
+		// Copy (only reference) the examples in the given dataset to the new
+		// arrays.
+		for (int idxO = 0; idxO < other.exampleIDs.length; ++idxO, ++idx) {
+			newExampleIDs[idx] = other.exampleIDs[idxO];
+			newInputSequences[idx] = other.inputSequences[idxO];
+			newOutputSequences[idx] = other.outputSequences[idxO];
+		}
+
+		// Adjust the pointers of this dataset to the new arrays.
+		this.exampleIDs = newExampleIDs;
+		this.inputSequences = newInputSequences;
+		this.outputSequences = newOutputSequences;
+	}
+
+	/**
 	 * Skip blank lines and lines starting by the comment character #.
 	 * 
 	 * @param reader
@@ -296,8 +336,11 @@ public class Dataset {
 			// Parse the token features.
 			String[] features = token.split("[ ]");
 			LinkedList<Integer> featureList = new LinkedList<Integer>();
-			for (int idxFtr = 0; idxFtr < features.length - 1; ++idxFtr)
-				featureList.add(featureEncoding.put(features[idxFtr]));
+			for (int idxFtr = 0; idxFtr < features.length - 1; ++idxFtr) {
+				int code = featureEncoding.put(features[idxFtr]);
+				if (code >= 0)
+					featureList.add(code);
+			}
 
 			// The last feature is the token label.
 			String label = features[features.length - 1];
