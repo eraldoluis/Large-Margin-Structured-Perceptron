@@ -71,9 +71,9 @@ public class Perceptron {
 	protected boolean randomize;
 
 	/**
-	 * Report progress after processing this number of examples.
+	 * Report progress with this rate;
 	 */
-	protected int progressReportInterval;
+	protected double reportProgressRate;
 
 	/**
 	 * Create a perceptron to train the given initial model using the default
@@ -208,6 +208,74 @@ public class Perceptron {
 		model.average(iteration);
 	}
 
+	/**
+	 * Train one epoch over the given input/output pairs.
+	 * 
+	 * @param inputs
+	 *            list of input sequences
+	 * @param outputs
+	 *            list of correct output sequences
+	 * @param predicteds
+	 *            list of output sequences used to store the predicted values
+	 * @param featureEncoding
+	 *            encoding of feature values
+	 * @param stateEncoding
+	 *            encoding of state labels
+	 * @return the sum of the losses over all examples through this epoch
+	 */
+	public double trainOneEpoch(ExampleInput[] inputs, ExampleOutput[] outputs,
+			ExampleOutput[] predicteds, StringEncoding featureEncoding,
+			StringEncoding stateEncoding) {
+
+		// Accumulate the loss over all examples in this epoch.
+		double loss = 0d;
+
+		int reportProgressInterval = (int) (inputs.length * reportProgressRate);
+		if (reportProgressInterval > 0)
+			System.out.print("Progress: ");
+
+		// Iterate over the training examples, updating the weight vector.
+		for (int idx = 0; idx < inputs.length; ++idx, ++iteration) {
+
+			int idxEx = idx;
+			if (randomize)
+				// Randomize the order to process the training examples.
+				idxEx = random.nextInt(inputs.length);
+
+			// Update the current model weights according with the predicted
+			// output for this training example.
+			loss += trainOneExample(inputs[idxEx], outputs[idxEx],
+					predicteds[idxEx]);
+
+			if (reportProgressInterval > 0
+					&& (iteration + 1) % reportProgressInterval == 0)
+				System.out
+						.print((100 * (iteration % inputs.length) / inputs.length)
+								+ "% ");
+
+		}
+
+		if (reportProgressInterval > 0)
+			System.out.println("done.");
+
+		return loss;
+
+	}
+
+	/**
+	 * Train a model on two datasets. The first dataset (A) has a different
+	 * weight and this weight is used to modify the sampling probability of the
+	 * examples such that the probability of picking an example from the A is
+	 * equal to weightA.
+	 * 
+	 * @param inputsA
+	 * @param outputsA
+	 * @param weightA
+	 * @param inputsB
+	 * @param outputsB
+	 * @param featureEncoding
+	 * @param stateEncoding
+	 */
 	public void train(ExampleInput[] inputsA, ExampleOutput[] outputsA,
 			double weightA, ExampleInput[] inputsB, ExampleOutput[] outputsB,
 			StringEncoding featureEncoding, StringEncoding stateEncoding) {
@@ -262,58 +330,19 @@ public class Perceptron {
 	}
 
 	/**
-	 * Train one epoch over the given input/output pairs.
+	 * Train one epoch over the two given datasets.
 	 * 
-	 * @param inputs
-	 *            list of input sequences
-	 * @param outputs
-	 *            list of correct output sequences
-	 * @param predicteds
-	 *            list of output sequences used to store the predicted values
+	 * @param inputsA
+	 * @param outputsA
+	 * @param predictedsA
+	 * @param weightA
+	 * @param inputsB
+	 * @param outputsB
+	 * @param predictedsB
 	 * @param featureEncoding
-	 *            encoding of feature values
 	 * @param stateEncoding
-	 *            encoding of state labels
-	 * @return the sum of the losses over all examples through this epoch
+	 * @return
 	 */
-	public double trainOneEpoch(ExampleInput[] inputs, ExampleOutput[] outputs,
-			ExampleOutput[] predicteds, StringEncoding featureEncoding,
-			StringEncoding stateEncoding) {
-
-		// Accumulate the loss over all examples in this epoch.
-		double loss = 0d;
-
-		if (progressReportInterval > 0)
-			System.out.print("Progress: ");
-
-		// Iterate over the training examples, updating the weight vector.
-		for (int idx = 0; idx < inputs.length; ++idx, ++iteration) {
-
-			int idxEx = idx;
-			if (randomize)
-				// Randomize the order to process the training examples.
-				idxEx = random.nextInt(inputs.length);
-
-			// Update the current model weights according with the predicted
-			// output for this training example.
-			loss += trainOneExample(inputs[idxEx], outputs[idxEx],
-					predicteds[idxEx]);
-
-			if (progressReportInterval > 0
-					&& (iteration + 1) % progressReportInterval == 0)
-				System.out
-						.print((100 * (iteration % inputs.length) / inputs.length)
-								+ "% ");
-
-		}
-
-		if (progressReportInterval > 0)
-			System.out.println("done.");
-
-		return loss;
-
-	}
-
 	public double trainOneEpoch(ExampleInput[] inputsA,
 			ExampleOutput[] outputsA, ExampleOutput[] predictedsA,
 			double weightA, ExampleInput[] inputsB, ExampleOutput[] outputsB,
@@ -323,41 +352,46 @@ public class Perceptron {
 		// Accumulate the loss over all examples in this epoch.
 		double loss = 0d;
 
-		if (progressReportInterval > 0)
+		int totalLength = inputsA.length; // TODO + inputsB.length;
+
+		int reportProgressInterval = (int) (totalLength * reportProgressRate);
+		if (reportProgressInterval > 0)
 			System.out.print("Progress: ");
 
-		int totalLength = inputsA.length + inputsB.length;
-
 		// Iterate over the training examples, updating the weight vector.
-		for (int idx = 0; idx < totalLength; ++idx, ++iteration) {
+		for (int idx = 0, idxA = 0, idxB = 0; idx < totalLength; ++idx, ++iteration) {
 
 			// Randomize the order to process the training examples.
 			double aOrB = random.nextDouble();
 			if (aOrB <= weightA) {
 				// Train on A example.
-				int idxEx = random.nextInt(inputsA.length);
+				int idxEx = idxA;
+				if (randomize)
+					idxEx = random.nextInt(inputsA.length);
 				// Update the current model weights according with the predicted
 				// output for this training example.
 				loss += trainOneExample(inputsA[idxEx], outputsA[idxEx],
 						predictedsA[idxEx]);
 			} else {
 				// Train on B example.
-				int idxEx = random.nextInt(inputsB.length);
+				int idxEx = idxB;
+				if (randomize)
+					idxEx = random.nextInt(inputsB.length);
 				// Update the current model weights according with the predicted
 				// output for this training example.
 				loss += trainOneExample(inputsB[idxEx], outputsB[idxEx],
 						predictedsB[idxEx]);
 			}
 
-			if (progressReportInterval > 0
-					&& (iteration + 1) % progressReportInterval == 0)
-				System.out
-						.print((100 * (iteration % totalLength) / totalLength)
-								+ "% ");
+			if (reportProgressInterval > 0
+					&& (iteration + 1) % reportProgressInterval == 0)
+				System.out.print((int) Math.round(100
+						* (iteration % totalLength) / (double) totalLength)
+						+ "% ");
 
 		}
 
-		if (progressReportInterval > 0)
+		if (reportProgressInterval > 0)
 			System.out.println("done.");
 
 		return loss;
@@ -388,13 +422,14 @@ public class Perceptron {
 	}
 
 	/**
-	 * Set the interval in number of examples to report the training progress
-	 * within each epoch. If this value is zero, no progress is reported.
+	 * Set the rate in which the training progress (within each epoch) is
+	 * reported.
 	 * 
-	 * @param progressReportInterval
+	 * @param rate
+	 *            number between 0 and 1.
 	 */
-	public void setProgressReportInterval(int progressReportInterval) {
-		this.progressReportInterval = progressReportInterval;
+	public void setReportProgressRate(double rate) {
+		reportProgressRate = rate;
 	}
 
 	/**

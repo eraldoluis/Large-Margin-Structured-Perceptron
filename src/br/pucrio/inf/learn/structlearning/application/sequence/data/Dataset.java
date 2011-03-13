@@ -9,6 +9,9 @@ import java.io.PrintStream;
 import java.util.Collection;
 import java.util.LinkedList;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
 import br.pucrio.inf.learn.structlearning.application.sequence.SequenceInput;
 import br.pucrio.inf.learn.structlearning.application.sequence.SequenceOutput;
 import br.pucrio.inf.learn.structlearning.data.StringEncoding;
@@ -25,6 +28,8 @@ import br.pucrio.inf.learn.structlearning.data.StringEncoding;
  * 
  */
 public class Dataset {
+
+	private static final Log LOG = LogFactory.getLog(Dataset.class);
 
 	/**
 	 * Map string feature values to integer values (codes).
@@ -62,6 +67,12 @@ public class Dataset {
 	protected int nonAnnotatedStateCode;
 
 	/**
+	 * If <code>true</code>, when loading partially-labeled datasets, skip
+	 * examples that do not include any label.
+	 */
+	protected boolean skipCompletelyNonAnnotatedExamples;
+
+	/**
 	 * Default constructor.
 	 */
 	public Dataset() {
@@ -79,6 +90,7 @@ public class Dataset {
 	public Dataset(StringEncoding featureEncoding, StringEncoding stateEncoding) {
 		this.featureEncoding = featureEncoding;
 		this.stateEncoding = stateEncoding;
+		this.skipCompletelyNonAnnotatedExamples = false;
 	}
 
 	public Dataset(StringEncoding featureEncoding,
@@ -88,6 +100,7 @@ public class Dataset {
 		this.stateEncoding = stateEncoding;
 		this.nonAnnotatedStateLabel = nonAnnotatedStateLabel;
 		this.nonAnnotatedStateCode = nonAnnotatedStateCode;
+		this.skipCompletelyNonAnnotatedExamples = false;
 	}
 
 	/**
@@ -153,6 +166,17 @@ public class Dataset {
 		this(featureEncoding, stateEncoding);
 		this.nonAnnotatedStateLabel = nonAnnotatedStateLabel;
 		this.nonAnnotatedStateCode = nonAnnotateStateCode;
+		load(fileName);
+	}
+
+	public Dataset(String fileName, StringEncoding featureEncoding,
+			StringEncoding stateEncoding, String nonAnnotatedStateLabel,
+			int nonAnnotateStateCode, boolean skipCompletelyNonAnnotatedExamples)
+			throws IOException, DatasetException {
+		this(featureEncoding, stateEncoding);
+		this.nonAnnotatedStateLabel = nonAnnotatedStateLabel;
+		this.nonAnnotatedStateCode = nonAnnotateStateCode;
+		this.skipCompletelyNonAnnotatedExamples = skipCompletelyNonAnnotatedExamples;
 		load(fileName);
 	}
 
@@ -227,9 +251,18 @@ public class Dataset {
 		LinkedList<SequenceOutput> outputSequences = new LinkedList<SequenceOutput>();
 
 		// Parse each example.
+		int numTotal = 0;
+		int numAdded = 0;
 		String buff;
-		while ((buff = skipBlanksAndComments(reader)) != null)
-			parseExample(ids, inputSequences, outputSequences, buff);
+		while ((buff = skipBlanksAndComments(reader)) != null) {
+			if (parseExample(ids, inputSequences, outputSequences, buff))
+				++numAdded;
+			++numTotal;
+		}
+
+		LOG.info("Skipped " + (numTotal - numAdded) + " examples of "
+				+ numTotal + " (" + (numTotal - numAdded) * 100d / numTotal
+				+ "%)");
 
 		this.exampleIDs = ids.toArray(new String[0]);
 		this.inputSequences = inputSequences.toArray(new SequenceInput[0]);
@@ -330,6 +363,8 @@ public class Dataset {
 		LinkedList<LinkedList<Integer>> sequenceInputAsList = new LinkedList<LinkedList<Integer>>();
 		LinkedList<Integer> sequenceOutputAsList = new LinkedList<Integer>();
 
+		boolean someAnnotatedToken = false;
+
 		for (int idxTkn = 1; idxTkn < tokens.length; ++idxTkn) {
 			String token = tokens[idxTkn];
 
@@ -350,18 +385,23 @@ public class Dataset {
 				// label. Note that the above test always returns false if the
 				// special label is null (totally annotated dataset).
 				sequenceOutputAsList.add(nonAnnotatedStateCode);
-			else
+			else {
 				sequenceOutputAsList.add(stateEncoding.put(label));
+				someAnnotatedToken = true;
+			}
 
 			sequenceInputAsList.add(featureList);
 		}
 
 		// Store the loaded example.
-		sequenceInputs.add(new SequenceInput(sequenceInputAsList));
-		sequenceOutputs.add(new SequenceOutput(sequenceOutputAsList,
-				sequenceOutputAsList.size()));
+		if (!skipCompletelyNonAnnotatedExamples || someAnnotatedToken) {
+			sequenceInputs.add(new SequenceInput(sequenceInputAsList));
+			sequenceOutputs.add(new SequenceOutput(sequenceOutputAsList,
+					sequenceOutputAsList.size()));
+			return true;
+		}
 
-		return true;
+		return false;
 	}
 
 	/**
@@ -446,6 +486,16 @@ public class Dataset {
 	 */
 	public int getNumberOfStates() {
 		return stateEncoding.size();
+	}
+
+	/**
+	 * If set to <code>true</code>, skip examples with no labeled token.
+	 * 
+	 * @param skipCompletelyNonAnnotatedExamples
+	 */
+	public void setSkipCompletelyNonAnnotatedExamples(
+			boolean skipCompletelyNonAnnotatedExamples) {
+		this.skipCompletelyNonAnnotatedExamples = skipCompletelyNonAnnotatedExamples;
 	}
 
 }
