@@ -248,10 +248,9 @@ public class Perceptron {
 					predicteds[idxEx]);
 
 			if (reportProgressInterval > 0
-					&& (iteration + 1) % reportProgressInterval == 0)
-				System.out
-						.print((100 * (iteration % inputs.length) / inputs.length)
-								+ "% ");
+					&& (idx + 1) % reportProgressInterval == 0)
+				System.out.print(Math.round((idx + 1) * 100d / inputs.length)
+						+ "% ");
 
 		}
 
@@ -271,14 +270,20 @@ public class Perceptron {
 	 * @param inputsA
 	 * @param outputsA
 	 * @param weightA
+	 *            weight of the first dataset (A) between 0 and 1.
+	 * @param weightStep
+	 *            if this value is greater than zero, then starts with a weight
+	 *            of 1 for the first dataset and after each epoch increase this
+	 *            weight by this step value.
 	 * @param inputsB
 	 * @param outputsB
 	 * @param featureEncoding
 	 * @param stateEncoding
 	 */
 	public void train(ExampleInput[] inputsA, ExampleOutput[] outputsA,
-			double weightA, ExampleInput[] inputsB, ExampleOutput[] outputsB,
-			StringEncoding featureEncoding, StringEncoding stateEncoding) {
+			double weightA, double weightStep, ExampleInput[] inputsB,
+			ExampleOutput[] outputsB, StringEncoding featureEncoding,
+			StringEncoding stateEncoding) {
 
 		// Allocate predicted output objects for the training example.
 		ExampleOutput[] predictedsA = new ExampleOutput[outputsA.length];
@@ -303,10 +308,15 @@ public class Perceptron {
 					// Stop training.
 					break;
 
+			// Adjust the weight for this epoch, if necessary.
+			double epochWeightA = weightA;
+			if (weightStep > 0d)
+				epochWeightA = Math.max(weightA, 1d - epoch * weightStep);
+
 			// Train one epoch and get the accumulated loss.
 			double loss = trainOneEpoch(inputsA, outputsA, predictedsA,
-					weightA, inputsB, outputsB, predictedsB, featureEncoding,
-					stateEncoding);
+					epochWeightA, inputsB, outputsB, predictedsB,
+					featureEncoding, stateEncoding);
 
 			LOG.info("Training loss: " + loss);
 
@@ -349,6 +359,8 @@ public class Perceptron {
 			ExampleOutput[] predictedsB, StringEncoding featureEncoding,
 			StringEncoding stateEncoding) {
 
+		LOG.info("Weight of first dataset in this epoch: " + weightA);
+
 		// Accumulate the loss over all examples in this epoch.
 		double loss = 0d;
 
@@ -384,9 +396,8 @@ public class Perceptron {
 			}
 
 			if (reportProgressInterval > 0
-					&& (iteration + 1) % reportProgressInterval == 0)
-				System.out.print((int) Math.round(100
-						* (iteration % totalLength) / (double) totalLength)
+					&& (idx + 1) % reportProgressInterval == 0)
+				System.out.print(Math.round((idx + 1) * 100d / totalLength)
 						+ "% ");
 
 		}
