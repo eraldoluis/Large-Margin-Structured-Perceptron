@@ -47,7 +47,8 @@ public class TestHmmWithFixedEncoding {
 		// Load the model.
 		HmmModel model = new HmmModel(modelFileName);
 		if (smooth > 0.0) {
-			model.setEmissionSmoothingProbability(smooth);
+			// TODO use new smoothing interface.
+			// model.setEmissionSmoothingProbability(smooth);
 			model.normalizeProbabilities();
 			model.applyLog();
 		}

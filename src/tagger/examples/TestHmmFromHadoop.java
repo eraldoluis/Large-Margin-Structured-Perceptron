@@ -46,7 +46,8 @@ public class TestHmmFromHadoop {
 		// Load the model.
 		HmmModel model = new HmmModel(modelFileName, true);
 		if (smooth > 0.0) {
-			model.setEmissionSmoothingProbability(smooth);
+			// TODO use new smoothing interface.
+			// model.setEmissionSmoothingProbability(smooth);
 			model.normalizeProbabilities();
 			model.applyLog();
 		}

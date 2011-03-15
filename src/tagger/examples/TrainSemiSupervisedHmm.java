@@ -54,7 +54,8 @@ public class TrainSemiSupervisedHmm {
 
 		// Smoothing emission probabilities.
 		if (smoothing > 0.0) {
-			model.setEmissionSmoothingProbability(smoothing);
+			// TODO use new smoothing interface.
+			// model.setEmissionSmoothingProbability(smoothing);
 			model.normalizeProbabilities();
 		}
 

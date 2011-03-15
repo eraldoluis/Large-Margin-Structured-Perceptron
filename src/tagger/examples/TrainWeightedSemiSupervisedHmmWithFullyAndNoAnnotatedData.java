@@ -6,7 +6,6 @@ import tagger.core.HmmModel;
 import tagger.core.SemiSupervisedHmmTrainer;
 import tagger.core.WeightedHmmTrainer;
 import tagger.data.Dataset;
-import tagger.data.DatasetExample;
 import tagger.utils.RandomGenerator;
 
 /**

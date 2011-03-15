@@ -136,11 +136,13 @@ public class SemiSupervisedHmmTrainer extends UnsupervisedHmmTrainer {
 		String stateFtrLabel = trainset.getFeatureLabel(stateFeature);
 
 		// Test the model on a testset.
-		model.setEmissionSmoothingProbability(1e-6);
+		// TODO use new smoothing interface.
+		// model.setEmissionSmoothingProbability(1e-6);
 		model.normalizeProbabilities();
 		model.applyLog();
 		model.tag(testset, observationFtrLabel, "ne");
-		model.setEmissionSmoothingProbability(0.0);
+		// TODO use new smoothing interface.
+		// model.setEmissionSmoothingProbability(0.0);
 		model.normalizeProbabilities();
 		model.applyLog();
 
