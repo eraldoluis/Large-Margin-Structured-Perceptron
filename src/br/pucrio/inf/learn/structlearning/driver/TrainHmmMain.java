@@ -32,6 +32,11 @@ public class TrainHmmMain implements Driver.Command {
 	private static final Log LOG = LogFactory.getLog(TrainHmmMain.class);
 
 	private static final int NON_ANNOTATED_LABEL_CODE = -33;
+	
+	// TODO debug
+	public static StringEncoding featureEncoding;
+	public static StringEncoding stateEncoding;
+	public static boolean print = false;
 
 	@SuppressWarnings("static-access")
 	@Override
@@ -198,6 +203,10 @@ public class TrainHmmMain implements Driver.Command {
 				// State set automatically retrieved from training data (codes
 				// depend on order of appereance of the labels).
 				stateEncoding = new StringEncoding();
+			
+			// TODO debug
+			TrainHmmMain.featureEncoding = featureEncoding;
+			TrainHmmMain.stateEncoding = stateEncoding;
 
 			// Get the list of input paths and concatenate the corpora in them.
 			inputCorpusA = new Dataset(featureEncoding, stateEncoding,
@@ -245,20 +254,24 @@ public class TrainHmmMain implements Driver.Command {
 				inputCorpusA.getNumberOfSymbols());
 
 		Perceptron alg = null;
-		if (true /* nonAnnotatedLabel != null */) {
+		if (nonAnnotatedLabel != null) {
 			// Non-annotated state label was specified and therefore the input
 			// dataset can contain non-annotated tokens that must be properly
-			// tackled by the inference algorithms.
+			// tackled by the inference algorithm.
 			viterbi.setNonAnnotatedStateCode(NON_ANNOTATED_LABEL_CODE);
 			alg = new PartiallyAnnotatedPerceptron(viterbi, hmm, numEpochs,
 					learningRate);
 		} else
+			// Ordinary perceptron algorithm: does not consider
+			// partially-annotated examples.
 			alg = new Perceptron(viterbi, hmm, numEpochs, learningRate);
 
 		if (seedStr != null)
+			// User provided seed to random number generator.
 			alg.setSeed(Long.parseLong(seedStr));
 
 		if (reportProgressRate != null)
+			// Progress report rate.
 			alg.setReportProgressRate(reportProgressRate);
 
 		// Ignore features not seen in the training corpus.
@@ -285,13 +298,15 @@ public class TrainHmmMain implements Driver.Command {
 
 		LOG.info("Training model...");
 		if (inputCorpusB == null) {
-			// Train on only one type of examples.
+			// Train on only one dataset.
 			alg.train(inputCorpusA.getInputs(), inputCorpusA.getOutputs(),
 					inputCorpusA.getFeatureEncoding(),
 					inputCorpusA.getStateEncoding());
 		} else {
-			// Train on two types of examples which use different weights.
+			// Train on two datasets.
 			if (weightAdditionalCorpus < 0d)
+				// If no different weight was given for the B dataset, then use
+				// a weight proportional to the sizes of the datasets.
 				weightAdditionalCorpus = ((double) inputCorpusB
 						.getNumberOfExamples())
 						/ (inputCorpusA.getNumberOfExamples() + inputCorpusB
@@ -303,7 +318,7 @@ public class TrainHmmMain implements Driver.Command {
 					inputCorpusA.getStateEncoding());
 		}
 
-		// Evaluation but only for the final model.
+		// Evaluation only for the final model.
 		if (testCorpusFileName != null && !evalPerEpoch) {
 			try {
 

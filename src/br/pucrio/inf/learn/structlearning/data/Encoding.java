@@ -150,6 +150,8 @@ public abstract class Encoding<ValueType> {
 	 * @return
 	 */
 	public ValueType getValueByCode(int code) {
+		if (code < 0)
+			return null;
 		return mapFromCodeToValue.get(code);
 	}
 

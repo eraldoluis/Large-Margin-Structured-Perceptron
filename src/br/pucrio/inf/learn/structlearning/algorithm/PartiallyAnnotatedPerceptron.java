@@ -3,8 +3,11 @@ package br.pucrio.inf.learn.structlearning.algorithm;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import br.pucrio.inf.learn.structlearning.application.sequence.SequenceInput;
+import br.pucrio.inf.learn.structlearning.application.sequence.SequenceOutput;
 import br.pucrio.inf.learn.structlearning.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.data.ExampleOutput;
+import br.pucrio.inf.learn.structlearning.driver.TrainHmmMain;
 import br.pucrio.inf.learn.structlearning.task.Model;
 import br.pucrio.inf.learn.structlearning.task.TaskImplementation;
 
@@ -40,6 +43,9 @@ public class PartiallyAnnotatedPerceptron extends Perceptron {
 			ExampleOutput filledPartiallyLabeledOutput = (ExampleOutput) correctOutput
 					.clone();
 
+			if (TrainHmmMain.print)
+				System.out.println("#");
+
 			// Label the non-annotated part of this example.
 			taskImpl.partialInference(model, input, correctOutput,
 					filledPartiallyLabeledOutput);
@@ -52,6 +58,29 @@ public class PartiallyAnnotatedPerceptron extends Perceptron {
 			// the given "correct" output.
 			double loss = model.update(input, filledPartiallyLabeledOutput,
 					predictedOutput, learningRate);
+
+			if (TrainHmmMain.print && loss != 0d) {
+				System.out.println("\nLoss: " + loss);
+				SequenceInput seqIn = (SequenceInput) input;
+				SequenceOutput seqCorOut = (SequenceOutput) correctOutput;
+				SequenceOutput seqFilOut = (SequenceOutput) filledPartiallyLabeledOutput;
+				SequenceOutput seqPreOut = (SequenceOutput) predictedOutput;
+				for (int tkn = 0; tkn < seqIn.size(); ++tkn) {
+					System.out.print(TrainHmmMain.featureEncoding
+							.getValueByCode(seqIn.getFeature(tkn, 0))
+							+ "_"
+							+ TrainHmmMain.stateEncoding
+									.getValueByCode(seqCorOut.getLabel(tkn))
+							+ "_"
+							+ TrainHmmMain.stateEncoding
+									.getValueByCode(seqFilOut.getLabel(tkn))
+							+ "_"
+							+ TrainHmmMain.stateEncoding
+									.getValueByCode(seqPreOut.getLabel(tkn))
+							+ "  ");
+				}
+				System.out.println();
+			}
 
 			// Averaged-Perceptron: account the updates into the averaged
 			// weights.

@@ -275,7 +275,8 @@ public class ViterbiInference implements TaskImplementation {
 			// as the best previous state.
 			psi[token][toState] = previousState;
 			delta[token][toState] = delta[token - 1][previousState]
-					+ hmm.getTransitionParameter(previousState, toState);
+					+ hmm.getTransitionParameter(previousState, toState)
+					+ hmm.getTokenEmissionWeight(input, token, toState);
 		}
 	}
 

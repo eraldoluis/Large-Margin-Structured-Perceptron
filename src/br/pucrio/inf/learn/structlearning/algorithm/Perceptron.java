@@ -8,6 +8,7 @@ import org.apache.commons.logging.LogFactory;
 import br.pucrio.inf.learn.structlearning.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.data.StringEncoding;
+import br.pucrio.inf.learn.structlearning.driver.TrainHmmMain;
 import br.pucrio.inf.learn.structlearning.task.Model;
 import br.pucrio.inf.learn.structlearning.task.TaskImplementation;
 
@@ -230,6 +231,7 @@ public class Perceptron {
 		// Accumulate the loss over all examples in this epoch.
 		double loss = 0d;
 
+		// Progress report.
 		int reportProgressInterval = (int) (inputs.length * reportProgressRate);
 		if (reportProgressInterval > 0)
 			System.out.print("Progress: ");
@@ -247,6 +249,7 @@ public class Perceptron {
 			loss += trainOneExample(inputs[idxEx], outputs[idxEx],
 					predicteds[idxEx]);
 
+			// Progress report.
 			if (reportProgressInterval > 0
 					&& (idx + 1) % reportProgressInterval == 0)
 				System.out.print(Math.round((idx + 1) * 100d / inputs.length)
@@ -254,6 +257,7 @@ public class Perceptron {
 
 		}
 
+		// Progress report.
 		if (reportProgressInterval > 0)
 			System.out.println("done.");
 
@@ -285,7 +289,7 @@ public class Perceptron {
 			ExampleOutput[] outputsB, StringEncoding featureEncoding,
 			StringEncoding stateEncoding) {
 
-		// Allocate predicted output objects for the training example.
+		// Allocate predicted output objects for the training examples.
 		ExampleOutput[] predictedsA = new ExampleOutput[outputsA.length];
 		for (int idx = 0; idx < inputsA.length; ++idx)
 			predictedsA[idx] = inputsA[idx].createOutput();
@@ -364,8 +368,13 @@ public class Perceptron {
 		// Accumulate the loss over all examples in this epoch.
 		double loss = 0d;
 
-		int totalLength = inputsA.length; // TODO + inputsB.length;
+		// Use only the dataset A length to determine the length of an epoch.
+		// This allows some easier comparison settings (per-epoch plots, for
+		// instance) among models trained with different B datasets but only one
+		// A dataset.
+		int totalLength = inputsA.length;
 
+		// Progress report.
 		int reportProgressInterval = (int) (totalLength * reportProgressRate);
 		if (reportProgressInterval > 0)
 			System.out.print("Progress: ");
@@ -373,28 +382,46 @@ public class Perceptron {
 		// Iterate over the training examples, updating the weight vector.
 		for (int idx = 0, idxA = 0, idxB = 0; idx < totalLength; ++idx, ++iteration) {
 
-			// Randomize the order to process the training examples.
+			// Randomly choose from A or B datasets.
 			double aOrB = random.nextDouble();
+
 			if (aOrB <= weightA) {
+
 				// Train on A example.
-				int idxEx = idxA;
+				int idxEx = idxA++;
+
 				if (randomize)
+					// Randomize the order to process the training examples.
 					idxEx = random.nextInt(inputsA.length);
+
 				// Update the current model weights according with the predicted
 				// output for this training example.
 				loss += trainOneExample(inputsA[idxEx], outputsA[idxEx],
 						predictedsA[idxEx]);
+
 			} else {
+
 				// Train on B example.
-				int idxEx = idxB;
+				int idxEx = idxB++;
+
 				if (randomize)
+					// Randomize the order to process the training examples.
 					idxEx = random.nextInt(inputsB.length);
+
+				// TODO debug
+				// TrainHmmMain.print = true;
+
 				// Update the current model weights according with the predicted
 				// output for this training example.
 				loss += trainOneExample(inputsB[idxEx], outputsB[idxEx],
 						predictedsB[idxEx]);
+
+				// TODO debug
+				// TrainHmmMain.print = false;
+
 			}
 
+			// Progress report.
 			if (reportProgressInterval > 0
 					&& (idx + 1) % reportProgressInterval == 0)
 				System.out.print(Math.round((idx + 1) * 100d / totalLength)
@@ -402,6 +429,7 @@ public class Perceptron {
 
 		}
 
+		// Progress report.
 		if (reportProgressInterval > 0)
 			System.out.println("done.");
 
