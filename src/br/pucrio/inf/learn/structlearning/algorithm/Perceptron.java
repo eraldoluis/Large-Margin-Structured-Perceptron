@@ -8,9 +8,8 @@ import org.apache.commons.logging.LogFactory;
 import br.pucrio.inf.learn.structlearning.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.data.StringEncoding;
-import br.pucrio.inf.learn.structlearning.driver.TrainHmmMain;
+import br.pucrio.inf.learn.structlearning.task.Inference;
 import br.pucrio.inf.learn.structlearning.task.Model;
-import br.pucrio.inf.learn.structlearning.task.TaskImplementation;
 
 /**
  * Perceptron-trained linear classifier with structural examples. This class
@@ -26,7 +25,7 @@ public class Perceptron {
 	/**
 	 * Task-specific implementation of inference algorithms.
 	 */
-	protected TaskImplementation taskImpl;
+	protected Inference inferenceImpl;
 
 	/**
 	 * Task-specific model.
@@ -77,12 +76,17 @@ public class Perceptron {
 	protected double reportProgressRate;
 
 	/**
+	 * If <code>true</code> then consider partially-annotated examples.
+	 */
+	protected boolean partiallyAnnotatedExamples;
+
+	/**
 	 * Create a perceptron to train the given initial model using the default
 	 * Collins' learning rate (1) and the default number of iterations (10).
 	 * 
 	 * @param initialModel
 	 */
-	public Perceptron(TaskImplementation taskImpl, Model initialModel) {
+	public Perceptron(Inference taskImpl, Model initialModel) {
 		this(taskImpl, initialModel, 10, 1d);
 	}
 
@@ -94,14 +98,24 @@ public class Perceptron {
 	 * @param numberOfEpochs
 	 * @param learningRate
 	 */
-	public Perceptron(TaskImplementation taskImpl, Model initialModel,
+	public Perceptron(Inference taskImpl, Model initialModel,
 			int numberOfEpochs, double learningRate) {
-		this.taskImpl = taskImpl;
+		this.inferenceImpl = taskImpl;
 		this.model = initialModel;
 		this.numberOfEpochs = numberOfEpochs;
 		this.learningRate = learningRate;
 		this.random = new Random();
 		this.randomize = true;
+	}
+
+	/**
+	 * Set to <code>true</code> if you want to consider partially-annotated
+	 * examples.
+	 * 
+	 * @param value
+	 */
+	public void setPartiallyAnnotatedExamples(boolean value) {
+		this.partiallyAnnotatedExamples = value;
 	}
 
 	public double getLearningRate() {
@@ -170,7 +184,7 @@ public class Perceptron {
 			predicteds[idx] = inputs[idx].createOutput();
 
 		if (listener != null)
-			if (!listener.beforeTraining(taskImpl, model))
+			if (!listener.beforeTraining(inferenceImpl, model))
 				return;
 
 		iteration = 0;
@@ -180,7 +194,8 @@ public class Perceptron {
 			LOG.info("Perceptron epoch: " + epoch + "...");
 
 			if (listener != null)
-				if (!listener.beforeEpoch(taskImpl, model, epoch, iteration))
+				if (!listener.beforeEpoch(inferenceImpl, model, epoch,
+						iteration))
 					// Stop training.
 					break;
 
@@ -191,7 +206,7 @@ public class Perceptron {
 			LOG.info("Training loss: " + loss);
 
 			if (listener != null) {
-				if (!listener.afterEpoch(taskImpl, model, epoch, loss,
+				if (!listener.afterEpoch(inferenceImpl, model, epoch, loss,
 						iteration)) {
 					// Account the current epoch since it is concluded.
 					++epoch;
@@ -203,7 +218,7 @@ public class Perceptron {
 		}
 
 		if (listener != null)
-			listener.afterTraining(taskImpl, model);
+			listener.afterTraining(inferenceImpl, model);
 
 		// Averaged-Perceptron: average the final weights.
 		model.average(iteration);
@@ -298,7 +313,7 @@ public class Perceptron {
 			predictedsB[idx] = inputsB[idx].createOutput();
 
 		if (listener != null)
-			if (!listener.beforeTraining(taskImpl, model))
+			if (!listener.beforeTraining(inferenceImpl, model))
 				return;
 
 		iteration = 0;
@@ -308,7 +323,8 @@ public class Perceptron {
 			LOG.info("Perceptron epoch: " + epoch + "...");
 
 			if (listener != null)
-				if (!listener.beforeEpoch(taskImpl, model, epoch, iteration))
+				if (!listener.beforeEpoch(inferenceImpl, model, epoch,
+						iteration))
 					// Stop training.
 					break;
 
@@ -325,7 +341,7 @@ public class Perceptron {
 			LOG.info("Training loss: " + loss);
 
 			if (listener != null) {
-				if (!listener.afterEpoch(taskImpl, model, epoch, loss,
+				if (!listener.afterEpoch(inferenceImpl, model, epoch, loss,
 						iteration)) {
 					// Account the current epoch since it is concluded.
 					++epoch;
@@ -337,7 +353,7 @@ public class Perceptron {
 		}
 
 		if (listener != null)
-			listener.afterTraining(taskImpl, model);
+			listener.afterTraining(inferenceImpl, model);
 
 		// Averaged-Perceptron: average the final weights.
 		model.average(iteration);
@@ -447,12 +463,29 @@ public class Perceptron {
 	 */
 	public double trainOneExample(ExampleInput input,
 			ExampleOutput correctOutput, ExampleOutput predictedOutput) {
+
 		// Predict the best output with the current mobel.
-		taskImpl.inference(model, input, predictedOutput);
+		inferenceImpl.inference(model, input, predictedOutput);
+
+		ExampleOutput referenceOutput = correctOutput;
+		if (partiallyAnnotatedExamples) {
+			// If the user asked to consider partially-labeled examples then
+			// infer the missing values within the given correct output
+			// structure before updating the current model.
+			referenceOutput = correctOutput.createNewObject();
+			inferenceImpl.partialInference(model, input, correctOutput,
+					referenceOutput);
+		}
 
 		// Update the current model and return the loss for this example.
-		double loss = model.update(input, correctOutput, predictedOutput,
+		double loss = model.update(input, referenceOutput, predictedOutput,
 				learningRate);
+
+		// TODO debug
+//		if (DebugUtil.print && loss != 0d)
+//			DebugUtil.printSequence((SequenceInput) input,
+//					(SequenceOutput) correctOutput,
+//					(SequenceOutput) referenceOutput, loss);
 
 		// Averaged-Perceptron: account the updates into the averaged weights.
 		model.sumUpdates(iteration);
@@ -489,7 +522,7 @@ public class Perceptron {
 		 * 
 		 * @return <code>false</code> to not start the training procedure.
 		 */
-		boolean beforeTraining(TaskImplementation impl, Model curModel);
+		boolean beforeTraining(Inference impl, Model curModel);
 
 		/**
 		 * Called after the training procedure ends.
@@ -499,7 +532,7 @@ public class Perceptron {
 		 * @param curModel
 		 *            the current model (no averaging).
 		 */
-		void afterTraining(TaskImplementation impl, Model curModel);
+		void afterTraining(Inference impl, Model curModel);
 
 		/**
 		 * Called before starting an epoch (processing the whole training set).
@@ -515,7 +548,7 @@ public class Perceptron {
 		 * 
 		 * @return <code>false</code> to stop the training procedure.
 		 */
-		boolean beforeEpoch(TaskImplementation impl, Model curModel, int epoch,
+		boolean beforeEpoch(Inference impl, Model curModel, int epoch,
 				int iteration);
 
 		/**
@@ -535,7 +568,7 @@ public class Perceptron {
 		 * 
 		 * @return
 		 */
-		boolean afterEpoch(TaskImplementation impl, Model curModel, int epoch,
+		boolean afterEpoch(Inference impl, Model curModel, int epoch,
 				double loss, int iteration);
 
 	}

@@ -3,7 +3,7 @@ package br.pucrio.inf.learn.structlearning.application.sequence;
 import br.pucrio.inf.learn.structlearning.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.task.Model;
-import br.pucrio.inf.learn.structlearning.task.TaskImplementation;
+import br.pucrio.inf.learn.structlearning.task.Inference;
 
 /**
  * Implement Viterbi-based inference algorithms for sequence structures.
@@ -11,7 +11,7 @@ import br.pucrio.inf.learn.structlearning.task.TaskImplementation;
  * @author eraldof
  * 
  */
-public class ViterbiInference implements TaskImplementation {
+public class ViterbiInference implements Inference {
 
 	/**
 	 * Default state to be choosed when all states weight the same.
@@ -24,11 +24,39 @@ public class ViterbiInference implements TaskImplementation {
 	 */
 	private int nonAnnotatedStateCode;
 
+	/**
+	 * Weight of the loss function in the objective function.
+	 */
+	private double lossWeight;
+
+	/**
+	 * This is the correct (or loss reference) output sequence corresponding to
+	 * the current input sequence. This sequence is used to calculate the loss
+	 * function.
+	 */
+	private SequenceOutput lossReferenceOutput;
+
+	/**
+	 * Create a Viterbi inference algorithm using the given state as the default
+	 * option for every token.
+	 * 
+	 * @param defaultState
+	 */
 	public ViterbiInference(int defaultState) {
 		this.defaultState = defaultState;
 		this.nonAnnotatedStateCode = -1;
+		this.lossWeight = 0d;
+		this.lossReferenceOutput = null;
 	}
 
+	/**
+	 * Create a Viterbi inference algorithm using the given state as the default
+	 * state and the given code as the indicator of non-annotated tokens, i.e.,
+	 * token labeled with this state code are considered unlabeled.
+	 * 
+	 * @param defaultState
+	 * @param nonAnnotatedStateCode
+	 */
 	public ViterbiInference(int defaultState, int nonAnnotatedStateCode) {
 		this(defaultState);
 		this.nonAnnotatedStateCode = nonAnnotatedStateCode;
@@ -57,6 +85,26 @@ public class ViterbiInference implements TaskImplementation {
 				(SequenceOutput) predictedOutput);
 	}
 
+	@Override
+	public void lossAugmentedInference(Model model, ExampleInput input,
+			ExampleOutput correctOutput, ExampleOutput inferedOutput,
+			double lossWeight) {
+		// Save the current configuration.
+		double previousLossWeight = this.lossWeight;
+		SequenceOutput previousLossReferenceOutput = this.lossReferenceOutput;
+
+		// Configure the loss-augmented necessary properties.
+		this.lossWeight = lossWeight;
+		this.lossReferenceOutput = (SequenceOutput) correctOutput;
+
+		// Call the ordinary inference algorithm.
+		tag((Hmm) model, (SequenceInput) input, (SequenceOutput) inferedOutput);
+
+		// Restore the previous configuration.
+		this.lossWeight = previousLossWeight;
+		this.lossReferenceOutput = previousLossReferenceOutput;
+	}
+
 	/**
 	 * Tag the output with the best label sequence for the given input and HMM.
 	 * 
@@ -80,8 +128,8 @@ public class ViterbiInference implements TaskImplementation {
 
 		// Weights for the first token.
 		for (int state = 0; state < numberOfStates; ++state) {
-			delta[0][state] = hmm.getTokenEmissionWeight(input, 0, state)
-					+ hmm.getInitialStateParameter(state);
+			delta[0][state] = getTokenEmissionWeightWithLoss(hmm, input, 0,
+					state) + hmm.getInitialStateParameter(state);
 		}
 
 		// Apply each step of the Viterbi algorithm.
@@ -147,7 +195,7 @@ public class ViterbiInference implements TaskImplementation {
 		// Set delta and psi according to the best from-state.
 		psi[token][toState] = maxState;
 		delta[token][toState] = maxWeight
-				+ hmm.getTokenEmissionWeight(input, token, toState);
+				+ getTokenEmissionWeightWithLoss(hmm, input, token, toState);
 	}
 
 	/**
@@ -175,16 +223,12 @@ public class ViterbiInference implements TaskImplementation {
 		// Best partial-path backward table.
 		int[][] psi = new int[lenExample][numberOfStates];
 
-		// The default state is always the fisrt option.
-		int bestState = defaultState;
-		double bestWeight = delta[lenExample - 1][defaultState];
-
 		// Weights for the first token.
 		int curState = partiallyLabeledOutput.getLabel(0);
 		if (curState == nonAnnotatedStateCode) {
 			for (int state = 0; state < numberOfStates; ++state) {
-				delta[0][state] = hmm.getTokenEmissionWeight(input, 0, state)
-						+ hmm.getInitialStateParameter(state);
+				delta[0][state] = getTokenEmissionWeightWithLoss(hmm, input, 0,
+						state) + hmm.getInitialStateParameter(state);
 			}
 		} else {
 			// Do not need to calculate anything. The next token will always
@@ -212,12 +256,13 @@ public class ViterbiInference implements TaskImplementation {
 			}
 		}
 
+		// Find the best state for the last token.
 		int lastState = partiallyLabeledOutput.getLabel(lenExample - 1);
 		if (lastState == nonAnnotatedStateCode) {
 
 			// The default state is always the fisrt option.
-			bestState = defaultState;
-			bestWeight = delta[lenExample - 1][defaultState];
+			int bestState = defaultState;
+			double bestWeight = delta[lenExample - 1][defaultState];
 
 			// Find the best last state.
 			for (int state = 0; state < numberOfStates; ++state) {
@@ -228,15 +273,13 @@ public class ViterbiInference implements TaskImplementation {
 				}
 			}
 
-			// Reconstruct the best path from the best final state, annotating
-			// the output sequence.
-			backwardTag(predictedOutput, psi, bestState);
+			lastState = bestState;
 
-		} else {
-			// Reconstruct the best path from the annotated final state,
-			// annotating the output sequence.
-			backwardTag(predictedOutput, psi, lastState);
 		}
+
+		// Reconstruct the best path from the best final state, annotating
+		// the output sequence.
+		backwardTag(predictedOutput, psi, lastState);
 	}
 
 	/**
@@ -276,17 +319,42 @@ public class ViterbiInference implements TaskImplementation {
 			psi[token][toState] = previousState;
 			delta[token][toState] = delta[token - 1][previousState]
 					+ hmm.getTransitionParameter(previousState, toState)
-					+ hmm.getTokenEmissionWeight(input, token, toState);
+					+ getTokenEmissionWeightWithLoss(hmm, input, token, toState);
 		}
 	}
 
 	/**
-	 * Follow the given psi map (starting at the <code>bestFinalState</code>)
-	 * and tag the given output sequence.
+	 * Sum the emission parameters of all features in the given token for the
+	 * given state and, additionally, consider the loss function.
+	 * 
+	 * @param hmm
+	 * @param input
+	 * @param token
+	 * @param state
+	 * @return
+	 */
+	protected double getTokenEmissionWeightWithLoss(Hmm hmm,
+			SequenceInput input, int token, int state) {
+		double w = hmm.getTokenEmissionWeight(input, token, state);
+		if (lossReferenceOutput != null
+				&& lossReferenceOutput.getLabel(token) != state)
+			w += lossWeight;
+		return w;
+	}
+
+	/**
+	 * Follow the given psi map from the last token (starting at the
+	 * <code>bestFinalState</code>) to the first token of the sequence, tagging
+	 * the given output sequence.
 	 * 
 	 * @param output
+	 *            the output sequence to be tagged.
 	 * @param psi
+	 *            the psi map (backward map with the best previous state for
+	 *            each token).
 	 * @param bestFinalState
+	 *            the best state for the last token of the sequence (this is the
+	 *            start point).
 	 */
 	protected void backwardTag(SequenceOutput output, int[][] psi,
 			int bestFinalState) {

@@ -15,11 +15,18 @@ import br.pucrio.inf.learn.structlearning.data.ExampleOutput;
 public class SequenceInput implements ExampleInput {
 
 	/**
+	 * Identifier of this input example.
+	 */
+	private String id;
+
+	/**
 	 * Feature values for the tokens.
 	 */
 	private int[][] tokens;
 
-	public SequenceInput(Collection<? extends Collection<Integer>> tokens) {
+	public SequenceInput(String id,
+			Collection<? extends Collection<Integer>> tokens) {
+		this.id = id;
 		this.tokens = new int[tokens.size()][];
 		int tknIdx = 0;
 		for (Collection<Integer> token : tokens) {
@@ -131,6 +138,11 @@ public class SequenceInput implements ExampleInput {
 	@Override
 	public ExampleOutput createOutput() {
 		return new SequenceOutput(tokens.length);
+	}
+
+	@Override
+	public String getId() {
+		return id;
 	}
 
 }

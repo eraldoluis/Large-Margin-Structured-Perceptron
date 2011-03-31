@@ -12,9 +12,11 @@ import org.apache.commons.cli.PosixParser;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import br.pucrio.inf.learn.structlearning.algorithm.PartiallyAnnotatedPerceptron;
+import br.pucrio.inf.learn.structlearning.algorithm.AwayFromWorsePerceptron;
+import br.pucrio.inf.learn.structlearning.algorithm.LossAugmentedPerceptron;
 import br.pucrio.inf.learn.structlearning.algorithm.Perceptron;
 import br.pucrio.inf.learn.structlearning.algorithm.Perceptron.Listener;
+import br.pucrio.inf.learn.structlearning.algorithm.TowardBetterPerceptron;
 import br.pucrio.inf.learn.structlearning.application.sequence.ArrayBasedHmm;
 import br.pucrio.inf.learn.structlearning.application.sequence.SequenceInput;
 import br.pucrio.inf.learn.structlearning.application.sequence.SequenceOutput;
@@ -23,8 +25,8 @@ import br.pucrio.inf.learn.structlearning.application.sequence.data.Dataset;
 import br.pucrio.inf.learn.structlearning.application.sequence.evaluation.F1Measure;
 import br.pucrio.inf.learn.structlearning.application.sequence.evaluation.IobChunkEvaluation;
 import br.pucrio.inf.learn.structlearning.data.StringEncoding;
+import br.pucrio.inf.learn.structlearning.task.Inference;
 import br.pucrio.inf.learn.structlearning.task.Model;
-import br.pucrio.inf.learn.structlearning.task.TaskImplementation;
 import br.pucrio.inf.learn.util.CommandLineOptionsUtil;
 
 public class TrainHmmMain implements Driver.Command {
@@ -32,11 +34,36 @@ public class TrainHmmMain implements Driver.Command {
 	private static final Log LOG = LogFactory.getLog(TrainHmmMain.class);
 
 	private static final int NON_ANNOTATED_LABEL_CODE = -33;
-	
+
 	// TODO debug
 	public static StringEncoding featureEncoding;
 	public static StringEncoding stateEncoding;
-	public static boolean print = false;
+	public static boolean print = true;
+
+	/**
+	 * Available training algorithms.
+	 */
+	private static enum AlgorithmType {
+		/**
+		 * Ordinary structured Perceptron
+		 */
+		PERCEPTRON,
+
+		/**
+		 * Loss-augmented Perceptron.
+		 */
+		LOSS_PERCEPTRON,
+
+		/**
+		 * Away-from-worse Perceptron (McAllester et al., 2011).
+		 */
+		AWAY_FROM_WORSE_PERCEPTRON,
+
+		/**
+		 * Toward-better Perceptron (McAllester et al., 2011).
+		 */
+		TOWARD_BETTER_PERCEPTRON
+	}
 
 	@SuppressWarnings("static-access")
 	@Override
@@ -65,9 +92,8 @@ public class TrainHmmMain implements Driver.Command {
 				.withArgName("number of epochs")
 				.hasArg()
 				.withDescription(
-						"Number of epochs: how many "
-								+ "iterations over the training set.")
-				.create('T'));
+						"Number of epochs: how many iterations over the"
+								+ " training set.").create('T'));
 		options.addOption(OptionBuilder.withLongOpt("learnrate")
 				.withArgName("learning rate within [0:1]").hasArg()
 				.withDescription("Learning rate used in the updates.").create());
@@ -76,8 +102,8 @@ public class TrainHmmMain implements Driver.Command {
 				.withArgName("state label")
 				.hasArg()
 				.withDescription(
-						"Default state label to use when all states weight the same.")
-				.create('d'));
+						"Default state label to use when all states weight"
+								+ " the same.").create('d'));
 		options.addOption(OptionBuilder
 				.withLongOpt("nullstate")
 				.withArgName("state label")
@@ -90,25 +116,26 @@ public class TrainHmmMain implements Driver.Command {
 				.withArgName("state labels")
 				.hasArg()
 				.withDescription(
-						"List of state labels separated by commas. "
-								+ "This can be usefull to specify the preference order of state labels. "
-								+ "This option overwrite the following 'tagset' option.")
-				.create());
+						"List of state labels separated by commas. This can be"
+								+ " usefull to specify the preference order of"
+								+ " state labels. This option overwrite the"
+								+ " following 'tagset' option.").create());
 		options.addOption(OptionBuilder
 				.withLongOpt("encoding")
 				.withArgName("feature values encoding file")
 				.hasArg()
 				.withDescription(
-						"Filename that contains a list of considered feature values."
-								+ " Any feature value not present in this file is ignored.")
-				.create());
+						"Filename that contains a list of considered feature"
+								+ " values. Any feature value not present in"
+								+ " this file is ignored.").create());
 		options.addOption(OptionBuilder
 				.withLongOpt("tagset")
 				.withArgName("tagset file name")
 				.hasArg()
 				.withDescription(
-						"Name of a file that contains the list of labels, one per line. "
-								+ "This can be usefull to specify the preference order of state labels.")
+						"Name of a file that contains the list of labels, one"
+								+ " per line. This can be usefull to specify "
+								+ "the preference order of state labels.")
 				.create());
 		options.addOption(OptionBuilder.withLongOpt("testcorpus")
 				.withArgName("test corpus").hasArg()
@@ -133,16 +160,30 @@ public class TrainHmmMain implements Driver.Command {
 				.withArgName("rate of examples")
 				.hasArg()
 				.withDescription(
-						"Rate to report the training progress within each epoch.")
-				.create());
-		options.addOption(OptionBuilder
-				.withLongOpt("verbose")
-				.withDescription(
-						"Print additional information about the execution process.")
-				.create('v'));
+						"Rate to report the training progress within each"
+								+ " epoch.").create());
 		options.addOption(OptionBuilder.withLongOpt("seed")
 				.withArgName("integer value").hasArg()
 				.withDescription("Random number generator seed.").create());
+		options.addOption(OptionBuilder
+				.withLongOpt("lossweight")
+				.withArgName("numeric loss weight")
+				.hasArg()
+				.withDescription(
+						"Weight of the loss term in the inference objective"
+								+ " function.").create());
+		options.addOption(OptionBuilder
+				.withLongOpt("alg")
+				.withArgName("training algorithm")
+				.hasArg()
+				.withDescription(
+						"Which training algorithm to be used: "
+								+ "perc (ordinary Perceptron), "
+								+ "pla (Partial-labeling aware Perceptron), "
+								+ "loss (Loss-augmented Perceptron), "
+								+ "afworse (away-from-worse Perceptron), "
+								+ "tobetter (toward-better Perceptron)")
+				.create());
 
 		// Parse the command-line arguments.
 		CommandLine cmdLine = null;
@@ -175,7 +216,8 @@ public class TrainHmmMain implements Driver.Command {
 		Double reportProgressRate = Double.parseDouble(cmdLine
 				.getOptionValue("progress"));
 		String seedStr = cmdLine.getOptionValue("seed");
-		// boolean verbose = cmdLine.hasOption('v');
+		double lossWeight = Double.parseDouble(cmdLine.getOptionValue(
+				"lossweight", "0d"));
 
 		LOG.info("Loading input corpus...");
 		Dataset inputCorpusA = null;
@@ -203,7 +245,7 @@ public class TrainHmmMain implements Driver.Command {
 				// State set automatically retrieved from training data (codes
 				// depend on order of appereance of the labels).
 				stateEncoding = new StringEncoding();
-			
+
 			// TODO debug
 			TrainHmmMain.featureEncoding = featureEncoding;
 			TrainHmmMain.stateEncoding = stateEncoding;
@@ -239,7 +281,7 @@ public class TrainHmmMain implements Driver.Command {
 
 				inputCorpusB = new Dataset(additionalCorpusFileName,
 						featureEncoding, stateEncoding, nonAnnotatedLabel,
-						NON_ANNOTATED_LABEL_CODE); // TODO , true);
+						NON_ANNOTATED_LABEL_CODE);
 			}
 
 		} catch (Exception e) {
@@ -253,18 +295,62 @@ public class TrainHmmMain implements Driver.Command {
 		ArrayBasedHmm hmm = new ArrayBasedHmm(inputCorpusA.getNumberOfStates(),
 				inputCorpusA.getNumberOfSymbols());
 
+		// Parse algorithm type option.
+		AlgorithmType algType = null;
+		String algTypeStr = cmdLine.getOptionValue("alg");
+		if (algTypeStr == null)
+			algType = AlgorithmType.PERCEPTRON;
+		else if (algTypeStr.equals("perc"))
+			algType = AlgorithmType.PERCEPTRON;
+		else if (algTypeStr.equals("loss"))
+			algType = AlgorithmType.LOSS_PERCEPTRON;
+		else if (algTypeStr.equals("afworse"))
+			algType = AlgorithmType.AWAY_FROM_WORSE_PERCEPTRON;
+		else if (algTypeStr.equals("tobetter"))
+			algType = AlgorithmType.TOWARD_BETTER_PERCEPTRON;
+		else {
+			System.err.println("Unknown algorithm: " + algTypeStr);
+			CommandLineOptionsUtil.usage(getClass().getSimpleName(), options);
+			System.exit(1);
+		}
+
+		// Create the chosen algorithm.
 		Perceptron alg = null;
+		switch (algType) {
+		case PERCEPTRON:
+			// Ordinary Perceptron implementation (Collins'): does not consider
+			// neither partially-annotated examples nor customized loss
+			// functions.
+			alg = new Perceptron(viterbi, hmm, numEpochs, learningRate);
+			break;
+		case LOSS_PERCEPTRON:
+			// Loss-augumented implementation: considers partially-labeled
+			// examples and customized loss function (per-token
+			// misclassification loss).
+			alg = new LossAugmentedPerceptron(viterbi, hmm, numEpochs,
+					learningRate, lossWeight);
+			break;
+		case AWAY_FROM_WORSE_PERCEPTRON:
+			// Away-from-worse implementation.
+			alg = new AwayFromWorsePerceptron(viterbi, hmm, numEpochs,
+					learningRate, lossWeight);
+			break;
+		case TOWARD_BETTER_PERCEPTRON:
+			// Toward-better implementation.
+			alg = new TowardBetterPerceptron(viterbi, hmm, numEpochs,
+					learningRate, lossWeight);
+			break;
+		}
+
 		if (nonAnnotatedLabel != null) {
 			// Non-annotated state label was specified and therefore the input
 			// dataset can contain non-annotated tokens that must be properly
 			// tackled by the inference algorithm.
 			viterbi.setNonAnnotatedStateCode(NON_ANNOTATED_LABEL_CODE);
-			alg = new PartiallyAnnotatedPerceptron(viterbi, hmm, numEpochs,
-					learningRate);
-		} else
-			// Ordinary perceptron algorithm: does not consider
-			// partially-annotated examples.
-			alg = new Perceptron(viterbi, hmm, numEpochs, learningRate);
+			// Signal the presence of partially-labeled examples to the
+			// algorithm.
+			alg.setPartiallyAnnotatedExamples(true);
+		}
 
 		if (seedStr != null)
 			// User provided seed to random number generator.
@@ -407,23 +493,23 @@ public class TrainHmmMain implements Driver.Command {
 		}
 
 		@Override
-		public boolean beforeTraining(TaskImplementation impl, Model curModel) {
+		public boolean beforeTraining(Inference impl, Model curModel) {
 			return true;
 		}
 
 		@Override
-		public void afterTraining(TaskImplementation impl, Model curModel) {
+		public void afterTraining(Inference impl, Model curModel) {
 		}
 
 		@Override
-		public boolean beforeEpoch(TaskImplementation impl, Model curModel,
-				int epoch, int iteration) {
+		public boolean beforeEpoch(Inference impl, Model curModel, int epoch,
+				int iteration) {
 			return true;
 		}
 
 		@Override
-		public boolean afterEpoch(TaskImplementation viterbi, Model hmm,
-				int epoch, double loss, int iteration) {
+		public boolean afterEpoch(Inference viterbi, Model hmm, int epoch,
+				double loss, int iteration) {
 
 			try {
 				// Clone the current model to average it.

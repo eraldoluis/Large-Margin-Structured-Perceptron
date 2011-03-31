@@ -42,11 +42,6 @@ public class Dataset {
 	protected StringEncoding stateEncoding;
 
 	/**
-	 * IDs of the examples.
-	 */
-	protected String[] exampleIDs;
-
-	/**
 	 * Vector of the input-part of the examples.
 	 */
 	protected SequenceInput[] inputSequences;
@@ -246,7 +241,6 @@ public class Dataset {
 	 */
 	public void load(BufferedReader reader) throws IOException,
 			DatasetException {
-		LinkedList<String> ids = new LinkedList<String>();
 		LinkedList<SequenceInput> inputSequences = new LinkedList<SequenceInput>();
 		LinkedList<SequenceOutput> outputSequences = new LinkedList<SequenceOutput>();
 
@@ -255,7 +249,7 @@ public class Dataset {
 		int numAdded = 0;
 		String buff;
 		while ((buff = skipBlanksAndComments(reader)) != null) {
-			if (parseExample(ids, inputSequences, outputSequences, buff))
+			if (parseExample(inputSequences, outputSequences, buff))
 				++numAdded;
 			++numTotal;
 		}
@@ -264,7 +258,6 @@ public class Dataset {
 				+ numTotal + " (" + (numTotal - numAdded) * 100d / numTotal
 				+ "%)");
 
-		this.exampleIDs = ids.toArray(new String[0]);
 		this.inputSequences = inputSequences.toArray(new SequenceInput[0]);
 		this.outputSequences = outputSequences.toArray(new SequenceOutput[0]);
 	}
@@ -280,8 +273,6 @@ public class Dataset {
 			throw new DatasetException("Different encodings");
 
 		// Alloc room to store both datasets (this one and the given one).
-		String[] newExampleIDs = new String[exampleIDs.length
-				+ other.exampleIDs.length];
 		SequenceInput[] newInputSequences = new SequenceInput[inputSequences.length
 				+ other.inputSequences.length];
 		SequenceOutput[] newOutputSequences = new SequenceOutput[outputSequences.length
@@ -290,21 +281,18 @@ public class Dataset {
 		// Copy (only reference) the examples in this dataset to the new arrays.
 		int idx = 0;
 		for (; idx < inputSequences.length; ++idx) {
-			newExampleIDs[idx] = exampleIDs[idx];
 			newInputSequences[idx] = inputSequences[idx];
 			newOutputSequences[idx] = outputSequences[idx];
 		}
 
 		// Copy (only reference) the examples in the given dataset to the new
 		// arrays.
-		for (int idxO = 0; idxO < other.exampleIDs.length; ++idxO, ++idx) {
-			newExampleIDs[idx] = other.exampleIDs[idxO];
+		for (int idxO = 0; idxO < other.inputSequences.length; ++idxO, ++idx) {
 			newInputSequences[idx] = other.inputSequences[idxO];
 			newOutputSequences[idx] = other.outputSequences[idxO];
 		}
 
 		// Adjust the pointers of this dataset to the new arrays.
-		this.exampleIDs = newExampleIDs;
 		this.inputSequences = newInputSequences;
 		this.outputSequences = newOutputSequences;
 	}
@@ -342,8 +330,7 @@ public class Dataset {
 	 * @throws DatasetException
 	 *             if there is some format problem with the given string.
 	 */
-	public boolean parseExample(Collection<String> ids,
-			Collection<SequenceInput> sequenceInputs,
+	public boolean parseExample(Collection<SequenceInput> sequenceInputs,
 			Collection<SequenceOutput> sequenceOutputs, String buff)
 			throws DatasetException {
 		// Split tokens.
@@ -357,8 +344,6 @@ public class Dataset {
 
 		if (id.trim().length() == 0)
 			return false;
-
-		ids.add(id);
 
 		LinkedList<LinkedList<Integer>> sequenceInputAsList = new LinkedList<LinkedList<Integer>>();
 		LinkedList<Integer> sequenceOutputAsList = new LinkedList<Integer>();
@@ -386,7 +371,12 @@ public class Dataset {
 				// special label is null (totally annotated dataset).
 				sequenceOutputAsList.add(nonAnnotatedStateCode);
 			else {
-				sequenceOutputAsList.add(stateEncoding.put(label));
+				int code = stateEncoding.put(label);
+				if (code < 0)
+					LOG.warn("Unknown label (" + label + ") in token "
+							+ (idxTkn - 1) + " of example " + id
+							+ " is unknown");
+				sequenceOutputAsList.add(code);
 				someAnnotatedToken = true;
 			}
 
@@ -395,7 +385,7 @@ public class Dataset {
 
 		// Store the loaded example.
 		if (!skipCompletelyNonAnnotatedExamples || someAnnotatedToken) {
-			sequenceInputs.add(new SequenceInput(sequenceInputAsList));
+			sequenceInputs.add(new SequenceInput(id, sequenceInputAsList));
 			sequenceOutputs.add(new SequenceOutput(sequenceOutputAsList,
 					sequenceOutputAsList.size()));
 			return true;
@@ -427,12 +417,11 @@ public class Dataset {
 	 */
 	public void save(PrintStream ps) {
 		for (int idxSequence = 0; idxSequence < getNumberOfExamples(); ++idxSequence) {
-			String id = exampleIDs[idxSequence];
 			SequenceInput input = inputSequences[idxSequence];
 			SequenceOutput output = outputSequences[idxSequence];
 
 			// The sentence identifier string.
-			ps.print(id);
+			ps.print(input.getId());
 
 			for (int token = 0; token < input.size(); ++token) {
 				// Tokens as separated.
