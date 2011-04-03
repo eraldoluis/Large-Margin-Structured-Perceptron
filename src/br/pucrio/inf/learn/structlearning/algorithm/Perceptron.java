@@ -5,11 +5,14 @@ import java.util.Random;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import br.pucrio.inf.learn.structlearning.application.sequence.SequenceInput;
+import br.pucrio.inf.learn.structlearning.application.sequence.SequenceOutput;
 import br.pucrio.inf.learn.structlearning.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.data.StringEncoding;
 import br.pucrio.inf.learn.structlearning.task.Inference;
 import br.pucrio.inf.learn.structlearning.task.Model;
+import br.pucrio.inf.learn.util.DebugUtil;
 
 /**
  * Perceptron-trained linear classifier with structural examples. This class
@@ -464,9 +467,6 @@ public class Perceptron {
 	public double trainOneExample(ExampleInput input,
 			ExampleOutput correctOutput, ExampleOutput predictedOutput) {
 
-		// Predict the best output with the current mobel.
-		inferenceImpl.inference(model, input, predictedOutput);
-
 		ExampleOutput referenceOutput = correctOutput;
 		if (partiallyAnnotatedExamples) {
 			// If the user asked to consider partially-labeled examples then
@@ -477,15 +477,18 @@ public class Perceptron {
 					referenceOutput);
 		}
 
+		// Predict the best output with the current mobel.
+		inferenceImpl.inference(model, input, predictedOutput);
+
 		// Update the current model and return the loss for this example.
 		double loss = model.update(input, referenceOutput, predictedOutput,
 				learningRate);
 
 		// TODO debug
-//		if (DebugUtil.print && loss != 0d)
-//			DebugUtil.printSequence((SequenceInput) input,
-//					(SequenceOutput) correctOutput,
-//					(SequenceOutput) referenceOutput, loss);
+		if (DebugUtil.print && loss != 0d)
+			DebugUtil.printSequence((SequenceInput) input,
+					(SequenceOutput) referenceOutput,
+					(SequenceOutput) predictedOutput, loss);
 
 		// Averaged-Perceptron: account the updates into the averaged weights.
 		model.sumUpdates(iteration);

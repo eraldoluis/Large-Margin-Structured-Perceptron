@@ -1,9 +1,12 @@
 package br.pucrio.inf.learn.structlearning.algorithm;
 
+import br.pucrio.inf.learn.structlearning.application.sequence.SequenceInput;
+import br.pucrio.inf.learn.structlearning.application.sequence.SequenceOutput;
 import br.pucrio.inf.learn.structlearning.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.task.Inference;
 import br.pucrio.inf.learn.structlearning.task.Model;
+import br.pucrio.inf.learn.util.DebugUtil;
 
 /**
  * McAllester et al.'s Perceptron implementation that uses a modified updating
@@ -37,10 +40,6 @@ public class AwayFromWorsePerceptron extends LossAugmentedPerceptron {
 	public double trainOneExample(ExampleInput input,
 			ExampleOutput correctOutput, ExampleOutput predictedOutput) {
 
-		// Infer the whole output structure. This is the "better" output
-		// structure used to update the model.
-		inferenceImpl.inference(model, input, predictedOutput);
-
 		ExampleOutput referenceOutput = correctOutput;
 		if (partiallyAnnotatedExamples) {
 			// If the user asked to consider partially-labeled examples then
@@ -58,15 +57,19 @@ public class AwayFromWorsePerceptron extends LossAugmentedPerceptron {
 		inferenceImpl.lossAugmentedInference(model, input, referenceOutput,
 				lossAugmentedPredictedOutput, lossWeight);
 
+		// Infer the whole output structure. This is the "better" output
+		// structure used to update the model.
+		inferenceImpl.inference(model, input, predictedOutput);
+
 		// Update the current model and return the loss for this example.
 		double loss = model.update(input, predictedOutput,
 				lossAugmentedPredictedOutput, learningRate);
 
 		// TODO debug
-		// if (DebugUtil.print && loss != 0d)
-		// DebugUtil.printSequence((SequenceInput) input,
-		// (SequenceOutput) correctOutput,
-		// (SequenceOutput) referenceOutput, loss);
+		if (DebugUtil.print && loss != 0d)
+			DebugUtil.printSequence((SequenceInput) input,
+					(SequenceOutput) predictedOutput,
+					(SequenceOutput) lossAugmentedPredictedOutput, loss);
 
 		// Averaged-Perceptron: account the updates into the averaged
 		// weights.

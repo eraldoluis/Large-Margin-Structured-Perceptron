@@ -1,9 +1,12 @@
 package br.pucrio.inf.learn.structlearning.algorithm;
 
+import br.pucrio.inf.learn.structlearning.application.sequence.SequenceInput;
+import br.pucrio.inf.learn.structlearning.application.sequence.SequenceOutput;
 import br.pucrio.inf.learn.structlearning.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.task.Inference;
 import br.pucrio.inf.learn.structlearning.task.Model;
+import br.pucrio.inf.learn.util.DebugUtil;
 
 /**
  * Perceptron implementation that uses a loss-augmented objective function to
@@ -54,10 +57,10 @@ public class LossAugmentedPerceptron extends Perceptron {
 				learningRate);
 
 		// TODO debug
-		// if (DebugUtil.print && loss != 0d)
-		// DebugUtil.printSequence((SequenceInput) input,
-		// (SequenceOutput) correctOutput,
-		// (SequenceOutput) referenceOutput, loss);
+		if (DebugUtil.print && loss != 0d)
+			DebugUtil.printSequence((SequenceInput) input,
+					(SequenceOutput) referenceOutput,
+					(SequenceOutput) predictedOutput, loss);
 
 		// Averaged-Perceptron: account the updates into the averaged
 		// weights.

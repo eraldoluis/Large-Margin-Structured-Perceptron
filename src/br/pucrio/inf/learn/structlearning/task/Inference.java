@@ -50,9 +50,9 @@ public interface Inference {
 	 *            inference.
 	 * @param input
 	 *            the input structure.
-	 * @param correctOutput
-	 *            the correct output structure that is used to calculate the
-	 *            loss function.
+	 * @param referenceOutput
+	 *            reference output structure that is used to calculate the loss
+	 *            function.
 	 * @param inferedOutput
 	 *            the infered output structure that will be filled in this
 	 *            method.
@@ -60,7 +60,7 @@ public interface Inference {
 	 *            the weight of the loss function in the objective function.
 	 */
 	void lossAugmentedInference(Model model, ExampleInput input,
-			ExampleOutput correctOutput, ExampleOutput inferedOutput,
+			ExampleOutput referenceOutput, ExampleOutput inferedOutput,
 			double lossWeight);
 
 }

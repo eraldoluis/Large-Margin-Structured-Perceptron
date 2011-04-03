@@ -4,13 +4,19 @@ import br.pucrio.inf.learn.structlearning.application.sequence.SequenceInput;
 import br.pucrio.inf.learn.structlearning.application.sequence.SequenceOutput;
 import br.pucrio.inf.learn.structlearning.data.StringEncoding;
 
+/**
+ * Utilitary methods to print debug information.
+ * 
+ * @author eraldo
+ * 
+ */
 public class DebugUtil {
 
-	public static boolean print;
+	public static boolean print = false;
 
-	public static StringEncoding featureEncoding;
+	public static StringEncoding featureEncoding = null;
 
-	public static StringEncoding stateEncoding;
+	public static StringEncoding stateEncoding = null;
 
 	public static void printSequence(SequenceInput seqIn,
 			SequenceOutput seqCorOut, SequenceOutput seqPreOut, double loss) {

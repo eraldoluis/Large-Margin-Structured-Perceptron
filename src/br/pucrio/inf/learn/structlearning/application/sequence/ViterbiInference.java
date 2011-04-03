@@ -87,7 +87,7 @@ public class ViterbiInference implements Inference {
 
 	@Override
 	public void lossAugmentedInference(Model model, ExampleInput input,
-			ExampleOutput correctOutput, ExampleOutput inferedOutput,
+			ExampleOutput referenceOutput, ExampleOutput inferedOutput,
 			double lossWeight) {
 		// Save the current configuration.
 		double previousLossWeight = this.lossWeight;
@@ -95,7 +95,7 @@ public class ViterbiInference implements Inference {
 
 		// Configure the loss-augmented necessary properties.
 		this.lossWeight = lossWeight;
-		this.lossReferenceOutput = (SequenceOutput) correctOutput;
+		this.lossReferenceOutput = (SequenceOutput) referenceOutput;
 
 		// Call the ordinary inference algorithm.
 		tag((Hmm) model, (SequenceInput) input, (SequenceOutput) inferedOutput);
@@ -122,14 +122,11 @@ public class ViterbiInference implements Inference {
 		// Best partial-path backward table.
 		int[][] psi = new int[lenExample][numberOfStates];
 
-		// The default state is always the fisrt option.
-		int bestState = defaultState;
-		double bestWeight = delta[lenExample - 1][defaultState];
-
 		// Weights for the first token.
 		for (int state = 0; state < numberOfStates; ++state) {
 			delta[0][state] = getTokenEmissionWeightWithLoss(hmm, input, 0,
-					state) + hmm.getInitialStateParameter(state);
+					state)
+					+ hmm.getInitialStateParameter(state);
 		}
 
 		// Apply each step of the Viterbi algorithm.
@@ -138,8 +135,8 @@ public class ViterbiInference implements Inference {
 				viterbi(hmm, delta, psi, input, tkn, state, defaultState);
 
 		// The default state is always the fisrt option.
-		bestState = defaultState;
-		bestWeight = delta[lenExample - 1][defaultState];
+		int bestState = defaultState;
+		double bestWeight = delta[lenExample - 1][defaultState];
 
 		// Find the best last state.
 		for (int state = 0; state < numberOfStates; ++state) {
@@ -228,7 +225,8 @@ public class ViterbiInference implements Inference {
 		if (curState == nonAnnotatedStateCode) {
 			for (int state = 0; state < numberOfStates; ++state) {
 				delta[0][state] = getTokenEmissionWeightWithLoss(hmm, input, 0,
-						state) + hmm.getInitialStateParameter(state);
+						state)
+						+ hmm.getInitialStateParameter(state);
 			}
 		} else {
 			// Do not need to calculate anything. The next token will always

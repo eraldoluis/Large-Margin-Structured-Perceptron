@@ -28,17 +28,13 @@ import br.pucrio.inf.learn.structlearning.data.StringEncoding;
 import br.pucrio.inf.learn.structlearning.task.Inference;
 import br.pucrio.inf.learn.structlearning.task.Model;
 import br.pucrio.inf.learn.util.CommandLineOptionsUtil;
+import br.pucrio.inf.learn.util.DebugUtil;
 
 public class TrainHmmMain implements Driver.Command {
 
 	private static final Log LOG = LogFactory.getLog(TrainHmmMain.class);
 
 	private static final int NON_ANNOTATED_LABEL_CODE = -33;
-
-	// TODO debug
-	public static StringEncoding featureEncoding;
-	public static StringEncoding stateEncoding;
-	public static boolean print = true;
 
 	/**
 	 * Available training algorithms.
@@ -70,120 +66,81 @@ public class TrainHmmMain implements Driver.Command {
 	public void run(String[] args) {
 		Options options = new Options();
 		options.addOption(OptionBuilder.withLongOpt("incorpus").isRequired()
-				.withArgName("input corpus").hasArg()
-				.withDescription("Input corpus file name.").create('i'));
-		options.addOption(OptionBuilder
-				.withLongOpt("inadd")
-				.withArgName("additional corpus[,weight[,step]]")
-				.hasArg()
-				.withDescription(
-						"Additional corpus file name and "
-								+ "an optional weight separated by comma and "
-								+ "an weight step.").create());
-		options.addOption(OptionBuilder
-				.withLongOpt("model")
-				.hasArg()
-				.withArgName("model filename")
-				.withDescription(
+				.withArgName("input corpus").hasArg().withDescription(
+						"Input corpus file name.").create('i'));
+		options.addOption(OptionBuilder.withLongOpt("inadd").withArgName(
+				"additional corpus[,weight[,step]]").hasArg().withDescription(
+				"Additional corpus file name and "
+						+ "an optional weight separated by comma and "
+						+ "an weight step.").create());
+		options.addOption(OptionBuilder.withLongOpt("model").hasArg()
+				.withArgName("model filename").withDescription(
 						"Name of the file to save the resulting model.")
 				.create('o'));
-		options.addOption(OptionBuilder
-				.withLongOpt("numepochs")
-				.withArgName("number of epochs")
-				.hasArg()
-				.withDescription(
-						"Number of epochs: how many iterations over the"
-								+ " training set.").create('T'));
-		options.addOption(OptionBuilder.withLongOpt("learnrate")
-				.withArgName("learning rate within [0:1]").hasArg()
-				.withDescription("Learning rate used in the updates.").create());
-		options.addOption(OptionBuilder
-				.withLongOpt("defstate")
-				.withArgName("state label")
-				.hasArg()
-				.withDescription(
-						"Default state label to use when all states weight"
-								+ " the same.").create('d'));
-		options.addOption(OptionBuilder
-				.withLongOpt("nullstate")
-				.withArgName("state label")
-				.hasArg()
-				.withDescription(
-						"Null state label if different of default state.")
-				.create());
-		options.addOption(OptionBuilder
-				.withLongOpt("labels")
-				.withArgName("state labels")
-				.hasArg()
-				.withDescription(
-						"List of state labels separated by commas. This can be"
-								+ " usefull to specify the preference order of"
-								+ " state labels. This option overwrite the"
-								+ " following 'tagset' option.").create());
-		options.addOption(OptionBuilder
-				.withLongOpt("encoding")
-				.withArgName("feature values encoding file")
-				.hasArg()
-				.withDescription(
-						"Filename that contains a list of considered feature"
-								+ " values. Any feature value not present in"
-								+ " this file is ignored.").create());
-		options.addOption(OptionBuilder
-				.withLongOpt("tagset")
-				.withArgName("tagset file name")
-				.hasArg()
-				.withDescription(
-						"Name of a file that contains the list of labels, one"
-								+ " per line. This can be usefull to specify "
-								+ "the preference order of state labels.")
-				.create());
-		options.addOption(OptionBuilder.withLongOpt("testcorpus")
-				.withArgName("test corpus").hasArg()
-				.withDescription("Test corpus file name.").create('t'));
-		options.addOption(OptionBuilder
-				.withLongOpt("perepoch")
+		options.addOption(OptionBuilder.withLongOpt("numepochs").withArgName(
+				"number of epochs").hasArg().withDescription(
+				"Number of epochs: how many iterations over the"
+						+ " training set.").create('T'));
+		options.addOption(OptionBuilder.withLongOpt("learnrate").withArgName(
+				"learning rate within [0:1]").hasArg().withDescription(
+				"Learning rate used in the updates.").create());
+		options.addOption(OptionBuilder.withLongOpt("defstate").withArgName(
+				"state label").hasArg().withDescription(
+				"Default state label to use when all states weight"
+						+ " the same.").create('d'));
+		options.addOption(OptionBuilder.withLongOpt("nullstate").withArgName(
+				"state label").hasArg().withDescription(
+				"Null state label if different of default state.").create());
+		options.addOption(OptionBuilder.withLongOpt("labels").withArgName(
+				"state labels").hasArg().withDescription(
+				"List of state labels separated by commas. This can be"
+						+ " usefull to specify the preference order of"
+						+ " state labels. This option overwrite the"
+						+ " following 'tagset' option.").create());
+		options.addOption(OptionBuilder.withLongOpt("encoding").withArgName(
+				"feature values encoding file").hasArg().withDescription(
+				"Filename that contains a list of considered feature"
+						+ " values. Any feature value not present in"
+						+ " this file is ignored.").create());
+		options.addOption(OptionBuilder.withLongOpt("tagset").withArgName(
+				"tagset file name").hasArg().withDescription(
+				"Name of a file that contains the list of labels, one"
+						+ " per line. This can be usefull to specify "
+						+ "the preference order of state labels.").create());
+		options.addOption(OptionBuilder.withLongOpt("testcorpus").withArgName(
+				"test corpus").hasArg().withDescription(
+				"Test corpus file name.").create('t'));
+		options.addOption(OptionBuilder.withLongOpt("perepoch")
 				.withDescription(
 						"The evaluation on the test corpus will "
 								+ "be performed after each training epoch.")
 				.create());
-		options.addOption(OptionBuilder
-				.withLongOpt("nonannlabel")
-				.withArgName("non-annotated state label")
-				.hasArg()
-				.withDescription(
-						"Set the special state label that indicates "
-								+ "non-annotated tokens and, consequently, it "
-								+ "will an HMM considering this information")
+		options.addOption(OptionBuilder.withLongOpt("nonannlabel").withArgName(
+				"non-annotated state label").hasArg().withDescription(
+				"Set the special state label that indicates "
+						+ "non-annotated tokens and, consequently, it "
+						+ "will an HMM considering this information").create());
+		options.addOption(OptionBuilder.withLongOpt("progress").withArgName(
+				"rate of examples").hasArg().withDescription(
+				"Rate to report the training progress within each" + " epoch.")
 				.create());
-		options.addOption(OptionBuilder
-				.withLongOpt("progress")
-				.withArgName("rate of examples")
-				.hasArg()
-				.withDescription(
-						"Rate to report the training progress within each"
-								+ " epoch.").create());
-		options.addOption(OptionBuilder.withLongOpt("seed")
-				.withArgName("integer value").hasArg()
-				.withDescription("Random number generator seed.").create());
-		options.addOption(OptionBuilder
-				.withLongOpt("lossweight")
-				.withArgName("numeric loss weight")
-				.hasArg()
-				.withDescription(
-						"Weight of the loss term in the inference objective"
-								+ " function.").create());
-		options.addOption(OptionBuilder
-				.withLongOpt("alg")
-				.withArgName("training algorithm")
-				.hasArg()
-				.withDescription(
-						"Which training algorithm to be used: "
-								+ "perc (ordinary Perceptron), "
-								+ "pla (Partial-labeling aware Perceptron), "
-								+ "loss (Loss-augmented Perceptron), "
-								+ "afworse (away-from-worse Perceptron), "
-								+ "tobetter (toward-better Perceptron)")
-				.create());
+		options.addOption(OptionBuilder.withLongOpt("seed").withArgName(
+				"integer value").hasArg().withDescription(
+				"Random number generator seed.").create());
+		options.addOption(OptionBuilder.withLongOpt("lossweight").withArgName(
+				"numeric loss weight").hasArg().withDescription(
+				"Weight of the loss term in the inference objective"
+						+ " function.").create());
+		options.addOption(OptionBuilder.withLongOpt("alg").withArgName(
+				"training algorithm").hasArg().withDescription(
+				"Which training algorithm to be used: "
+						+ "perc (ordinary Perceptron), "
+						+ "pla (Partial-labeling aware Perceptron), "
+						+ "loss (Loss-augmented Perceptron), "
+						+ "afworse (away-from-worse Perceptron), "
+						+ "tobetter (toward-better Perceptron)").create());
+		options.addOption(OptionBuilder.withLongOpt("verbose").withDescription(
+				"Print debug information.").create('v'));
 
 		// Parse the command-line arguments.
 		CommandLine cmdLine = null;
@@ -218,23 +175,24 @@ public class TrainHmmMain implements Driver.Command {
 		String seedStr = cmdLine.getOptionValue("seed");
 		double lossWeight = Double.parseDouble(cmdLine.getOptionValue(
 				"lossweight", "0d"));
+		boolean verbose = cmdLine.hasOption("verbose");
 
 		LOG.info("Loading input corpus...");
 		Dataset inputCorpusA = null;
 		Dataset inputCorpusB = null;
 		double weightAdditionalCorpus = -1d;
 		double weightStep = -1d;
+		StringEncoding featureEncoding = null;
+		StringEncoding stateEncoding = null;
 		try {
 
 			// Create (or load) feature values encoding.
-			StringEncoding featureEncoding;
 			if (encodingFile != null)
 				featureEncoding = new StringEncoding(encodingFile);
 			else
 				featureEncoding = new StringEncoding();
 
 			// Create state labels encoding.
-			StringEncoding stateEncoding = null;
 			if (labels != null)
 				// State set given in the command-line.
 				stateEncoding = new StringEncoding(labels.split(","));
@@ -245,10 +203,6 @@ public class TrainHmmMain implements Driver.Command {
 				// State set automatically retrieved from training data (codes
 				// depend on order of appereance of the labels).
 				stateEncoding = new StringEncoding();
-
-			// TODO debug
-			TrainHmmMain.featureEncoding = featureEncoding;
-			TrainHmmMain.stateEncoding = stateEncoding;
 
 			// Get the list of input paths and concatenate the corpora in them.
 			inputCorpusA = new Dataset(featureEncoding, stateEncoding,
@@ -369,9 +323,8 @@ public class TrainHmmMain implements Driver.Command {
 			try {
 
 				LOG.info("Loading and preparing test data...");
-				Dataset testset = new Dataset(testCorpusFileName,
-						inputCorpusA.getFeatureEncoding(),
-						inputCorpusA.getStateEncoding());
+				Dataset testset = new Dataset(testCorpusFileName, inputCorpusA
+						.getFeatureEncoding(), inputCorpusA.getStateEncoding());
 				alg.setListener(new EvaluateModelListener(testset.getInputs(),
 						testset.getOutputs(), inputCorpusA.getStateEncoding(),
 						nullLabel));
@@ -382,12 +335,18 @@ public class TrainHmmMain implements Driver.Command {
 			}
 		}
 
+		if (verbose) {
+			DebugUtil.featureEncoding = featureEncoding;
+			DebugUtil.stateEncoding = stateEncoding;
+			DebugUtil.print = true;
+		}
+
 		LOG.info("Training model...");
 		if (inputCorpusB == null) {
 			// Train on only one dataset.
 			alg.train(inputCorpusA.getInputs(), inputCorpusA.getOutputs(),
-					inputCorpusA.getFeatureEncoding(),
-					inputCorpusA.getStateEncoding());
+					inputCorpusA.getFeatureEncoding(), inputCorpusA
+							.getStateEncoding());
 		} else {
 			// Train on two datasets.
 			if (weightAdditionalCorpus < 0d)
@@ -398,10 +357,10 @@ public class TrainHmmMain implements Driver.Command {
 						/ (inputCorpusA.getNumberOfExamples() + inputCorpusB
 								.getNumberOfExamples());
 			alg.train(inputCorpusA.getInputs(), inputCorpusA.getOutputs(),
-					1d - weightAdditionalCorpus, weightStep,
-					inputCorpusB.getInputs(), inputCorpusB.getOutputs(),
-					inputCorpusA.getFeatureEncoding(),
-					inputCorpusA.getStateEncoding());
+					1d - weightAdditionalCorpus, weightStep, inputCorpusB
+							.getInputs(), inputCorpusB.getOutputs(),
+					inputCorpusA.getFeatureEncoding(), inputCorpusA
+							.getStateEncoding());
 		}
 
 		// Evaluation only for the final model.
@@ -409,9 +368,8 @@ public class TrainHmmMain implements Driver.Command {
 			try {
 
 				LOG.info("Loading and preparing test data...");
-				Dataset testset = new Dataset(testCorpusFileName,
-						inputCorpusA.getFeatureEncoding(),
-						inputCorpusA.getStateEncoding());
+				Dataset testset = new Dataset(testCorpusFileName, inputCorpusA
+						.getFeatureEncoding(), inputCorpusA.getStateEncoding());
 
 				// Allocate output sequences for predictions.
 				SequenceInput[] inputs = testset.getInputs();
@@ -420,8 +378,8 @@ public class TrainHmmMain implements Driver.Command {
 				for (int idx = 0; idx < inputs.length; ++idx)
 					predicteds[idx] = (SequenceOutput) inputs[idx]
 							.createOutput();
-				IobChunkEvaluation eval = new IobChunkEvaluation(
-						inputCorpusA.getStateEncoding(), nullLabel);
+				IobChunkEvaluation eval = new IobChunkEvaluation(inputCorpusA
+						.getStateEncoding(), nullLabel);
 
 				// Fill the list of predicted outputs.
 				for (int idx = 0; idx < inputs.length; ++idx)
@@ -458,8 +416,8 @@ public class TrainHmmMain implements Driver.Command {
 			PrintStream ps;
 			try {
 				ps = new PrintStream(modelFileName);
-				hmm.save(ps, inputCorpusA.getFeatureEncoding(),
-						inputCorpusA.getStateEncoding());
+				hmm.save(ps, inputCorpusA.getFeatureEncoding(), inputCorpusA
+						.getStateEncoding());
 				ps.close();
 			} catch (FileNotFoundException e) {
 				LOG.error("Saving model " + modelFileName, e);
@@ -541,8 +499,8 @@ public class TrainHmmMain implements Driver.Command {
 				if (res == null)
 					continue;
 				System.out.println(String.format(
-						"|  %s  |  %6.2f |  %6.2f |  %6.2f |", label,
-						100 * res.getPrecision(), 100 * res.getRecall(),
+						"|  %s  |  %6.2f |  %6.2f |  %6.2f |", label, 100 * res
+								.getPrecision(), 100 * res.getRecall(),
 						100 * res.getF1()));
 			}
 			System.out.println();
