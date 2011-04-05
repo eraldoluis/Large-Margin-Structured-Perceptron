@@ -28,8 +28,11 @@ public class LossAugmentedPerceptron extends Perceptron {
 	}
 
 	public LossAugmentedPerceptron(Inference taskImpl, Model initialModel,
-			int numberOfIterations, double learningRate, double lossWeight) {
-		super(taskImpl, initialModel, numberOfIterations, learningRate);
+			int numberOfIterations, double learningRate, double lossWeight,
+			boolean randomize, boolean averageWeights,
+			LearningRateUpdateStrategy learningRateUpdateStrategy) {
+		super(taskImpl, initialModel, numberOfIterations, learningRate,
+				randomize, averageWeights, learningRateUpdateStrategy);
 		this.lossWeight = lossWeight;
 	}
 
@@ -54,7 +57,7 @@ public class LossAugmentedPerceptron extends Perceptron {
 
 		// Update the current model and return the loss for this example.
 		double loss = model.update(input, referenceOutput, predictedOutput,
-				learningRate);
+				getCurrentLearningRate());
 
 		// TODO debug
 		if (DebugUtil.print && loss != 0d)

@@ -26,6 +26,39 @@ public class Perceptron {
 	private static final Log LOG = LogFactory.getLog(Perceptron.class);
 
 	/**
+	 * Strategy to update the learning rate.
+	 * 
+	 * @author eraldof
+	 * 
+	 */
+	public enum LearningRateUpdateStrategy {
+		/**
+		 * No update, i.e., constant learning rate.
+		 */
+		NONE,
+
+		/**
+		 * The learning rate is equal to n/t, where n is the initial learning
+		 * rate and t is the current iteration (number of processed examples).
+		 */
+		LINEAR,
+
+		/**
+		 * The learning rate is equal to n/(t*t), where n is the initial
+		 * learning rate and t is the current iteration (number of processed
+		 * examples).
+		 */
+		QUADRATIC,
+
+		/**
+		 * The learning rate is equal to n/(sqrt(t)), where n is the initial
+		 * learning rate and t is the current iteration (number of processed
+		 * examples).
+		 */
+		SQUARE_ROOT
+	}
+
+	/**
 	 * Task-specific implementation of inference algorithms.
 	 */
 	protected Inference inferenceImpl;
@@ -84,31 +117,51 @@ public class Perceptron {
 	protected boolean partiallyAnnotatedExamples;
 
 	/**
+	 * If <code>true</code> then use the averaged implementation in which the
+	 * final weight vector is equal to the average of the vector of all steps.
+	 * Usually this version works better than the original algorithm that
+	 * returns only the final vector.
+	 */
+	protected boolean averageWeights;
+
+	protected LearningRateUpdateStrategy learningRateUpdateStrategy;
+
+	/**
 	 * Create a perceptron to train the given initial model using the default
 	 * Collins' learning rate (1) and the default number of iterations (10).
 	 * 
+	 * @param inferenceImpl
 	 * @param initialModel
 	 */
-	public Perceptron(Inference taskImpl, Model initialModel) {
-		this(taskImpl, initialModel, 10, 1d);
+	public Perceptron(Inference inferenceImpl, Model initialModel) {
+		this(inferenceImpl, initialModel, 10, 1d, true, true,
+				LearningRateUpdateStrategy.NONE);
 	}
 
 	/**
 	 * Create a perceptron to train the given initial model using the given
 	 * number of iterations and learning rate.
 	 * 
+	 * @param inferenceImpl
 	 * @param initialModel
 	 * @param numberOfEpochs
 	 * @param learningRate
+	 * @param randomize
+	 * @param averageWeights
+	 * @param learningRateUpdateStrategy
 	 */
-	public Perceptron(Inference taskImpl, Model initialModel,
-			int numberOfEpochs, double learningRate) {
-		this.inferenceImpl = taskImpl;
+	public Perceptron(Inference inferenceImpl, Model initialModel,
+			int numberOfEpochs, double learningRate, boolean randomize,
+			boolean averageWeights,
+			LearningRateUpdateStrategy learningRateUpdateStrategy) {
+		this.inferenceImpl = inferenceImpl;
 		this.model = initialModel;
 		this.numberOfEpochs = numberOfEpochs;
 		this.learningRate = learningRate;
 		this.random = new Random();
-		this.randomize = true;
+		this.randomize = randomize;
+		this.averageWeights = averageWeights;
+		this.learningRateUpdateStrategy = learningRateUpdateStrategy;
 	}
 
 	/**
@@ -141,6 +194,10 @@ public class Perceptron {
 		return model;
 	}
 
+	public boolean getAverageWeights() {
+		return averageWeights;
+	}
+
 	/**
 	 * Set the seed of the random-number generator. If this method is not
 	 * called, the generator uses the default Java seed (a number very likely to
@@ -169,6 +226,26 @@ public class Perceptron {
 	 */
 	public void setListener(Listener listener) {
 		this.listener = listener;
+	}
+
+	/**
+	 * Return the learning rate for the current iteration.
+	 * 
+	 * @return
+	 */
+	protected double getCurrentLearningRate() {
+		switch (learningRateUpdateStrategy) {
+		case NONE:
+			return learningRate;
+		case LINEAR:
+			return learningRate / (iteration + 1);
+		case QUADRATIC:
+			return learningRate / ((iteration + 1) * (learningRate + 1));
+		case SQUARE_ROOT:
+			return learningRate / Math.sqrt(iteration + 1);
+		default:
+			return learningRate;
+		}
 	}
 
 	/**
@@ -224,7 +301,8 @@ public class Perceptron {
 			listener.afterTraining(inferenceImpl, model);
 
 		// Averaged-Perceptron: average the final weights.
-		model.average(iteration);
+		if (averageWeights)
+			model.average(iteration);
 	}
 
 	/**
@@ -359,7 +437,8 @@ public class Perceptron {
 			listener.afterTraining(inferenceImpl, model);
 
 		// Averaged-Perceptron: average the final weights.
-		model.average(iteration);
+		if (averageWeights)
+			model.average(iteration);
 	}
 
 	/**
@@ -482,7 +561,7 @@ public class Perceptron {
 
 		// Update the current model and return the loss for this example.
 		double loss = model.update(input, referenceOutput, predictedOutput,
-				learningRate);
+				getCurrentLearningRate());
 
 		// TODO debug
 		if (DebugUtil.print && loss != 0d)

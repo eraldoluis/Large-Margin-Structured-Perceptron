@@ -31,9 +31,12 @@ public class AwayFromWorsePerceptron extends LossAugmentedPerceptron {
 	}
 
 	public AwayFromWorsePerceptron(Inference taskImpl, Model initialModel,
-			int numberOfIterations, double learningRate, double lossWeight) {
+			int numberOfIterations, double learningRate, double lossWeight,
+			boolean randomize, boolean averageWeights,
+			LearningRateUpdateStrategy learningRateUpdateStrategy) {
 		super(taskImpl, initialModel, numberOfIterations, learningRate,
-				lossWeight);
+				lossWeight, randomize, averageWeights,
+				learningRateUpdateStrategy);
 	}
 
 	@Override
@@ -63,7 +66,7 @@ public class AwayFromWorsePerceptron extends LossAugmentedPerceptron {
 
 		// Update the current model and return the loss for this example.
 		double loss = model.update(input, predictedOutput,
-				lossAugmentedPredictedOutput, learningRate);
+				lossAugmentedPredictedOutput, getCurrentLearningRate());
 
 		// TODO debug
 		if (DebugUtil.print && loss != 0d)

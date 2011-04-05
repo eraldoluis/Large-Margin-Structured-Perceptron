@@ -31,9 +31,12 @@ public class TowardBetterPerceptron extends LossAugmentedPerceptron {
 	}
 
 	public TowardBetterPerceptron(Inference taskImpl, Model initialModel,
-			int numberOfIterations, double learningRate, double lossWeight) {
+			int numberOfIterations, double learningRate, double lossWeight,
+			boolean randomize, boolean averageWeights,
+			LearningRateUpdateStrategy learningRateUpdateStrategy) {
 		super(taskImpl, initialModel, numberOfIterations, learningRate,
-				lossWeight);
+				lossWeight, randomize, averageWeights,
+				learningRateUpdateStrategy);
 	}
 
 	@Override
@@ -62,7 +65,7 @@ public class TowardBetterPerceptron extends LossAugmentedPerceptron {
 
 		// Update the current model and return the loss for this example.
 		double loss = model.update(input, lossAugmentedPredictedOutput,
-				predictedOutput, learningRate);
+				predictedOutput, getCurrentLearningRate());
 
 		// TODO debug
 		if (DebugUtil.print && loss != 0d)
