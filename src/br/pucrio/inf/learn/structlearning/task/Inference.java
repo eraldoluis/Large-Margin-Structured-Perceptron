@@ -63,4 +63,31 @@ public interface Inference {
 			ExampleOutput referenceOutput, ExampleOutput inferedOutput,
 			double lossWeight);
 
+	/**
+	 * Loss-augmented inference algorithm that condiders partially-annotated
+	 * examples. The loss function has different weights depending on whether
+	 * the considered elements is annotated or not.
+	 * 
+	 * @param model
+	 *            the model with the feature weights.
+	 * @param input
+	 *            the input structure.
+	 * @param lossPartiallyLabeledOutput
+	 *            the partial output structure that is used to check whether the
+	 *            element is annotated or not.
+	 * @param referenceOutput
+	 *            the reference output structure that is used to calculate the
+	 *            loss function.
+	 * @param inferedOutput
+	 *            the infered output structure.
+	 * @param lossAnnotatedWeight
+	 *            weight used for missing elements that are annotated.
+	 * @param lossNonAnnotatedWeight
+	 *            weight used for missing elements that are not annotated.
+	 */
+	void lossAugmentedInference(Model model, ExampleInput input,
+			ExampleOutput lossPartiallyLabeledOutput,
+			ExampleOutput referenceOutput, ExampleOutput inferedOutput,
+			double lossAnnotatedWeight, double lossNonAnnotatedWeight);
+
 }

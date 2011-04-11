@@ -2,8 +2,8 @@ package br.pucrio.inf.learn.structlearning.application.sequence;
 
 import br.pucrio.inf.learn.structlearning.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.data.ExampleOutput;
-import br.pucrio.inf.learn.structlearning.task.Model;
 import br.pucrio.inf.learn.structlearning.task.Inference;
+import br.pucrio.inf.learn.structlearning.task.Model;
 
 /**
  * Implement Viterbi-based inference algorithms for sequence structures.
@@ -25,9 +25,16 @@ public class ViterbiInference implements Inference {
 	private int nonAnnotatedStateCode;
 
 	/**
-	 * Weight of the loss function in the objective function.
+	 * Weight of the loss function in the objective function for annotated
+	 * elements.
 	 */
-	private double lossWeight;
+	private double lossAnnotatedWeight;
+
+	/**
+	 * Weight of the loss function in the objective function for NON annotated
+	 * elements.
+	 */
+	private double lossNonAnnotatedWeight;
 
 	/**
 	 * This is the correct (or loss reference) output sequence corresponding to
@@ -35,6 +42,12 @@ public class ViterbiInference implements Inference {
 	 * function.
 	 */
 	private SequenceOutput lossReferenceOutput;
+
+	/**
+	 * Output structure used to determine whether an element is annotated or
+	 * not.
+	 */
+	private SequenceOutput lossPartiallyAnnotatedOutput;
 
 	/**
 	 * Create a Viterbi inference algorithm using the given state as the default
@@ -45,8 +58,10 @@ public class ViterbiInference implements Inference {
 	public ViterbiInference(int defaultState) {
 		this.defaultState = defaultState;
 		this.nonAnnotatedStateCode = -1;
-		this.lossWeight = 0d;
+		this.lossAnnotatedWeight = 0d;
+		this.lossNonAnnotatedWeight = 0d;
 		this.lossReferenceOutput = null;
+		this.lossPartiallyAnnotatedOutput = null;
 	}
 
 	/**
@@ -90,19 +105,46 @@ public class ViterbiInference implements Inference {
 			ExampleOutput referenceOutput, ExampleOutput inferedOutput,
 			double lossWeight) {
 		// Save the current configuration.
-		double previousLossWeight = this.lossWeight;
+		double previousLossWeight = this.lossAnnotatedWeight;
 		SequenceOutput previousLossReferenceOutput = this.lossReferenceOutput;
 
 		// Configure the loss-augmented necessary properties.
-		this.lossWeight = lossWeight;
+		this.lossAnnotatedWeight = lossWeight;
 		this.lossReferenceOutput = (SequenceOutput) referenceOutput;
 
 		// Call the ordinary inference algorithm.
 		tag((Hmm) model, (SequenceInput) input, (SequenceOutput) inferedOutput);
 
 		// Restore the previous configuration.
-		this.lossWeight = previousLossWeight;
+		this.lossAnnotatedWeight = previousLossWeight;
 		this.lossReferenceOutput = previousLossReferenceOutput;
+	}
+
+	@Override
+	public void lossAugmentedInference(Model model, ExampleInput input,
+			ExampleOutput lossPartiallyLabeledOutput,
+			ExampleOutput referenceOutput, ExampleOutput inferedOutput,
+			double lossAnnotatedWeight, double lossNonAnnotatedWeight) {
+		// Save the current configuration.
+		double previousLossAnnotatedWeight = this.lossAnnotatedWeight;
+		double previousLossNonAnnotatedWeight = this.lossNonAnnotatedWeight;
+		SequenceOutput previousLossReferenceOutput = this.lossReferenceOutput;
+		SequenceOutput previousLossPartiallyAnnotatedOutput = this.lossPartiallyAnnotatedOutput;
+
+		// Configure the loss-augmented necessary properties.
+		this.lossAnnotatedWeight = lossAnnotatedWeight;
+		this.lossNonAnnotatedWeight = lossNonAnnotatedWeight;
+		this.lossReferenceOutput = (SequenceOutput) referenceOutput;
+		this.lossPartiallyAnnotatedOutput = (SequenceOutput) lossPartiallyLabeledOutput;
+
+		// Call the ordinary inference algorithm.
+		tag((Hmm) model, (SequenceInput) input, (SequenceOutput) inferedOutput);
+
+		// Restore the previous configuration.
+		this.lossAnnotatedWeight = previousLossAnnotatedWeight;
+		this.lossNonAnnotatedWeight = previousLossNonAnnotatedWeight;
+		this.lossReferenceOutput = previousLossReferenceOutput;
+		this.lossPartiallyAnnotatedOutput = previousLossPartiallyAnnotatedOutput;
 	}
 
 	/**
@@ -124,9 +166,8 @@ public class ViterbiInference implements Inference {
 
 		// Weights for the first token.
 		for (int state = 0; state < numberOfStates; ++state) {
-			delta[0][state] = getTokenEmissionWeightWithLoss(hmm, input, 0,
-					state)
-					+ hmm.getInitialStateParameter(state);
+			delta[0][state] = getLossAugmentedTokenEmissionWeight(hmm, input,
+					0, state) + hmm.getInitialStateParameter(state);
 		}
 
 		// Apply each step of the Viterbi algorithm.
@@ -192,7 +233,8 @@ public class ViterbiInference implements Inference {
 		// Set delta and psi according to the best from-state.
 		psi[token][toState] = maxState;
 		delta[token][toState] = maxWeight
-				+ getTokenEmissionWeightWithLoss(hmm, input, token, toState);
+				+ getLossAugmentedTokenEmissionWeight(hmm, input, token,
+						toState);
 	}
 
 	/**
@@ -224,9 +266,8 @@ public class ViterbiInference implements Inference {
 		int curState = partiallyLabeledOutput.getLabel(0);
 		if (curState == nonAnnotatedStateCode) {
 			for (int state = 0; state < numberOfStates; ++state) {
-				delta[0][state] = getTokenEmissionWeightWithLoss(hmm, input, 0,
-						state)
-						+ hmm.getInitialStateParameter(state);
+				delta[0][state] = getLossAugmentedTokenEmissionWeight(hmm,
+						input, 0, state) + hmm.getInitialStateParameter(state);
 			}
 		} else {
 			// Do not need to calculate anything. The next token will always
@@ -317,13 +358,15 @@ public class ViterbiInference implements Inference {
 			psi[token][toState] = previousState;
 			delta[token][toState] = delta[token - 1][previousState]
 					+ hmm.getTransitionParameter(previousState, toState)
-					+ getTokenEmissionWeightWithLoss(hmm, input, token, toState);
+					+ getLossAugmentedTokenEmissionWeight(hmm, input, token,
+							toState);
 		}
 	}
 
 	/**
-	 * Sum the emission parameters of all features in the given token for the
-	 * given state and, additionally, consider the loss function.
+	 * Return the sum of the emission parameters of all features in the given
+	 * token and state and, additionally, augment this value with the loss
+	 * function if the user specified so.
 	 * 
 	 * @param hmm
 	 * @param input
@@ -331,13 +374,32 @@ public class ViterbiInference implements Inference {
 	 * @param state
 	 * @return
 	 */
-	protected double getTokenEmissionWeightWithLoss(Hmm hmm,
+	protected double getLossAugmentedTokenEmissionWeight(Hmm hmm,
 			SequenceInput input, int token, int state) {
+
+		// The ordinary emission weight for the token.
 		double w = hmm.getTokenEmissionWeight(input, token, state);
+
+		// Augment the objective function value with a possible loss.
 		if (lossReferenceOutput != null
-				&& lossReferenceOutput.getLabel(token) != state)
-			w += lossWeight;
+				&& lossReferenceOutput.getLabel(token) != state) {
+			// If the user provided a loss-reference output structure and the
+			// reference token label is different from the predicted one, then
+			// count the loss value for this token.
+			if (lossPartiallyAnnotatedOutput == null
+					|| lossPartiallyAnnotatedOutput.getLabel(token) == lossReferenceOutput
+							.getLabel(token))
+				// If the user did not provide a partially-labeled output
+				// structure, or if he/she did but the token is annotated.
+				w += lossAnnotatedWeight;
+			else
+				// If the user provided a partially-labeled output structure and
+				// the token is NON-annotated.
+				w += lossNonAnnotatedWeight;
+		}
+
 		return w;
+
 	}
 
 	/**

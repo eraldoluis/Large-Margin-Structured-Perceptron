@@ -39,6 +39,18 @@ public class TowardBetterPerceptron extends LossAugmentedPerceptron {
 				learningRateUpdateStrategy);
 	}
 
+	public TowardBetterPerceptron(Inference taskImpl, Model initialModel,
+			int numberOfIterations, double learningRate,
+			double lossAnnotatedWeight, double lossNonAnnotatedWeight,
+			double lossNonAnnotatedWeightInc, boolean randomize,
+			boolean averageWeights,
+			LearningRateUpdateStrategy learningRateUpdateStrategy) {
+		super(taskImpl, initialModel, numberOfIterations, learningRate,
+				lossAnnotatedWeight, lossNonAnnotatedWeight,
+				lossNonAnnotatedWeightInc, randomize, averageWeights,
+				learningRateUpdateStrategy);
+	}
+
 	@Override
 	public double trainOneExample(ExampleInput input,
 			ExampleOutput correctOutput, ExampleOutput predictedOutput) {
@@ -57,11 +69,19 @@ public class TowardBetterPerceptron extends LossAugmentedPerceptron {
 					referenceOutput);
 		}
 
-		// Infer the whole output structure using the loss function. This is
-		// the "better" output structure used to update the model.
 		ExampleOutput lossAugmentedPredictedOutput = input.createOutput();
-		inferenceImpl.lossAugmentedInference(model, input, referenceOutput,
-				lossAugmentedPredictedOutput, -lossWeight);
+		if (lossNonAnnotatedWeight < 0)
+			// Infer the whole output structure using the loss function. This is
+			// the "better" output structure used to update the model.
+			inferenceImpl.lossAugmentedInference(model, input, referenceOutput,
+					lossAugmentedPredictedOutput, -lossAnnotatedWeight);
+		else
+			// Predict the best output structure to the current input structure
+			// using a loss-augmented objective function that uses different
+			// weights for annotated and non-annotated tokens.
+			inferenceImpl.lossAugmentedInference(model, input, correctOutput,
+					referenceOutput, lossAugmentedPredictedOutput,
+					-lossAnnotatedWeight, -lossNonAnnotatedWeight);
 
 		// Update the current model and return the loss for this example.
 		double loss = model.update(input, lossAugmentedPredictedOutput,

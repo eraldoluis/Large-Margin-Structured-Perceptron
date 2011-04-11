@@ -95,16 +95,16 @@ public class Perceptron {
 	protected Listener listener;
 
 	/**
-	 * Random-number generator.
-	 */
-	protected Random random;
-
-	/**
 	 * If this value is <code>false</code>, do not randomize the order to
 	 * process the training examples. This value is <code>true</code> by
 	 * default.
 	 */
 	protected boolean randomize;
+
+	/**
+	 * Random-number generator.
+	 */
+	protected Random random;
 
 	/**
 	 * Report progress with this rate;
@@ -124,6 +124,9 @@ public class Perceptron {
 	 */
 	protected boolean averageWeights;
 
+	/**
+	 * Strategy used to vary the learning rate during training.
+	 */
 	protected LearningRateUpdateStrategy learningRateUpdateStrategy;
 
 	/**
@@ -268,7 +271,6 @@ public class Perceptron {
 				return;
 
 		iteration = 0;
-		int epoch;
 		for (epoch = 0; epoch < numberOfEpochs; ++epoch) {
 
 			LOG.info("Perceptron epoch: " + epoch + "...");
@@ -398,7 +400,6 @@ public class Perceptron {
 				return;
 
 		iteration = 0;
-		int epoch;
 		for (epoch = 0; epoch < numberOfEpochs; ++epoch) {
 
 			LOG.info("Perceptron epoch: " + epoch + "...");

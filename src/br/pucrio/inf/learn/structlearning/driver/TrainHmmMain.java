@@ -201,6 +201,21 @@ public class TrainHmmMain implements Driver.Command {
 								+ "where n is the initial learning rate and t "
 								+ "is the current iteration (number of processed"
 								+ " examples).").create());
+		options.addOption(OptionBuilder
+				.withLongOpt("lossnonlabeledweight")
+				.withArgName("numeric weight")
+				.hasArg()
+				.withDescription(
+						"Specify a different loss weight for non-annotated tokens.")
+				.create());
+		options.addOption(OptionBuilder
+				.withLongOpt("lossnonlabeledweightinc")
+				.withArgName("numeric increment per epoch")
+				.hasArg()
+				.withDescription(
+						"Specify an increment (per epoch) to the loss weight on non-annotated tokens."
+								+ " The maximum value for this weight is the annotated tokens loss weight.")
+				.create());
 		options.addOption(OptionBuilder.withLongOpt("debug")
 				.withDescription("Print debug information.").create());
 
@@ -238,6 +253,11 @@ public class TrainHmmMain implements Driver.Command {
 		double lossWeight = Double.parseDouble(cmdLine.getOptionValue(
 				"lossweight", "0d"));
 		boolean averageWeights = !cmdLine.hasOption("noavg");
+		String lrUpdateStrategy = cmdLine.getOptionValue("lrupdate");
+		String lossNonAnnotatedWeightStr = cmdLine
+				.getOptionValue("lossnonlabeledweight");
+		double lossNonAnnotatedWeightInc = Double.parseDouble(cmdLine
+				.getOptionValue("lossnonlabeledweightinc", "0d"));
 		boolean debug = cmdLine.hasOption("debug");
 
 		LOG.info("Loading input corpus...");
@@ -333,7 +353,6 @@ public class TrainHmmMain implements Driver.Command {
 
 		// Learning rate update strategy.
 		LearningRateUpdateStrategy learningRateUpdateStrategy = LearningRateUpdateStrategy.NONE;
-		String lrUpdateStrategy = cmdLine.getOptionValue("lrupdate");
 		if (lrUpdateStrategy == null)
 			learningRateUpdateStrategy = LearningRateUpdateStrategy.NONE;
 		else if (lrUpdateStrategy.equals("none"))
@@ -366,21 +385,43 @@ public class TrainHmmMain implements Driver.Command {
 			// Loss-augumented implementation: considers partially-labeled
 			// examples and customized loss function (per-token
 			// misclassification loss).
-			alg = new LossAugmentedPerceptron(viterbiInference, hmm, numEpochs,
-					learningRate, lossWeight, true, averageWeights,
-					learningRateUpdateStrategy);
+			if (lossNonAnnotatedWeightStr == null)
+				alg = new LossAugmentedPerceptron(viterbiInference, hmm,
+						numEpochs, learningRate, lossWeight, true,
+						averageWeights, learningRateUpdateStrategy);
+			else
+				alg = new LossAugmentedPerceptron(viterbiInference, hmm,
+						numEpochs, learningRate, lossWeight,
+						Double.parseDouble(lossNonAnnotatedWeightStr),
+						lossNonAnnotatedWeightInc, true, averageWeights,
+						learningRateUpdateStrategy);
 			break;
 		case AWAY_FROM_WORSE_PERCEPTRON:
 			// Away-from-worse implementation.
-			alg = new AwayFromWorsePerceptron(viterbiInference, hmm, numEpochs,
-					learningRate, lossWeight, true, averageWeights,
-					learningRateUpdateStrategy);
+			if (lossNonAnnotatedWeightStr == null)
+				alg = new AwayFromWorsePerceptron(viterbiInference, hmm,
+						numEpochs, learningRate, lossWeight, true,
+						averageWeights, learningRateUpdateStrategy);
+			else
+				alg = new AwayFromWorsePerceptron(viterbiInference, hmm,
+						numEpochs, learningRate, lossWeight,
+						Double.parseDouble(lossNonAnnotatedWeightStr),
+						lossNonAnnotatedWeightInc, true, averageWeights,
+						learningRateUpdateStrategy);
 			break;
 		case TOWARD_BETTER_PERCEPTRON:
 			// Toward-better implementation.
-			alg = new TowardBetterPerceptron(viterbiInference, hmm, numEpochs,
-					learningRate, lossWeight, true, averageWeights,
-					learningRateUpdateStrategy);
+			if (lossNonAnnotatedWeightStr == null)
+				alg = new TowardBetterPerceptron(viterbiInference, hmm,
+						numEpochs, learningRate, lossWeight, true,
+						averageWeights, learningRateUpdateStrategy);
+			else
+				alg = new TowardBetterPerceptron(viterbiInference, hmm,
+						numEpochs, learningRate, lossWeight,
+						Double.parseDouble(lossNonAnnotatedWeightStr),
+						lossNonAnnotatedWeightInc, true, averageWeights,
+						learningRateUpdateStrategy);
+
 			break;
 		}
 
