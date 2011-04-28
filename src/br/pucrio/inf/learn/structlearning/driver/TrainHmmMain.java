@@ -218,6 +218,11 @@ public class TrainHmmMain implements Driver.Command {
 				.create());
 		options.addOption(OptionBuilder.withLongOpt("debug")
 				.withDescription("Print debug information.").create());
+		options.addOption(OptionBuilder
+				.withLongOpt("skipunlabeled")
+				.withDescription(
+						"Skip completely unlabeled sequences in the input corpora.")
+				.create());
 
 		// Parse the command-line arguments.
 		CommandLine cmdLine = null;
@@ -259,6 +264,8 @@ public class TrainHmmMain implements Driver.Command {
 		double lossNonAnnotatedWeightInc = Double.parseDouble(cmdLine
 				.getOptionValue("lossnonlabeledweightinc", "0d"));
 		boolean debug = cmdLine.hasOption("debug");
+		boolean skipCompletelyNonAnnotatedExamples = cmdLine
+				.hasOption("skipunlabeled");
 
 		LOG.info("Loading input corpus...");
 		Dataset inputCorpusA = null;
@@ -290,6 +297,8 @@ public class TrainHmmMain implements Driver.Command {
 			// Get the list of input paths and concatenate the corpora in them.
 			inputCorpusA = new Dataset(featureEncoding, stateEncoding,
 					nonAnnotatedLabel, NON_ANNOTATED_LABEL_CODE);
+			inputCorpusA
+					.setSkipCompletelyNonAnnotatedExamples(skipCompletelyNonAnnotatedExamples);
 
 			// Load the first data file, which can be the standard input.
 			if (inputCorpusFileNames[0].equals("stdin"))
@@ -301,7 +310,8 @@ public class TrainHmmMain implements Driver.Command {
 			for (int idxFile = 1; idxFile < inputCorpusFileNames.length; ++idxFile) {
 				Dataset other = new Dataset(inputCorpusFileNames[idxFile],
 						featureEncoding, stateEncoding, nonAnnotatedLabel,
-						NON_ANNOTATED_LABEL_CODE);
+						NON_ANNOTATED_LABEL_CODE,
+						skipCompletelyNonAnnotatedExamples);
 				inputCorpusA.add(other);
 			}
 
@@ -318,7 +328,8 @@ public class TrainHmmMain implements Driver.Command {
 
 				inputCorpusB = new Dataset(additionalCorpusFileName,
 						featureEncoding, stateEncoding, nonAnnotatedLabel,
-						NON_ANNOTATED_LABEL_CODE);
+						NON_ANNOTATED_LABEL_CODE,
+						skipCompletelyNonAnnotatedExamples);
 			}
 
 		} catch (Exception e) {
