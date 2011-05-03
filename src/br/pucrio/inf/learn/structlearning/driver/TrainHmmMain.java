@@ -12,13 +12,13 @@ import org.apache.commons.cli.PosixParser;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import br.pucrio.inf.learn.structlearning.algorithm.AwayFromWorsePerceptron;
-import br.pucrio.inf.learn.structlearning.algorithm.LossAugmentedPerceptron;
-import br.pucrio.inf.learn.structlearning.algorithm.Perceptron;
-import br.pucrio.inf.learn.structlearning.algorithm.Perceptron.LearningRateUpdateStrategy;
-import br.pucrio.inf.learn.structlearning.algorithm.Perceptron.Listener;
-import br.pucrio.inf.learn.structlearning.algorithm.TowardBetterPerceptron;
-import br.pucrio.inf.learn.structlearning.application.sequence.ArrayBasedHmm;
+import br.pucrio.inf.learn.structlearning.algorithm.perceptron.AwayFromWorsePerceptron;
+import br.pucrio.inf.learn.structlearning.algorithm.perceptron.LossAugmentedPerceptron;
+import br.pucrio.inf.learn.structlearning.algorithm.perceptron.Perceptron;
+import br.pucrio.inf.learn.structlearning.algorithm.perceptron.TowardBetterPerceptron;
+import br.pucrio.inf.learn.structlearning.algorithm.perceptron.Perceptron.LearningRateUpdateStrategy;
+import br.pucrio.inf.learn.structlearning.algorithm.perceptron.Perceptron.Listener;
+import br.pucrio.inf.learn.structlearning.application.sequence.AveragedArrayBasedHmm;
 import br.pucrio.inf.learn.structlearning.application.sequence.SequenceInput;
 import br.pucrio.inf.learn.structlearning.application.sequence.SequenceOutput;
 import br.pucrio.inf.learn.structlearning.application.sequence.ViterbiInference;
@@ -26,12 +26,13 @@ import br.pucrio.inf.learn.structlearning.application.sequence.data.Dataset;
 import br.pucrio.inf.learn.structlearning.application.sequence.evaluation.F1Measure;
 import br.pucrio.inf.learn.structlearning.application.sequence.evaluation.IobChunkEvaluation;
 import br.pucrio.inf.learn.structlearning.data.StringEncoding;
+import br.pucrio.inf.learn.structlearning.driver.Driver.Command;
 import br.pucrio.inf.learn.structlearning.task.Inference;
 import br.pucrio.inf.learn.structlearning.task.Model;
 import br.pucrio.inf.learn.util.CommandLineOptionsUtil;
 import br.pucrio.inf.learn.util.DebugUtil;
 
-public class TrainHmmMain implements Driver.Command {
+public class TrainHmmMain implements Command {
 
 	private static final Log LOG = LogFactory.getLog(TrainHmmMain.class);
 
@@ -340,7 +341,7 @@ public class TrainHmmMain implements Driver.Command {
 		LOG.info("Allocating initial model...");
 		ViterbiInference viterbiInference = new ViterbiInference(inputCorpusA
 				.getStateEncoding().put(defaultLabel));
-		ArrayBasedHmm hmm = new ArrayBasedHmm(inputCorpusA.getNumberOfStates(),
+		AveragedArrayBasedHmm hmm = new AveragedArrayBasedHmm(inputCorpusA.getNumberOfStates(),
 				inputCorpusA.getNumberOfSymbols());
 
 		// Parse algorithm type option.

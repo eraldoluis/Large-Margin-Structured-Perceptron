@@ -4,13 +4,13 @@ import java.util.Set;
 import java.util.TreeSet;
 
 /**
- * Implementation of an HMM using primitive arrays to store the parameters. This
- * class implements the averaged version of the Perceptron algorithm.
+ * Implementation of an HMM using averaged-weight arrays to store the
+ * parameters. This class is useful for the averaged Perceptron algorithm.
  * 
  * @author eraldof
  * 
  */
-public class ArrayBasedHmm extends Hmm implements Cloneable {
+public class AveragedArrayBasedHmm extends Hmm implements Cloneable {
 
 	/**
 	 * Model parameters: initial state weights. The array index is the state.
@@ -41,7 +41,7 @@ public class ArrayBasedHmm extends Hmm implements Cloneable {
 	 * @param numberOfStates
 	 * @param numberOfSymbols
 	 */
-	public ArrayBasedHmm(int numberOfStates, int numberOfSymbols) {
+	public AveragedArrayBasedHmm(int numberOfStates, int numberOfSymbols) {
 		// Allocate arrays.
 		initialState = new AveragedWeight[numberOfStates];
 		transitions = new AveragedWeight[numberOfStates][numberOfStates];
@@ -126,8 +126,8 @@ public class ArrayBasedHmm extends Hmm implements Cloneable {
 	@Override
 	public Object clone() throws CloneNotSupportedException {
 		// Allocate an empty model.
-		ArrayBasedHmm copy = new ArrayBasedHmm(getNumberOfStates(),
-				emissions[0].length);
+		AveragedArrayBasedHmm copy = new AveragedArrayBasedHmm(
+				getNumberOfStates(), emissions[0].length);
 
 		// Clone each weight.
 		for (int state = 0; state < getNumberOfStates(); ++state) {

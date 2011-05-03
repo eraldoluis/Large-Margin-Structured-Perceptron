@@ -1,10 +1,11 @@
-package br.pucrio.inf.learn.structlearning.algorithm;
+package br.pucrio.inf.learn.structlearning.algorithm.perceptron;
 
 import java.util.Random;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import br.pucrio.inf.learn.structlearning.algorithm.StructuredAlgorithm;
 import br.pucrio.inf.learn.structlearning.application.sequence.SequenceInput;
 import br.pucrio.inf.learn.structlearning.application.sequence.SequenceOutput;
 import br.pucrio.inf.learn.structlearning.data.ExampleInput;
@@ -21,7 +22,7 @@ import br.pucrio.inf.learn.util.DebugUtil;
  * @author eraldof
  * 
  */
-public class Perceptron {
+public class Perceptron implements StructuredAlgorithm {
 
 	private static final Log LOG = LogFactory.getLog(Perceptron.class);
 
@@ -251,13 +252,7 @@ public class Perceptron {
 		}
 	}
 
-	/**
-	 * Train the model with the given examples. Corresponding inputs and outputs
-	 * must be in the same order.
-	 * 
-	 * @param inputs
-	 * @param outputs
-	 */
+	@Override
 	public void train(ExampleInput[] inputs, ExampleOutput[] outputs,
 			StringEncoding featureEncoding, StringEncoding stateEncoding) {
 
@@ -363,25 +358,7 @@ public class Perceptron {
 
 	}
 
-	/**
-	 * Train a model on two datasets. The first dataset (A) has a different
-	 * weight and this weight is used to modify the sampling probability of the
-	 * examples such that the probability of picking an example from the A is
-	 * equal to weightA.
-	 * 
-	 * @param inputsA
-	 * @param outputsA
-	 * @param weightA
-	 *            weight of the first dataset (A) between 0 and 1.
-	 * @param weightStep
-	 *            if this value is greater than zero, then starts with a weight
-	 *            of 1 for the first dataset and after each epoch increase this
-	 *            weight by this step value.
-	 * @param inputsB
-	 * @param outputsB
-	 * @param featureEncoding
-	 * @param stateEncoding
-	 */
+	@Override
 	public void train(ExampleInput[] inputsA, ExampleOutput[] outputsA,
 			double weightA, double weightStep, ExampleInput[] inputsB,
 			ExampleOutput[] outputsB, StringEncoding featureEncoding,

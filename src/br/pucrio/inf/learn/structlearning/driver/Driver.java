@@ -3,6 +3,20 @@ package br.pucrio.inf.learn.structlearning.driver;
 import java.util.LinkedList;
 import java.util.List;
 
+/**
+ * Command-line driver for the structural learning project.
+ * 
+ * This program (driver) expects as a first argument the name of a command. The
+ * list of commands is filled in the main method. If the program is invoked
+ * without any argument, it shows the list of available commands.
+ * 
+ * This driver also accepts JVM arguments from the command line. These arguments
+ * are parsed and removed from the argument list before calling the command
+ * class.
+ * 
+ * @author eraldof
+ * 
+ */
 public class Driver {
 
 	private static List<CommandDescription> descriptions;
@@ -13,6 +27,10 @@ public class Driver {
 		// Trainer for the Structural Perceptron.
 		descriptions.add(new CommandDescription(new TrainHmmMain(), "TrainHmm",
 				"Train an HMM using the Structural Perceptron algorithm."));
+
+		// Test JNI.
+		descriptions.add(new CommandDescription(new JNITest(), "JNITest",
+				"Test JNI."));
 
 		if (args.length < 1) {
 			usage();

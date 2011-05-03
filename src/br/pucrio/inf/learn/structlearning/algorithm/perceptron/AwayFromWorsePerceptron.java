@@ -1,4 +1,4 @@
-package br.pucrio.inf.learn.structlearning.algorithm;
+package br.pucrio.inf.learn.structlearning.algorithm.perceptron;
 
 import br.pucrio.inf.learn.structlearning.application.sequence.SequenceInput;
 import br.pucrio.inf.learn.structlearning.application.sequence.SequenceOutput;
