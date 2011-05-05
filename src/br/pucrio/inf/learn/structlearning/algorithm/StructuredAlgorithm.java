@@ -3,6 +3,7 @@ package br.pucrio.inf.learn.structlearning.algorithm;
 import br.pucrio.inf.learn.structlearning.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.data.StringEncoding;
+import br.pucrio.inf.learn.structlearning.task.Model;
 
 /**
  * Interface for a structured learning algorithm.
@@ -45,5 +46,28 @@ public interface StructuredAlgorithm {
 			double weightA, double weightStep, ExampleInput[] inputsB,
 			ExampleOutput[] outputsB, StringEncoding featureEncoding,
 			StringEncoding stateEncoding);
+
+	/**
+	 * Return the learned model. This method can only be called after a
+	 * succesful training procedure.
+	 * 
+	 * @return
+	 */
+	public Model getModel();
+
+	/**
+	 * Indicate whether this algorithm shall consider partially annotated
+	 * examples or not.
+	 * 
+	 * @param value
+	 */
+	public void setPartiallyAnnotatedExamples(boolean value);
+
+	/**
+	 * Set an object to listen the training process.
+	 * 
+	 * @param listener
+	 */
+	public void setListener(TrainingListener listener);
 
 }

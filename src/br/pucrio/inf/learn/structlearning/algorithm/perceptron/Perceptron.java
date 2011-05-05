@@ -5,6 +5,7 @@ import java.util.Random;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import br.pucrio.inf.learn.structlearning.algorithm.TrainingListener;
 import br.pucrio.inf.learn.structlearning.algorithm.StructuredAlgorithm;
 import br.pucrio.inf.learn.structlearning.application.sequence.SequenceInput;
 import br.pucrio.inf.learn.structlearning.application.sequence.SequenceOutput;
@@ -93,7 +94,7 @@ public class Perceptron implements StructuredAlgorithm {
 	/**
 	 * An object to observe the training process.
 	 */
-	protected Listener listener;
+	protected TrainingListener listener;
 
 	/**
 	 * If this value is <code>false</code>, do not randomize the order to
@@ -228,7 +229,7 @@ public class Perceptron implements StructuredAlgorithm {
 	 * 
 	 * @param listener
 	 */
-	public void setListener(Listener listener) {
+	public void setListener(TrainingListener listener) {
 		this.listener = listener;
 	}
 
@@ -562,75 +563,6 @@ public class Perceptron implements StructuredAlgorithm {
 	 */
 	public void setReportProgressRate(double rate) {
 		reportProgressRate = rate;
-	}
-
-	/**
-	 * Interface for listeners that observe the training algorithm.
-	 * 
-	 * @author eraldof
-	 * 
-	 */
-	public interface Listener {
-
-		/**
-		 * Called before starting the training procedure.
-		 * 
-		 * @param impl
-		 *            task-specific inference algorithms.
-		 * @param curModel
-		 *            the current model (no averaging).
-		 * 
-		 * @return <code>false</code> to not start the training procedure.
-		 */
-		boolean beforeTraining(Inference impl, Model curModel);
-
-		/**
-		 * Called after the training procedure ends.
-		 * 
-		 * @param impl
-		 *            task-specific inference algorithms.
-		 * @param curModel
-		 *            the current model (no averaging).
-		 */
-		void afterTraining(Inference impl, Model curModel);
-
-		/**
-		 * Called before starting an epoch (processing the whole training set).
-		 * 
-		 * @param impl
-		 *            task-specific inference algorithms.
-		 * @param curModel
-		 *            the current model (no averaging).
-		 * @param epoch
-		 *            the current epoch (starts in zero).
-		 * @param iteration
-		 *            current iteration (number of inference/update steps).
-		 * 
-		 * @return <code>false</code> to stop the training procedure.
-		 */
-		boolean beforeEpoch(Inference impl, Model curModel, int epoch,
-				int iteration);
-
-		/**
-		 * Called after an epoch (processing the whole training set).
-		 * 
-		 * @param impl
-		 *            task-specific inference algorithms.
-		 * @param curModel
-		 *            the current model (no averaging).
-		 * @param epoch
-		 *            the current epoch (starts in zero).
-		 * @param loss
-		 *            the training set loss during accumulated during the last
-		 *            epoch.
-		 * @param iteration
-		 *            current iteration (number of inference/update steps).
-		 * 
-		 * @return
-		 */
-		boolean afterEpoch(Inference impl, Model curModel, int epoch,
-				double loss, int iteration);
-
 	}
 
 }

@@ -125,7 +125,7 @@ public class SequenceInput implements ExampleInput {
 		@Override
 		public void remove() {
 			throw new UnsupportedOperationException(
-					"This is a immutable iterator. One cannot remove an item.");
+					"This is an immutable iterator. One cannot remove an item.");
 		}
 
 		@Override

@@ -29,7 +29,7 @@ public class Driver {
 				"Train an HMM using the Structural Perceptron algorithm."));
 
 		// Test JNI.
-		descriptions.add(new CommandDescription(new JNITest(), "JNITest",
+		descriptions.add(new CommandDescription(new TrainNativeSvm(), "JNITest",
 				"Test JNI."));
 
 		if (args.length < 1) {

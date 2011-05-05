@@ -12,12 +12,12 @@ import org.apache.commons.cli.PosixParser;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import br.pucrio.inf.learn.structlearning.algorithm.TrainingListener;
 import br.pucrio.inf.learn.structlearning.algorithm.perceptron.AwayFromWorsePerceptron;
 import br.pucrio.inf.learn.structlearning.algorithm.perceptron.LossAugmentedPerceptron;
 import br.pucrio.inf.learn.structlearning.algorithm.perceptron.Perceptron;
 import br.pucrio.inf.learn.structlearning.algorithm.perceptron.TowardBetterPerceptron;
 import br.pucrio.inf.learn.structlearning.algorithm.perceptron.Perceptron.LearningRateUpdateStrategy;
-import br.pucrio.inf.learn.structlearning.algorithm.perceptron.Perceptron.Listener;
 import br.pucrio.inf.learn.structlearning.application.sequence.AveragedArrayBasedHmm;
 import br.pucrio.inf.learn.structlearning.application.sequence.SequenceInput;
 import br.pucrio.inf.learn.structlearning.application.sequence.SequenceOutput;
@@ -578,7 +578,7 @@ public class TrainHmmMain implements Command {
 	 * @author eraldof
 	 * 
 	 */
-	private static class EvaluateModelListener implements Listener {
+	private static class EvaluateModelListener implements TrainingListener {
 
 		private IobChunkEvaluation eval;
 
