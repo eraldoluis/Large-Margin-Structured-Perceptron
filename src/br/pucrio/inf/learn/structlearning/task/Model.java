@@ -4,7 +4,7 @@ import java.io.PrintStream;
 
 import br.pucrio.inf.learn.structlearning.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.data.ExampleOutput;
-import br.pucrio.inf.learn.structlearning.data.StringEncoding;
+import br.pucrio.inf.learn.structlearning.data.FeatureEncoding;
 
 /**
  * Interface of a task-specific model.
@@ -48,8 +48,8 @@ public interface Model {
 	 * @param featureEncoding
 	 * @param stateEncoding
 	 */
-	void save(PrintStream ps, StringEncoding featureEncoding,
-			StringEncoding stateEncoding);
+	void save(PrintStream ps, FeatureEncoding<String> featureEncoding,
+			FeatureEncoding<String> stateEncoding);
 
 	Object clone() throws CloneNotSupportedException;
 

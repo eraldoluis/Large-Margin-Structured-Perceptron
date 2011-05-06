@@ -2,7 +2,7 @@ package br.pucrio.inf.learn.util;
 
 import br.pucrio.inf.learn.structlearning.application.sequence.SequenceInput;
 import br.pucrio.inf.learn.structlearning.application.sequence.SequenceOutput;
-import br.pucrio.inf.learn.structlearning.data.StringEncoding;
+import br.pucrio.inf.learn.structlearning.data.FeatureEncoding;
 
 /**
  * Utilitary methods to print debug information.
@@ -14,9 +14,9 @@ public class DebugUtil {
 
 	public static boolean print = false;
 
-	public static StringEncoding featureEncoding = null;
+	public static FeatureEncoding<String> featureEncoding = null;
 
-	public static StringEncoding stateEncoding = null;
+	public static FeatureEncoding<String> stateEncoding = null;
 
 	public static void printSequence(SequenceInput seqIn,
 			SequenceOutput seqCorOut, SequenceOutput seqPreOut, double loss) {

@@ -16,19 +16,14 @@ import java.util.Vector;
 /**
  * Encode a dictionary of arbitrarily-typed values as integer values.
  * 
+ * Store the dictionary using a HashMap and an array.
+ * 
  * @author eraldo
  * 
  * @param <ValueType>
  */
-public abstract class Encoding<ValueType> {
-
-	/**
-	 * Special (invalid) code to unseen values. This code is returned when the
-	 * user asks for the code of an previously unseen value (
-	 * <code>getCodeByValue</code>) or tries to put a new symbol in a read-only
-	 * encoding object (<code>put</code>).
-	 */
-	public static final int UNSEEN_VALUE_CODE = -1;
+public abstract class MapEncoding<ValueType> implements
+		FeatureEncoding<ValueType> {
 
 	/**
 	 * Map from values to codes.
@@ -48,7 +43,7 @@ public abstract class Encoding<ValueType> {
 	/**
 	 * Default constructor. Create an empty encoding.
 	 */
-	public Encoding() {
+	public MapEncoding() {
 		mapFromValueToCode = new HashMap<ValueType, Integer>();
 		mapFromCodeToValue = new Vector<ValueType>();
 		readOnly = false;
@@ -59,7 +54,7 @@ public abstract class Encoding<ValueType> {
 	 * 
 	 * @param values
 	 */
-	public Encoding(ValueType[] values) {
+	public MapEncoding(ValueType[] values) {
 		this();
 		for (ValueType val : values)
 			put(val);
@@ -74,7 +69,7 @@ public abstract class Encoding<ValueType> {
 	 * @param is
 	 * @throws IOException
 	 */
-	public Encoding(InputStream is) throws IOException {
+	public MapEncoding(InputStream is) throws IOException {
 		this();
 		load(is);
 		readOnly = true;
@@ -88,7 +83,7 @@ public abstract class Encoding<ValueType> {
 	 * @param reader
 	 * @throws IOException
 	 */
-	public Encoding(BufferedReader reader) throws IOException {
+	public MapEncoding(BufferedReader reader) throws IOException {
 		this();
 		load(reader);
 		readOnly = true;
@@ -102,7 +97,7 @@ public abstract class Encoding<ValueType> {
 	 * @param fileName
 	 * @throws IOException
 	 */
-	public Encoding(String fileName) throws IOException {
+	public MapEncoding(String fileName) throws IOException {
 		this();
 		load(fileName);
 		readOnly = true;

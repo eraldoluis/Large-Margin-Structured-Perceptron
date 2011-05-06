@@ -5,13 +5,13 @@ import java.util.Random;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import br.pucrio.inf.learn.structlearning.algorithm.TrainingListener;
 import br.pucrio.inf.learn.structlearning.algorithm.StructuredAlgorithm;
+import br.pucrio.inf.learn.structlearning.algorithm.TrainingListener;
 import br.pucrio.inf.learn.structlearning.application.sequence.SequenceInput;
 import br.pucrio.inf.learn.structlearning.application.sequence.SequenceOutput;
 import br.pucrio.inf.learn.structlearning.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.data.ExampleOutput;
-import br.pucrio.inf.learn.structlearning.data.StringEncoding;
+import br.pucrio.inf.learn.structlearning.data.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.task.Inference;
 import br.pucrio.inf.learn.structlearning.task.Model;
 import br.pucrio.inf.learn.util.DebugUtil;
@@ -255,7 +255,8 @@ public class Perceptron implements StructuredAlgorithm {
 
 	@Override
 	public void train(ExampleInput[] inputs, ExampleOutput[] outputs,
-			StringEncoding featureEncoding, StringEncoding stateEncoding) {
+			FeatureEncoding<String> featureEncoding,
+			FeatureEncoding<String> stateEncoding) {
 
 		// Allocate predicted output objects for the training example.
 		ExampleOutput[] predicteds = new ExampleOutput[outputs.length];
@@ -319,8 +320,9 @@ public class Perceptron implements StructuredAlgorithm {
 	 * @return the sum of the losses over all examples through this epoch
 	 */
 	public double trainOneEpoch(ExampleInput[] inputs, ExampleOutput[] outputs,
-			ExampleOutput[] predicteds, StringEncoding featureEncoding,
-			StringEncoding stateEncoding) {
+			ExampleOutput[] predicteds,
+			FeatureEncoding<String> featureEncoding,
+			FeatureEncoding<String> stateEncoding) {
 
 		// Accumulate the loss over all examples in this epoch.
 		double loss = 0d;
@@ -362,8 +364,8 @@ public class Perceptron implements StructuredAlgorithm {
 	@Override
 	public void train(ExampleInput[] inputsA, ExampleOutput[] outputsA,
 			double weightA, double weightStep, ExampleInput[] inputsB,
-			ExampleOutput[] outputsB, StringEncoding featureEncoding,
-			StringEncoding stateEncoding) {
+			ExampleOutput[] outputsB, FeatureEncoding<String> featureEncoding,
+			FeatureEncoding<String> stateEncoding) {
 
 		// Allocate predicted output objects for the training examples.
 		ExampleOutput[] predictedsA = new ExampleOutput[outputsA.length];
@@ -437,8 +439,9 @@ public class Perceptron implements StructuredAlgorithm {
 	public double trainOneEpoch(ExampleInput[] inputsA,
 			ExampleOutput[] outputsA, ExampleOutput[] predictedsA,
 			double weightA, ExampleInput[] inputsB, ExampleOutput[] outputsB,
-			ExampleOutput[] predictedsB, StringEncoding featureEncoding,
-			StringEncoding stateEncoding) {
+			ExampleOutput[] predictedsB,
+			FeatureEncoding<String> featureEncoding,
+			FeatureEncoding<String> stateEncoding) {
 
 		LOG.info("Weight of first dataset in this epoch: " + weightA);
 

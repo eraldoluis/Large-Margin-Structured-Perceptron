@@ -4,7 +4,7 @@ import br.pucrio.inf.learn.structlearning.application.sequence.SequenceInput;
 import br.pucrio.inf.learn.structlearning.application.sequence.SequenceOutput;
 import br.pucrio.inf.learn.structlearning.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.data.ExampleOutput;
-import br.pucrio.inf.learn.structlearning.data.StringEncoding;
+import br.pucrio.inf.learn.structlearning.data.StringMapEncoding;
 import br.pucrio.inf.learn.structlearning.task.Inference;
 import br.pucrio.inf.learn.structlearning.task.Model;
 import br.pucrio.inf.learn.util.DebugUtil;
@@ -70,8 +70,8 @@ public class LossAugmentedPerceptron extends Perceptron {
 
 	@Override
 	public double trainOneEpoch(ExampleInput[] inputs, ExampleOutput[] outputs,
-			ExampleOutput[] predicteds, StringEncoding featureEncoding,
-			StringEncoding stateEncoding) {
+			ExampleOutput[] predicteds, StringMapEncoding featureEncoding,
+			StringMapEncoding stateEncoding) {
 		double loss = super.trainOneEpoch(inputs, outputs, predicteds,
 				featureEncoding, stateEncoding);
 		if (lossNonAnnotatedWeight >= 0d && lossNonAnnotatedWeightInc != 0d)
@@ -85,8 +85,8 @@ public class LossAugmentedPerceptron extends Perceptron {
 	public double trainOneEpoch(ExampleInput[] inputsA,
 			ExampleOutput[] outputsA, ExampleOutput[] predictedsA,
 			double weightA, ExampleInput[] inputsB, ExampleOutput[] outputsB,
-			ExampleOutput[] predictedsB, StringEncoding featureEncoding,
-			StringEncoding stateEncoding) {
+			ExampleOutput[] predictedsB, StringMapEncoding featureEncoding,
+			StringMapEncoding stateEncoding) {
 		double loss = super.trainOneEpoch(inputsA, outputsA, predictedsA,
 				weightA, inputsB, outputsB, predictedsB, featureEncoding,
 				stateEncoding);

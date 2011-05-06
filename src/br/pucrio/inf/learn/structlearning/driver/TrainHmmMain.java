@@ -25,7 +25,9 @@ import br.pucrio.inf.learn.structlearning.application.sequence.ViterbiInference;
 import br.pucrio.inf.learn.structlearning.application.sequence.data.Dataset;
 import br.pucrio.inf.learn.structlearning.application.sequence.evaluation.F1Measure;
 import br.pucrio.inf.learn.structlearning.application.sequence.evaluation.IobChunkEvaluation;
-import br.pucrio.inf.learn.structlearning.data.StringEncoding;
+import br.pucrio.inf.learn.structlearning.data.FeatureEncoding;
+import br.pucrio.inf.learn.structlearning.data.MurmurEncoding;
+import br.pucrio.inf.learn.structlearning.data.StringMapEncoding;
 import br.pucrio.inf.learn.structlearning.driver.Driver.Command;
 import br.pucrio.inf.learn.structlearning.task.Inference;
 import br.pucrio.inf.learn.structlearning.task.Model;
@@ -131,12 +133,15 @@ public class TrainHmmMain implements Command {
 								+ " following 'tagset' option.").create());
 		options.addOption(OptionBuilder
 				.withLongOpt("encoding")
-				.withArgName("feature values encoding file")
+				.withArgName("feature values encoding file or murmur_SIZE")
 				.hasArg()
 				.withDescription(
 						"Filename that contains a list of considered feature"
 								+ " values. Any feature value not present in"
-								+ " this file is ignored.").create());
+								+ " this file is ignored. "
+								+ "Or murmur_SIZE to use a Murmur hashing "
+								+ "function with number of possible "
+								+ "outputs of SIZE").create());
 		options.addOption(OptionBuilder
 				.withLongOpt("tagset")
 				.withArgName("tagset file name")
@@ -273,27 +278,36 @@ public class TrainHmmMain implements Command {
 		Dataset inputCorpusB = null;
 		double weightAdditionalCorpus = -1d;
 		double weightStep = -1d;
-		StringEncoding featureEncoding = null;
-		StringEncoding stateEncoding = null;
+		FeatureEncoding<String> featureEncoding = null;
+		StringMapEncoding stateEncoding = null;
 		try {
 
 			// Create (or load) feature values encoding.
-			if (encodingFile != null)
-				featureEncoding = new StringEncoding(encodingFile);
-			else
-				featureEncoding = new StringEncoding();
+			if (encodingFile != null) {
+				if (encodingFile.matches("murmur_\\d+"))
+					// Create a Murmur-based encoding.
+					featureEncoding = new MurmurEncoding(
+							Integer.parseInt(encodingFile.substring(
+									"murmur_".length(),
+									encodingFile.length())));
+				else
+					// Load a map-based encoding.
+					featureEncoding = new StringMapEncoding(encodingFile);
+
+			} else
+				featureEncoding = new StringMapEncoding();
 
 			// Create state labels encoding.
 			if (labels != null)
 				// State set given in the command-line.
-				stateEncoding = new StringEncoding(labels.split(","));
+				stateEncoding = new StringMapEncoding(labels.split(","));
 			else if (tagsetFileName != null)
 				// State set given in a file.
-				stateEncoding = new StringEncoding(tagsetFileName);
+				stateEncoding = new StringMapEncoding(tagsetFileName);
 			else
 				// State set automatically retrieved from training data (codes
 				// depend on order of appereance of the labels).
-				stateEncoding = new StringEncoding();
+				stateEncoding = new StringMapEncoding();
 
 			// Get the list of input paths and concatenate the corpora in them.
 			inputCorpusA = new Dataset(featureEncoding, stateEncoding,
@@ -341,7 +355,8 @@ public class TrainHmmMain implements Command {
 		LOG.info("Allocating initial model...");
 		ViterbiInference viterbiInference = new ViterbiInference(inputCorpusA
 				.getStateEncoding().put(defaultLabel));
-		AveragedArrayBasedHmm hmm = new AveragedArrayBasedHmm(inputCorpusA.getNumberOfStates(),
+		AveragedArrayBasedHmm hmm = new AveragedArrayBasedHmm(
+				inputCorpusA.getNumberOfStates(),
 				inputCorpusA.getNumberOfSymbols());
 
 		// Parse algorithm type option.
@@ -594,8 +609,9 @@ public class TrainHmmMain implements Command {
 				"PER", "overall" };
 
 		public EvaluateModelListener(SequenceInput[] inputs,
-				SequenceOutput[] outputs, StringEncoding stateEncoding,
-				String nullLabel, boolean averageWeights) {
+				SequenceOutput[] outputs,
+				FeatureEncoding<String> stateEncoding, String nullLabel,
+				boolean averageWeights) {
 			this.inputs = inputs;
 			this.outputs = outputs;
 			this.predicteds = new SequenceOutput[inputs.length];

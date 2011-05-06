@@ -14,7 +14,8 @@ import org.apache.commons.logging.LogFactory;
 
 import br.pucrio.inf.learn.structlearning.application.sequence.SequenceInput;
 import br.pucrio.inf.learn.structlearning.application.sequence.SequenceOutput;
-import br.pucrio.inf.learn.structlearning.data.StringEncoding;
+import br.pucrio.inf.learn.structlearning.data.FeatureEncoding;
+import br.pucrio.inf.learn.structlearning.data.StringMapEncoding;
 
 /**
  * Represent a text dataset.
@@ -34,12 +35,12 @@ public class Dataset {
 	/**
 	 * Map string feature values to integer values (codes).
 	 */
-	protected StringEncoding featureEncoding;
+	protected FeatureEncoding<String> featureEncoding;
 
 	/**
 	 * Map string state values to integer values (codes).
 	 */
-	protected StringEncoding stateEncoding;
+	protected FeatureEncoding<String> stateEncoding;
 
 	/**
 	 * Vector of the input-part of the examples.
@@ -71,7 +72,7 @@ public class Dataset {
 	 * Default constructor.
 	 */
 	public Dataset() {
-		this(new StringEncoding(), new StringEncoding());
+		this(new StringMapEncoding(), new StringMapEncoding());
 	}
 
 	/**
@@ -82,15 +83,16 @@ public class Dataset {
 	 * @param featureEncoding
 	 * @param stateEncoding
 	 */
-	public Dataset(StringEncoding featureEncoding, StringEncoding stateEncoding) {
+	public Dataset(FeatureEncoding<String> featureEncoding,
+			FeatureEncoding<String> stateEncoding) {
 		this.featureEncoding = featureEncoding;
 		this.stateEncoding = stateEncoding;
 		this.skipCompletelyNonAnnotatedExamples = false;
 	}
 
-	public Dataset(StringEncoding featureEncoding,
-			StringEncoding stateEncoding, String nonAnnotatedStateLabel,
-			int nonAnnotatedStateCode) {
+	public Dataset(FeatureEncoding<String> featureEncoding,
+			FeatureEncoding<String> stateEncoding,
+			String nonAnnotatedStateLabel, int nonAnnotatedStateCode) {
 		this.featureEncoding = featureEncoding;
 		this.stateEncoding = stateEncoding;
 		this.nonAnnotatedStateLabel = nonAnnotatedStateLabel;
@@ -108,13 +110,13 @@ public class Dataset {
 	 * @throws IOException
 	 */
 	public Dataset(String fileName) throws IOException, DatasetException {
-		this(new StringEncoding(), new StringEncoding());
+		this(new StringMapEncoding(), new StringMapEncoding());
 		load(fileName);
 	}
 
 	public Dataset(String fileName, String nonAnnotatedStateLabel,
 			int nonAnnotatedStateCode) throws IOException, DatasetException {
-		this(new StringEncoding(), new StringEncoding());
+		this(new StringMapEncoding(), new StringMapEncoding());
 		this.nonAnnotatedStateLabel = nonAnnotatedStateLabel;
 		this.nonAnnotatedStateCode = nonAnnotatedStateCode;
 		load(fileName);
@@ -128,7 +130,7 @@ public class Dataset {
 	 * @throws DatasetException
 	 */
 	public Dataset(InputStream is) throws IOException, DatasetException {
-		this(new StringEncoding(), new StringEncoding());
+		this(new StringMapEncoding(), new StringMapEncoding());
 		load(is);
 	}
 
@@ -149,25 +151,28 @@ public class Dataset {
 	 * @throws DatasetException
 	 *             if the file contains invalid data.
 	 */
-	public Dataset(String fileName, StringEncoding featureEncoding,
-			StringEncoding stateEncoding) throws IOException, DatasetException {
+	public Dataset(String fileName, FeatureEncoding<String> featureEncoding,
+			FeatureEncoding<String> stateEncoding) throws IOException,
+			DatasetException {
 		this(featureEncoding, stateEncoding);
 		load(fileName);
 	}
 
-	public Dataset(String fileName, StringEncoding featureEncoding,
-			StringEncoding stateEncoding, String nonAnnotatedStateLabel,
-			int nonAnnotateStateCode) throws IOException, DatasetException {
+	public Dataset(String fileName, FeatureEncoding<String> featureEncoding,
+			FeatureEncoding<String> stateEncoding,
+			String nonAnnotatedStateLabel, int nonAnnotateStateCode)
+			throws IOException, DatasetException {
 		this(featureEncoding, stateEncoding);
 		this.nonAnnotatedStateLabel = nonAnnotatedStateLabel;
 		this.nonAnnotatedStateCode = nonAnnotateStateCode;
 		load(fileName);
 	}
 
-	public Dataset(String fileName, StringEncoding featureEncoding,
-			StringEncoding stateEncoding, String nonAnnotatedStateLabel,
-			int nonAnnotateStateCode, boolean skipCompletelyNonAnnotatedExamples)
-			throws IOException, DatasetException {
+	public Dataset(String fileName, FeatureEncoding<String> featureEncoding,
+			FeatureEncoding<String> stateEncoding,
+			String nonAnnotatedStateLabel, int nonAnnotateStateCode,
+			boolean skipCompletelyNonAnnotatedExamples) throws IOException,
+			DatasetException {
 		this(featureEncoding, stateEncoding);
 		this.nonAnnotatedStateLabel = nonAnnotatedStateLabel;
 		this.nonAnnotatedStateCode = nonAnnotateStateCode;
@@ -188,11 +193,11 @@ public class Dataset {
 		return inputSequences.length;
 	}
 
-	public StringEncoding getFeatureEncoding() {
+	public FeatureEncoding<String> getFeatureEncoding() {
 		return featureEncoding;
 	}
 
-	public StringEncoding getStateEncoding() {
+	public FeatureEncoding<String> getStateEncoding() {
 		return stateEncoding;
 	}
 
@@ -360,6 +365,8 @@ public class Dataset {
 				int code = featureEncoding.put(features[idxFtr]);
 				if (code >= 0)
 					featureList.add(code);
+				else
+					featureList.add(featureEncoding.size() - 1);
 			}
 
 			// The last feature is the token label.

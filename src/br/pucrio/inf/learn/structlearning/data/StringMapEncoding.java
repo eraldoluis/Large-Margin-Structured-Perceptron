@@ -11,25 +11,25 @@ import java.io.PrintStream;
  * @author eraldo
  * 
  */
-public class StringEncoding extends Encoding<String> {
+public class StringMapEncoding extends MapEncoding<String> {
 
-	public StringEncoding() {
+	public StringMapEncoding() {
 		super();
 	}
 
-	public StringEncoding(BufferedReader reader) throws IOException {
+	public StringMapEncoding(BufferedReader reader) throws IOException {
 		super(reader);
 	}
 
-	public StringEncoding(InputStream is) throws IOException {
+	public StringMapEncoding(InputStream is) throws IOException {
 		super(is);
 	}
 
-	public StringEncoding(String fileName) throws IOException {
+	public StringMapEncoding(String fileName) throws IOException {
 		super(fileName);
 	}
 
-	public StringEncoding(String[] values) {
+	public StringMapEncoding(String[] values) {
 		super(values);
 	}
 

@@ -2,7 +2,7 @@ package br.pucrio.inf.learn.structlearning.algorithm;
 
 import br.pucrio.inf.learn.structlearning.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.data.ExampleOutput;
-import br.pucrio.inf.learn.structlearning.data.StringEncoding;
+import br.pucrio.inf.learn.structlearning.data.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.task.Model;
 
 /**
@@ -21,7 +21,8 @@ public interface StructuredAlgorithm {
 	 * @param outputs
 	 */
 	public void train(ExampleInput[] inputs, ExampleOutput[] outputs,
-			StringEncoding featureEncoding, StringEncoding stateEncoding);
+			FeatureEncoding<String> featureEncoding,
+			FeatureEncoding<String> stateEncoding);
 
 	/**
 	 * Train a model on two datasets. The first dataset (A) has a different
@@ -44,8 +45,8 @@ public interface StructuredAlgorithm {
 	 */
 	public void train(ExampleInput[] inputsA, ExampleOutput[] outputsA,
 			double weightA, double weightStep, ExampleInput[] inputsB,
-			ExampleOutput[] outputsB, StringEncoding featureEncoding,
-			StringEncoding stateEncoding);
+			ExampleOutput[] outputsB, FeatureEncoding<String> featureEncoding,
+			FeatureEncoding<String> stateEncoding);
 
 	/**
 	 * Return the learned model. This method can only be called after a

@@ -9,7 +9,7 @@ import java.util.TreeMap;
 import br.pucrio.inf.learn.structlearning.application.sequence.SequenceInput;
 import br.pucrio.inf.learn.structlearning.application.sequence.SequenceOutput;
 import br.pucrio.inf.learn.structlearning.application.sequence.data.DatasetException;
-import br.pucrio.inf.learn.structlearning.data.StringEncoding;
+import br.pucrio.inf.learn.structlearning.data.FeatureEncoding;
 
 /**
  * Provide methods to evaluate precision, recall and F1 values of sequences that
@@ -34,7 +34,7 @@ public class IobChunkEvaluation {
 	/**
 	 * The encoding for state labels.
 	 */
-	private StringEncoding stateEncoding;
+	private FeatureEncoding<String> stateEncoding;
 
 	/**
 	 * Create an evaluation object. The user must provide the state-label
@@ -43,7 +43,8 @@ public class IobChunkEvaluation {
 	 * @param stateEncoding
 	 * @param nullLabel
 	 */
-	public IobChunkEvaluation(StringEncoding stateEncoding, String nullLabel) {
+	public IobChunkEvaluation(FeatureEncoding<String> stateEncoding,
+			String nullLabel) {
 		this.stateEncoding = stateEncoding;
 		this.nullLabel = nullLabel;
 	}

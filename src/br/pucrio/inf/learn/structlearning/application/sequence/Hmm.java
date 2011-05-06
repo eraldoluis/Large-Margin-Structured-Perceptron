@@ -4,7 +4,7 @@ import java.io.PrintStream;
 
 import br.pucrio.inf.learn.structlearning.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.data.ExampleOutput;
-import br.pucrio.inf.learn.structlearning.data.StringEncoding;
+import br.pucrio.inf.learn.structlearning.data.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.task.Model;
 
 /**
@@ -176,8 +176,8 @@ public abstract class Hmm implements Model {
 				(SequenceOutput) outputPredicted, learningRate);
 	}
 
-	public void save(PrintStream ps, StringEncoding featureEncoding,
-			StringEncoding stateEncoding) {
+	public void save(PrintStream ps, FeatureEncoding<String> featureEncoding,
+			FeatureEncoding<String> stateEncoding) {
 		ps.println("# initial state");
 		for (int state = 0; state < getNumberOfStates(); ++state)
 			ps.println(stateEncoding.getValueByCode(state) + "\t"
