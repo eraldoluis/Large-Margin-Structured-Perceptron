@@ -69,6 +69,12 @@ public class Dataset {
 	protected boolean skipCompletelyNonAnnotatedExamples;
 
 	/**
+	 * Store the maximum number of emission features seen in a unique token in
+	 * the dataset.
+	 */
+	protected int maxNumberOfEmissionFeatures;
+
+	/**
 	 * Default constructor.
 	 */
 	public Dataset() {
@@ -359,13 +365,18 @@ public class Dataset {
 			String token = tokens[idxTkn];
 
 			// Parse the token features.
+			int numEmissionFeatures = 0;
 			String[] features = token.split("[ ]");
 			LinkedList<Integer> featureList = new LinkedList<Integer>();
 			for (int idxFtr = 0; idxFtr < features.length - 1; ++idxFtr) {
+				++numEmissionFeatures;
 				int code = featureEncoding.put(features[idxFtr]);
 				if (code >= 0)
 					featureList.add(code);
 			}
+
+			if (numEmissionFeatures > maxNumberOfEmissionFeatures)
+				maxNumberOfEmissionFeatures = numEmissionFeatures;
 
 			// The last feature is the token label.
 			String label = features[features.length - 1];
@@ -501,6 +512,15 @@ public class Dataset {
 	public void normalizeInputStructures(double norm) {
 		for (SequenceInput in : inputSequences)
 			in.normalize(norm);
+	}
+
+	/**
+	 * Return the maximum number of emission features seen in a unique token.
+	 * 
+	 * @return
+	 */
+	public int getMaxNumberOfEmissionFeatures() {
+		return maxNumberOfEmissionFeatures;
 	}
 
 }

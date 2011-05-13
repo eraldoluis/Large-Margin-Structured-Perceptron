@@ -33,7 +33,7 @@ public class AwayFromWorsePerceptron extends LossAugmentedPerceptron {
 	public AwayFromWorsePerceptron(Inference taskImpl, Model initialModel,
 			int numberOfIterations, double learningRate, double lossWeight,
 			boolean randomize, boolean averageWeights,
-			LearningRateUpdateStrategy learningRateUpdateStrategy) {
+			LearnRateUpdateStrategy learningRateUpdateStrategy) {
 		super(taskImpl, initialModel, numberOfIterations, learningRate,
 				lossWeight, randomize, averageWeights,
 				learningRateUpdateStrategy);
@@ -44,7 +44,7 @@ public class AwayFromWorsePerceptron extends LossAugmentedPerceptron {
 			double lossAnnotatedWeight, double lossNonAnnotatedWeight,
 			double lossNonAnnotatedWeightInc, boolean randomize,
 			boolean averageWeights,
-			LearningRateUpdateStrategy learningRateUpdateStrategy) {
+			LearnRateUpdateStrategy learningRateUpdateStrategy) {
 		super(taskImpl, initialModel, numberOfIterations, learningRate,
 				lossAnnotatedWeight, lossNonAnnotatedWeight,
 				lossNonAnnotatedWeightInc, randomize, averageWeights,

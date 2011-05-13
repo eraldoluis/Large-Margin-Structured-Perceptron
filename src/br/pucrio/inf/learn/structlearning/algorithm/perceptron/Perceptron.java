@@ -33,7 +33,7 @@ public class Perceptron implements StructuredAlgorithm {
 	 * @author eraldof
 	 * 
 	 */
-	public enum LearningRateUpdateStrategy {
+	public enum LearnRateUpdateStrategy {
 		/**
 		 * No update, i.e., constant learning rate.
 		 */
@@ -129,7 +129,7 @@ public class Perceptron implements StructuredAlgorithm {
 	/**
 	 * Strategy used to vary the learning rate during training.
 	 */
-	protected LearningRateUpdateStrategy learningRateUpdateStrategy;
+	protected LearnRateUpdateStrategy learningRateUpdateStrategy;
 
 	/**
 	 * Create a perceptron to train the given initial model using the default
@@ -140,7 +140,7 @@ public class Perceptron implements StructuredAlgorithm {
 	 */
 	public Perceptron(Inference inferenceImpl, Model initialModel) {
 		this(inferenceImpl, initialModel, 10, 1d, true, true,
-				LearningRateUpdateStrategy.NONE);
+				LearnRateUpdateStrategy.NONE);
 	}
 
 	/**
@@ -158,7 +158,7 @@ public class Perceptron implements StructuredAlgorithm {
 	public Perceptron(Inference inferenceImpl, Model initialModel,
 			int numberOfEpochs, double learningRate, boolean randomize,
 			boolean averageWeights,
-			LearningRateUpdateStrategy learningRateUpdateStrategy) {
+			LearnRateUpdateStrategy learningRateUpdateStrategy) {
 		this.inferenceImpl = inferenceImpl;
 		this.model = initialModel;
 		this.numberOfEpochs = numberOfEpochs;

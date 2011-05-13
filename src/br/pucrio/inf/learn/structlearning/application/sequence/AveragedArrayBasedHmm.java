@@ -89,16 +89,19 @@ public class AveragedArrayBasedHmm extends Hmm implements Cloneable {
 
 	@Override
 	protected void updateTransitionParameter(int fromToken, int toToken,
-			double value) {
-		transitions[fromToken][toToken].update(value);
+			double learningRate) {
+		transitions[fromToken][toToken].update(learningRate);
 		updatedWeights.add(transitions[fromToken][toToken]);
 	}
 
 	@Override
 	protected void updateEmissionParameters(SequenceInput input, int token,
-			int state, double value) {
-		for (int ftr : input.getFeatureCodes(token)) {
-			emissions[state][ftr].update(value);
+			int state, double learningRate) {
+		int numFtrs = input.getNumberOfFeatures(token);
+		for (int idxFtr = 0; idxFtr < numFtrs; ++idxFtr) {
+			int ftr = input.getFeature(token, idxFtr);
+			double weight = input.getFeatureWeight(token, idxFtr);
+			emissions[state][ftr].update(learningRate * weight);
 			updatedWeights.add(emissions[state][ftr]);
 		}
 	}

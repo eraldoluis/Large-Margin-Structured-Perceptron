@@ -48,7 +48,7 @@ public class LossAugmentedPerceptron extends Perceptron {
 	public LossAugmentedPerceptron(Inference inferenceImpl, Model initialModel,
 			int numberOfIterations, double learningRate, double lossWeight,
 			boolean randomize, boolean averageWeights,
-			LearningRateUpdateStrategy learningRateUpdateStrategy) {
+			LearnRateUpdateStrategy learningRateUpdateStrategy) {
 		super(inferenceImpl, initialModel, numberOfIterations, learningRate,
 				randomize, averageWeights, learningRateUpdateStrategy);
 		this.lossAnnotatedWeight = lossWeight;
@@ -61,7 +61,7 @@ public class LossAugmentedPerceptron extends Perceptron {
 			double lossAnnotatedWeight, double lossNonAnnotatedWeight,
 			double lossNonAnnotatedWeightInc, boolean randomize,
 			boolean averageWeights,
-			LearningRateUpdateStrategy learningRateUpdateStrategy) {
+			LearnRateUpdateStrategy learningRateUpdateStrategy) {
 		super(taskImpl, initialModel, numberOfIterations, learningRate,
 				randomize, averageWeights, learningRateUpdateStrategy);
 		this.lossAnnotatedWeight = lossAnnotatedWeight;

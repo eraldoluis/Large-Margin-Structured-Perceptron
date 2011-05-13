@@ -17,7 +17,7 @@ import br.pucrio.inf.learn.structlearning.algorithm.perceptron.AwayFromWorsePerc
 import br.pucrio.inf.learn.structlearning.algorithm.perceptron.LossAugmentedPerceptron;
 import br.pucrio.inf.learn.structlearning.algorithm.perceptron.Perceptron;
 import br.pucrio.inf.learn.structlearning.algorithm.perceptron.TowardBetterPerceptron;
-import br.pucrio.inf.learn.structlearning.algorithm.perceptron.Perceptron.LearningRateUpdateStrategy;
+import br.pucrio.inf.learn.structlearning.algorithm.perceptron.Perceptron.LearnRateUpdateStrategy;
 import br.pucrio.inf.learn.structlearning.application.sequence.AveragedArrayBasedHmm;
 import br.pucrio.inf.learn.structlearning.application.sequence.SequenceInput;
 import br.pucrio.inf.learn.structlearning.application.sequence.SequenceOutput;
@@ -458,7 +458,8 @@ public class TrainHmmMain implements Command {
 			if (normalizeInput) {
 				LOG.info("Normalizing input structures...");
 				// Normalize the input structures.
-				inputCorpusA.normalizeInputStructures(1d);
+				inputCorpusA.normalizeInputStructures(inputCorpusA
+						.getMaxNumberOfEmissionFeatures());
 			}
 
 			if (additionalCorpusFileName != null) {
@@ -479,7 +480,8 @@ public class TrainHmmMain implements Command {
 
 				if (normalizeInput)
 					// Normalize the input structures.
-					inputCorpusB.normalizeInputStructures(1d);
+					inputCorpusB.normalizeInputStructures(inputCorpusB
+							.getMaxNumberOfEmissionFeatures());
 			}
 
 		} catch (Exception e) {
@@ -514,17 +516,17 @@ public class TrainHmmMain implements Command {
 		}
 
 		// Learning rate update strategy.
-		LearningRateUpdateStrategy learningRateUpdateStrategy = LearningRateUpdateStrategy.NONE;
+		LearnRateUpdateStrategy learningRateUpdateStrategy = LearnRateUpdateStrategy.NONE;
 		if (lrUpdateStrategy == null)
-			learningRateUpdateStrategy = LearningRateUpdateStrategy.NONE;
+			learningRateUpdateStrategy = LearnRateUpdateStrategy.NONE;
 		else if (lrUpdateStrategy.equals("none"))
-			learningRateUpdateStrategy = LearningRateUpdateStrategy.NONE;
+			learningRateUpdateStrategy = LearnRateUpdateStrategy.NONE;
 		else if (lrUpdateStrategy.equals("linear"))
-			learningRateUpdateStrategy = LearningRateUpdateStrategy.LINEAR;
+			learningRateUpdateStrategy = LearnRateUpdateStrategy.LINEAR;
 		else if (lrUpdateStrategy.equals("quadratic"))
-			learningRateUpdateStrategy = LearningRateUpdateStrategy.QUADRATIC;
+			learningRateUpdateStrategy = LearnRateUpdateStrategy.QUADRATIC;
 		else if (lrUpdateStrategy.equals("root"))
-			learningRateUpdateStrategy = LearningRateUpdateStrategy.SQUARE_ROOT;
+			learningRateUpdateStrategy = LearnRateUpdateStrategy.SQUARE_ROOT;
 		else {
 			System.err.println("Unknown learning rate update strategy: "
 					+ lrUpdateStrategy);
@@ -537,16 +539,14 @@ public class TrainHmmMain implements Command {
 		switch (algType) {
 		case PERCEPTRON:
 			// Ordinary Perceptron implementation (Collins'): does not consider
-			// neither partially-annotated examples nor customized loss
-			// functions.
+			// customized loss functions.
 			alg = new Perceptron(viterbiInference, hmm, numEpochs,
 					learningRate, true, averageWeights,
 					learningRateUpdateStrategy);
 			break;
 		case LOSS_PERCEPTRON:
-			// Loss-augumented implementation: considers partially-labeled
-			// examples and customized loss function (per-token
-			// misclassification loss).
+			// Loss-augumented implementation: considers customized loss
+			// function (per-token misclassification loss).
 			if (lossNonAnnotatedWeightStr == null)
 				alg = new LossAugmentedPerceptron(viterbiInference, hmm,
 						numEpochs, learningRate, lossWeight, true,
@@ -620,7 +620,8 @@ public class TrainHmmMain implements Command {
 
 				if (normalizeInput)
 					// Normalize the input structures.
-					testset.normalizeInputStructures(1d);
+					testset.normalizeInputStructures(testset
+							.getMaxNumberOfEmissionFeatures());
 
 				alg.setListener(new EvaluateModelListener(testset.getInputs(),
 						testset.getOutputs(), inputCorpusA.getStateEncoding(),
@@ -672,7 +673,8 @@ public class TrainHmmMain implements Command {
 
 				if (normalizeInput)
 					// Normalize the input structures.
-					testset.normalizeInputStructures(1d);
+					testset.normalizeInputStructures(testset
+							.getMaxNumberOfEmissionFeatures());
 
 				// Allocate output sequences for predictions.
 				SequenceInput[] inputs = testset.getInputs();

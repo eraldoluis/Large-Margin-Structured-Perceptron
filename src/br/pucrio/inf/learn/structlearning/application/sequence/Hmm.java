@@ -64,25 +64,28 @@ public abstract class Hmm implements Model {
 	protected abstract void updateInitialStateParameter(int state, double value);
 
 	/**
-	 * Add the given value to every feature at the token of the input sequence.
+	 * Update the model features, corresponding to a given state, that are
+	 * present in a token of the given input sequence. The given learning rate
+	 * is used as a multiplier for each update.
 	 * 
 	 * @param input
 	 * @param token
 	 * @param state
-	 * @param value
+	 * @param learningRate
 	 */
 	protected abstract void updateEmissionParameters(SequenceInput input,
-			int token, int state, double value);
+			int token, int state, double learningRate);
 
 	/**
-	 * Add the given value to the transition parameter.
+	 * Update the specified transition (fromToken, toToken) feature using the
+	 * given learning rate.
 	 * 
 	 * @param fromToken
 	 * @param toToken
-	 * @param value
+	 * @param learningRate
 	 */
 	protected abstract void updateTransitionParameter(int fromToken,
-			int toToken, double value);
+			int toToken, double learningRate);
 
 	/**
 	 * The sub-classes must implement this to ease some use cases (e.g.,
@@ -102,10 +105,14 @@ public abstract class Hmm implements Model {
 	 */
 	public double getTokenEmissionWeight(SequenceInput input, int token,
 			int state) {
-		double weight = 0d;
-		for (int ftr : input.getFeatureCodes(token))
-			weight += getEmissionParameter(state, ftr);
-		return weight;
+		double accum = 0d;
+		int numFtrs = input.getNumberOfFeatures(token);
+		for (int idxFtr = 0; idxFtr < numFtrs; ++idxFtr) {
+			int ftr = input.getFeature(token, idxFtr);
+			double weight = input.getFeatureWeight(token, idxFtr);
+			accum += getEmissionParameter(state, ftr) * weight;
+		}
+		return accum;
 	}
 
 	/**
