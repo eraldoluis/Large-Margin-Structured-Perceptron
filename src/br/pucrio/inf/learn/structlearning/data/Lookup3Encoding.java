@@ -8,25 +8,21 @@ import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Random;
 
-import br.pucrio.inf.learn.util.MurmurHash3;
+import br.pucrio.inf.learn.util.Lookup3Hash;
 
 /**
- * A string feature encoding based on the Murmur3 hashing function.
+ * A string feature encoding based on the Lookup3 hashing function.
  * 
  * This encoding is fixed, i.e., the user gives the desired size and this class
- * uses the Murmur3 hashing function to generate the codes for each value on
+ * uses the Lookup3 hashing function to generate the codes for each value on
  * demand.
  * 
  * @author eraldof
  * 
  */
-public class MurmurEncoding implements FeatureEncoding<String> {
-
-	/**
-	 * Value used as seed when the user does not supply one.
-	 */
-	public static final int DEFAULT_SEED = -717334464;
+public class Lookup3Encoding implements FeatureEncoding<String> {
 
 	/**
 	 * This is the only parameter of the Murmur3 hashing function.
@@ -41,25 +37,25 @@ public class MurmurEncoding implements FeatureEncoding<String> {
 	private final int size;
 
 	/**
-	 * Create an encoding with the given size (number of possible codes) and
-	 * seed.
+	 * Create an encoding with the given size (number of possible codes) and the
+	 * given seed.
 	 * 
 	 * @param size
 	 * @param seed
 	 */
-	public MurmurEncoding(int size, int seed) {
+	public Lookup3Encoding(int size, int seed) {
 		this.size = size;
 		this.seed = seed;
 	}
 
 	/**
-	 * Create an encoding with the given size (number of possible codes) and the
-	 * default seed <code>DEFAULT_SEED</code>.
+	 * Create an encoding with the given size (number of possible codes) and a
+	 * random seed.
 	 * 
 	 * @param size
 	 */
-	public MurmurEncoding(int size) {
-		this(size, DEFAULT_SEED);
+	public Lookup3Encoding(int size) {
+		this(size, new Random().nextInt());
 	}
 
 	@Override
@@ -69,7 +65,7 @@ public class MurmurEncoding implements FeatureEncoding<String> {
 
 	@Override
 	public int put(String value) {
-		return MurmurHash3.hash32(value.getBytes(), seed) % size;
+		return Lookup3Hash.hash(value.getBytes(), seed) % size;
 	}
 
 	@Override
@@ -79,7 +75,7 @@ public class MurmurEncoding implements FeatureEncoding<String> {
 
 	@Override
 	public int getCodeByValue(String value) {
-		return MurmurHash3.hash32(value.getBytes(), seed);
+		return Lookup3Hash.hash(value.getBytes(), seed);
 	}
 
 	@Override

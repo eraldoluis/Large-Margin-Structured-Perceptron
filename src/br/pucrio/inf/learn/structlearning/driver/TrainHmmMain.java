@@ -26,7 +26,10 @@ import br.pucrio.inf.learn.structlearning.application.sequence.data.Dataset;
 import br.pucrio.inf.learn.structlearning.application.sequence.evaluation.F1Measure;
 import br.pucrio.inf.learn.structlearning.application.sequence.evaluation.IobChunkEvaluation;
 import br.pucrio.inf.learn.structlearning.data.FeatureEncoding;
-import br.pucrio.inf.learn.structlearning.data.MurmurEncoding;
+import br.pucrio.inf.learn.structlearning.data.JavaHashCodeEncoding;
+import br.pucrio.inf.learn.structlearning.data.Lookup3Encoding;
+import br.pucrio.inf.learn.structlearning.data.Murmur2Encoding;
+import br.pucrio.inf.learn.structlearning.data.Murmur3Encoding;
 import br.pucrio.inf.learn.structlearning.data.StringMapEncoding;
 import br.pucrio.inf.learn.structlearning.driver.Driver.Command;
 import br.pucrio.inf.learn.structlearning.task.Inference;
@@ -133,15 +136,79 @@ public class TrainHmmMain implements Command {
 								+ " following 'tagset' option.").create());
 		options.addOption(OptionBuilder
 				.withLongOpt("encoding")
-				.withArgName("feature values encoding file or murmur_SIZE")
+				.withArgName("feature values encoding file")
 				.hasArg()
 				.withDescription(
 						"Filename that contains a list of considered feature"
 								+ " values. Any feature value not present in"
-								+ " this file is ignored. "
-								+ "Or murmur_SIZE to use a Murmur hashing "
-								+ "function with number of possible "
-								+ "outputs of SIZE").create());
+								+ " this file is ignored.").create());
+		options.addOption(OptionBuilder
+				.withLongOpt("murmur")
+				.withArgName("size,seed")
+				.hasArg()
+				.withDescription(
+						"Use a Murmur3 hash function to encode the feature values. "
+								+ "This option can be very memory-efficient and "
+								+ "handful since the amount of memory needed to"
+								+ " store the model is linearly proportional to"
+								+ " this number. If this number has the suffix "
+								+ "'b' then it is considered as the number of"
+								+ " bits needed to encode a feature code, i.e.,"
+								+ " the proper size of the hash table will be"
+								+ " 2^n, where n is the specified number of"
+								+ " bits.").create());
+		options.addOption(OptionBuilder
+				.withLongOpt("murmur3")
+				.withArgName("size,seed")
+				.hasArg()
+				.withDescription(
+						"Use a Murmur3 hash function to encode the feature values. "
+								+ "This option can be very memory-efficient and "
+								+ "handful since the amount of memory needed to"
+								+ " store the model is linearly proportional to"
+								+ " this number. If this number has the suffix "
+								+ "'b' then it is considered as the number of"
+								+ " bits needed to encode a feature code, i.e.,"
+								+ " the proper size of the hash table will be"
+								+ " 2^n, where n is the specified number of"
+								+ " bits.").create());
+		options.addOption(OptionBuilder
+				.withLongOpt("murmur2")
+				.withArgName("size,seed")
+				.hasArg()
+				.withDescription(
+						"Use a Murmur2 hash function to encode the feature values. "
+								+ "This option can be very memory-efficient and "
+								+ "handful since the amount of memory needed to"
+								+ " store the model is linearly proportional to"
+								+ " this number. If this number has the suffix "
+								+ "'b' then it is considered as the number of"
+								+ " bits needed to encode a feature code, i.e.,"
+								+ " the proper size of the hash table will be"
+								+ " 2^n, where n is the specified number of"
+								+ " bits.").create());
+		options.addOption(OptionBuilder
+				.withLongOpt("lookup3")
+				.withArgName("size,seed")
+				.hasArg()
+				.withDescription(
+						"Use a Lookup3 hash function to encode the feature values. "
+								+ "This option can be very memory-efficient and "
+								+ "handful since the amount of memory needed to"
+								+ " store the model is linearly proportional to"
+								+ " this number. If this number has the suffix "
+								+ "'b' then it is considered as the number of"
+								+ " bits needed to encode a feature code, i.e.,"
+								+ " the proper size of the hash table will be"
+								+ " 2^n, where n is the specified number of"
+								+ " bits.").create());
+		options.addOption(OptionBuilder
+				.withLongOpt("javahash")
+				.withArgName("hash table size")
+				.hasArg()
+				.withDescription(
+						"Use the default Java hashing function (hashCode method) "
+								+ "to encode feature values.").create());
 		options.addOption(OptionBuilder
 				.withLongOpt("tagset")
 				.withArgName("tagset file name")
@@ -229,6 +296,11 @@ public class TrainHmmMain implements Command {
 				.withDescription(
 						"Skip completely unlabeled sequences in the input corpora.")
 				.create());
+		options.addOption(OptionBuilder
+				.withLongOpt("norm")
+				.withDescription(
+						"Normalize the input structures before "
+								+ "training and testing.").create());
 
 		// Parse the command-line arguments.
 		CommandLine cmdLine = null;
@@ -256,6 +328,11 @@ public class TrainHmmMain implements Command {
 		boolean evalPerEpoch = cmdLine.hasOption("perepoch");
 		String labels = cmdLine.getOptionValue("labels");
 		String encodingFile = cmdLine.getOptionValue("encoding");
+		String murmur = cmdLine.getOptionValue("murmur");
+		String murmur3 = cmdLine.getOptionValue("murmur3");
+		String murmur2 = cmdLine.getOptionValue("murmur2");
+		String lookup3 = cmdLine.getOptionValue("lookup3");
+		String javaHashSizeStr = cmdLine.getOptionValue("javahash");
 		String tagsetFileName = cmdLine.getOptionValue("tagset");
 		String nonAnnotatedLabel = cmdLine.getOptionValue("nonannlabel");
 		Double reportProgressRate = Double.parseDouble(cmdLine
@@ -272,6 +349,7 @@ public class TrainHmmMain implements Command {
 		boolean debug = cmdLine.hasOption("debug");
 		boolean skipCompletelyNonAnnotatedExamples = cmdLine
 				.hasOption("skipunlabeled");
+		boolean normalizeInput = cmdLine.hasOption("norm");
 
 		LOG.info("Loading input corpus...");
 		Dataset inputCorpusA = null;
@@ -282,22 +360,69 @@ public class TrainHmmMain implements Command {
 		StringMapEncoding stateEncoding = null;
 		try {
 
-			// Create (or load) feature values encoding.
+			// Create (or load) the feature value encoding.
 			if (encodingFile != null) {
-				if (encodingFile.matches("murmur_\\d+"))
-					// Create a Murmur-based encoding.
-					featureEncoding = new MurmurEncoding(
-							Integer.parseInt(encodingFile.substring(
-									"murmur_".length(),
-									encodingFile.length())));
-				else
-					// Load a map-based encoding.
-					featureEncoding = new StringMapEncoding(encodingFile);
 
-			} else
+				// Load a map-based encoding from the given file. Thus, the
+				// feature values present in this file will be encoded
+				// unambiguously but any unknown value will be ignored.
+				featureEncoding = new StringMapEncoding(encodingFile);
+
+			} else if (murmur != null) {
+
+				// Create a feature encoding based on the Murmur3 hash function.
+				int size = parseValueDirectOrBits(murmur);
+				int seed = parseEncodingSeed(murmur);
+				if (seed != Integer.MIN_VALUE)
+					featureEncoding = new Murmur3Encoding(size);
+				else
+					featureEncoding = new Murmur3Encoding(size, seed);
+
+			} else if (murmur3 != null) {
+
+				// Create a feature encoding based on the Murmur3 hash function.
+				int size = parseValueDirectOrBits(murmur3);
+				int seed = parseEncodingSeed(murmur3);
+				if (seed != Integer.MIN_VALUE)
+					featureEncoding = new Murmur3Encoding(size);
+				else
+					featureEncoding = new Murmur3Encoding(size, seed);
+
+			} else if (murmur2 != null) {
+
+				// Create a feature encoding based on the Murmur2 hash function.
+				int size = parseValueDirectOrBits(murmur2);
+				int seed = parseEncodingSeed(murmur2);
+				if (seed != Integer.MIN_VALUE)
+					featureEncoding = new Murmur2Encoding(size);
+				else
+					featureEncoding = new Murmur2Encoding(size, seed);
+
+			} else if (lookup3 != null) {
+
+				// Create a feature encoding based on the Lookup3 hash function.
+				int size = parseValueDirectOrBits(lookup3);
+				int seed = parseEncodingSeed(lookup3);
+				if (seed != Integer.MIN_VALUE)
+					featureEncoding = new Lookup3Encoding(size);
+				else
+					featureEncoding = new Lookup3Encoding(size, seed);
+
+			} else if (javaHashSizeStr != null) {
+
+				// Create a feature encoding based on the Java hash function.
+				featureEncoding = new JavaHashCodeEncoding(
+						parseValueDirectOrBits(javaHashSizeStr));
+
+			} else {
+
+				// Create an empty and flexible feature encoding that will
+				// encode unambiguously all feature values.
 				featureEncoding = new StringMapEncoding();
 
-			// Create state labels encoding.
+			}
+
+			// Create or load the state label encoding.
 			if (labels != null)
 				// State set given in the command-line.
 				stateEncoding = new StringMapEncoding(labels.split(","));
@@ -330,6 +455,12 @@ public class TrainHmmMain implements Command {
 				inputCorpusA.add(other);
 			}
 
+			if (normalizeInput) {
+				LOG.info("Normalizing input structures...");
+				// Normalize the input structures.
+				inputCorpusA.normalizeInputStructures(1d);
+			}
+
 			if (additionalCorpusFileName != null) {
 				if (additionalCorpusFileName.contains(",")) {
 					String[] fileNameAndWeight = additionalCorpusFileName
@@ -345,10 +476,14 @@ public class TrainHmmMain implements Command {
 						featureEncoding, stateEncoding, nonAnnotatedLabel,
 						NON_ANNOTATED_LABEL_CODE,
 						skipCompletelyNonAnnotatedExamples);
+
+				if (normalizeInput)
+					// Normalize the input structures.
+					inputCorpusB.normalizeInputStructures(1d);
 			}
 
 		} catch (Exception e) {
-			LOG.error("Loading input corpus", e);
+			LOG.error("Parsing command-line options", e);
 			System.exit(1);
 		}
 
@@ -482,6 +617,11 @@ public class TrainHmmMain implements Command {
 				Dataset testset = new Dataset(testCorpusFileName,
 						inputCorpusA.getFeatureEncoding(),
 						inputCorpusA.getStateEncoding());
+
+				if (normalizeInput)
+					// Normalize the input structures.
+					testset.normalizeInputStructures(1d);
+
 				alg.setListener(new EvaluateModelListener(testset.getInputs(),
 						testset.getOutputs(), inputCorpusA.getStateEncoding(),
 						nullLabel, averageWeights));
@@ -529,6 +669,10 @@ public class TrainHmmMain implements Command {
 				Dataset testset = new Dataset(testCorpusFileName,
 						inputCorpusA.getFeatureEncoding(),
 						inputCorpusA.getStateEncoding());
+
+				if (normalizeInput)
+					// Normalize the input structures.
+					testset.normalizeInputStructures(1d);
 
 				// Allocate output sequences for predictions.
 				SequenceInput[] inputs = testset.getInputs();
@@ -585,6 +729,43 @@ public class TrainHmmMain implements Command {
 		}
 
 		LOG.info("Training done!");
+	}
+
+	/**
+	 * Convert a string that can specify a value directly or in bits. If the
+	 * string ends with a b, the value is considered to be n=log_2(v), where v
+	 * is the specified value and n is the returned value (the value of
+	 * interest).
+	 * 
+	 * @param valStr
+	 * @return
+	 */
+	private static int parseValueDirectOrBits(String valStr) {
+		if (valStr.contains(","))
+			valStr = valStr.split("[,]")[0];
+
+		if (valStr.endsWith("b")) {
+			// The size is specified in bits.
+			String bitsStr = valStr.substring(0, valStr.length() - 1);
+			int bits = Integer.parseInt(bitsStr);
+			return ((int) Math.round(Math.pow(2, bits))) - 1;
+		}
+
+		// The size is specified directly.
+		return Integer.parseInt(valStr);
+	}
+
+	/**
+	 * Parse the string given as parameter in the encoding option and return the
+	 * specified seed value or -Integer.MIN_VALUE otherwise.
+	 * 
+	 * @param valStr
+	 * @return
+	 */
+	private static int parseEncodingSeed(String valStr) {
+		if (valStr.contains(","))
+			return Integer.parseInt(valStr.split("[,]")[1]);
+		return Integer.MIN_VALUE;
 	}
 
 	/**

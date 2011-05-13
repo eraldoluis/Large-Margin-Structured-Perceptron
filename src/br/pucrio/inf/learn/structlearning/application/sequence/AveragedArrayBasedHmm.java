@@ -97,7 +97,7 @@ public class AveragedArrayBasedHmm extends Hmm implements Cloneable {
 	@Override
 	protected void updateEmissionParameters(SequenceInput input, int token,
 			int state, double value) {
-		for (int ftr : input.getFeatures(token)) {
+		for (int ftr : input.getFeatureCodes(token)) {
 			emissions[state][ftr].update(value);
 			updatedWeights.add(emissions[state][ftr]);
 		}

@@ -365,8 +365,6 @@ public class Dataset {
 				int code = featureEncoding.put(features[idxFtr]);
 				if (code >= 0)
 					featureList.add(code);
-				else
-					featureList.add(featureEncoding.size() - 1);
 			}
 
 			// The last feature is the token label.
@@ -435,7 +433,7 @@ public class Dataset {
 				ps.print("\t");
 
 				// Token features.
-				for (int ftr : input.getFeatures(token))
+				for (int ftr : input.getFeatureCodes(token))
 					ps.print(featureEncoding.getValueByCode(ftr) + " ");
 
 				// Label of this token.
@@ -492,6 +490,17 @@ public class Dataset {
 	public void setSkipCompletelyNonAnnotatedExamples(
 			boolean skipCompletelyNonAnnotatedExamples) {
 		this.skipCompletelyNonAnnotatedExamples = skipCompletelyNonAnnotatedExamples;
+	}
+
+	/**
+	 * Normalize all the input structures within this dataset to have the same
+	 * given norm.
+	 * 
+	 * @param norm
+	 */
+	public void normalizeInputStructures(double norm) {
+		for (SequenceInput in : inputSequences)
+			in.normalize(norm);
 	}
 
 }

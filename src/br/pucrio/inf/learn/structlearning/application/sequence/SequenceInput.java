@@ -7,7 +7,13 @@ import br.pucrio.inf.learn.structlearning.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.data.ExampleOutput;
 
 /**
- * Sequence of tokens. Each token comprises an array of features.
+ * Input sequence structure.
+ * 
+ * It is composed by a sequence of tokens. Each token comprises a sparse feature
+ * vector. This sparse vector is represented by a vector of features (codes) and
+ * another vector with the corresponding weight for each feature. Only features
+ * whose weight is different of zero are represented. All absent features are
+ * assumed to have zero weights.
  * 
  * @author eraldo
  * 
@@ -20,21 +26,40 @@ public class SequenceInput implements ExampleInput {
 	private String id;
 
 	/**
-	 * Feature values for the tokens.
+	 * Feature codes within this example. They are organized by tokens.
 	 */
-	private int[][] tokens;
+	private int[][] featureCodes;
 
+	/**
+	 * Feature values (weights) within this example. They are organized as the
+	 * featureCodes properties.
+	 */
+	private double[][] featureWeights;
+
+	/**
+	 * Create a new sequence using the given ID and the given list of feature
+	 * codes.
+	 * 
+	 * The feature weights are assumed to be one for features present in the
+	 * list and zero otherwise.
+	 * 
+	 * @param id
+	 * @param tokens
+	 */
 	public SequenceInput(String id,
 			Collection<? extends Collection<Integer>> tokens) {
 		this.id = id;
-		this.tokens = new int[tokens.size()][];
+		this.featureCodes = new int[tokens.size()][];
+		this.featureWeights = new double[tokens.size()][];
 		int tknIdx = 0;
 		for (Collection<Integer> token : tokens) {
-			this.tokens[tknIdx] = new int[token.size()];
+			this.featureCodes[tknIdx] = new int[token.size()];
+			this.featureWeights[tknIdx] = new double[token.size()];
 
 			int ftrIdx = 0;
 			for (int ftr : token) {
-				this.tokens[tknIdx][ftrIdx] = ftr;
+				this.featureCodes[tknIdx][ftrIdx] = ftr;
+				this.featureWeights[tknIdx][ftrIdx] = 1.0;
 				++ftrIdx;
 			}
 
@@ -48,7 +73,7 @@ public class SequenceInput implements ExampleInput {
 	 * @return
 	 */
 	public int size() {
-		return tokens.length;
+		return featureCodes.length;
 	}
 
 	/**
@@ -58,7 +83,7 @@ public class SequenceInput implements ExampleInput {
 	 * @return
 	 */
 	public int getNumberOfFeatures(int token) {
-		return tokens[token].length;
+		return featureCodes[token].length;
 	}
 
 	/**
@@ -69,7 +94,18 @@ public class SequenceInput implements ExampleInput {
 	 * @return
 	 */
 	public int getFeature(int token, int index) {
-		return tokens[token][index];
+		return featureCodes[token][index];
+	}
+
+	/**
+	 * Return the weight associated with the feature in the given index.
+	 * 
+	 * @param token
+	 * @param index
+	 * @return
+	 */
+	public double getFeatureWeight(int token, int index) {
+		return featureWeights[token][index];
 	}
 
 	/**
@@ -78,8 +114,33 @@ public class SequenceInput implements ExampleInput {
 	 * @param token
 	 * @return
 	 */
-	public Iterable<Integer> getFeatures(int token) {
-		return new FeatureIterator(token);
+	public Iterable<Integer> getFeatureCodes(int token) {
+		return new FeatureCodeIterator(token);
+	}
+
+	@Override
+	public void normalize(double norm) {
+		for (int tkn = 0; tkn < featureWeights.length; ++tkn) {
+			// Current token weight vector.
+			double[] weights = featureWeights[tkn];
+			// Sum the weights.
+			double sum = 0d;
+			for (int ftr = 0; ftr < weights.length; ++ftr)
+				sum += weights[ftr];
+			// Normalize the weights.
+			for (int ftr = 0; ftr < weights.length; ++ftr)
+				weights[ftr] = weights[ftr] * norm / sum;
+		}
+	}
+
+	@Override
+	public ExampleOutput createOutput() {
+		return new SequenceOutput(featureCodes.length);
+	}
+
+	@Override
+	public String getId() {
+		return id;
 	}
 
 	/**
@@ -88,7 +149,7 @@ public class SequenceInput implements ExampleInput {
 	 * @author eraldo
 	 * 
 	 */
-	private class FeatureIterator implements Iterator<Integer>,
+	private class FeatureCodeIterator implements Iterator<Integer>,
 			Iterable<Integer> {
 
 		/**
@@ -106,20 +167,20 @@ public class SequenceInput implements ExampleInput {
 		 * 
 		 * @param token
 		 */
-		public FeatureIterator(int token) {
+		public FeatureCodeIterator(int token) {
 			this.token = token;
 			this.curIndex = -1;
 		}
 
 		@Override
 		public boolean hasNext() {
-			return curIndex < tokens[token].length - 1;
+			return curIndex < featureCodes[token].length - 1;
 		}
 
 		@Override
 		public Integer next() {
 			++curIndex;
-			return tokens[token][curIndex];
+			return featureCodes[token][curIndex];
 		}
 
 		@Override
@@ -133,16 +194,6 @@ public class SequenceInput implements ExampleInput {
 			return this;
 		}
 
-	}
-
-	@Override
-	public ExampleOutput createOutput() {
-		return new SequenceOutput(tokens.length);
-	}
-
-	@Override
-	public String getId() {
-		return id;
 	}
 
 }

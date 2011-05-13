@@ -103,7 +103,7 @@ public abstract class Hmm implements Model {
 	public double getTokenEmissionWeight(SequenceInput input, int token,
 			int state) {
 		double weight = 0d;
-		for (int ftr : input.getFeatures(token))
+		for (int ftr : input.getFeatureCodes(token))
 			weight += getEmissionParameter(state, ftr);
 		return weight;
 	}

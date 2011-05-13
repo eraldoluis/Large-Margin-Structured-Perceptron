@@ -23,4 +23,17 @@ public interface ExampleInput {
 	 */
 	public ExampleOutput createOutput();
 
+	/**
+	 * Normalize the feature vectors within this structure so that the norm of
+	 * each one is equal to the given value.
+	 * 
+	 * The normalization definition is task dependent. In sequence tagging, for
+	 * instance, the feature vectors for each token are independently
+	 * normalized, i.e., after normalization, the feature vectors of each token
+	 * will have the same norm.
+	 * 
+	 * @param norm
+	 */
+	public void normalize(double norm);
+
 }
