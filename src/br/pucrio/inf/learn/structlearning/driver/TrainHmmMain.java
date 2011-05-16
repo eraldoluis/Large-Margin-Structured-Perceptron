@@ -824,13 +824,15 @@ public class TrainHmmMain implements Command {
 		public boolean afterEpoch(Inference inferenceImpl, Model hmm,
 				int epoch, double loss, int iteration) {
 
-			try {
-				// Clone the current model to average it.
-				hmm = (Model) hmm.clone();
-			} catch (CloneNotSupportedException e) {
-				LOG.error("Cloning current model on epoch " + epoch
-						+ " and iteration " + iteration, e);
-				return true;
+			if (averageWeights) {
+				try {
+					// Clone the current model to average it, if necessary.
+					hmm = (Model) hmm.clone();
+				} catch (CloneNotSupportedException e) {
+					LOG.error("Cloning current model on epoch " + epoch
+							+ " and iteration " + iteration, e);
+					return true;
+				}
 			}
 
 			// Average the current model.
