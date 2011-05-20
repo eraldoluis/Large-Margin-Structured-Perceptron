@@ -5,7 +5,6 @@ import br.pucrio.inf.learn.structlearning.application.sequence.SequenceOutput;
 import br.pucrio.inf.learn.structlearning.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.data.FeatureEncoding;
-import br.pucrio.inf.learn.structlearning.data.StringMapEncoding;
 import br.pucrio.inf.learn.structlearning.task.Inference;
 import br.pucrio.inf.learn.structlearning.task.Model;
 import br.pucrio.inf.learn.util.DebugUtil;

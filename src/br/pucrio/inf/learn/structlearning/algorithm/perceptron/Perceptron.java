@@ -195,6 +195,7 @@ public class Perceptron implements StructuredAlgorithm {
 		this.numberOfEpochs = numberOfEpochs;
 	}
 
+	@Override
 	public Model getModel() {
 		return model;
 	}
@@ -203,13 +204,7 @@ public class Perceptron implements StructuredAlgorithm {
 		return averageWeights;
 	}
 
-	/**
-	 * Set the seed of the random-number generator. If this method is not
-	 * called, the generator uses the default Java seed (a number very likely to
-	 * be different from any other invocation).
-	 * 
-	 * @param seed
-	 */
+	@Override
 	public void setSeed(long seed) {
 		random.setSeed(seed);
 	}
@@ -488,16 +483,10 @@ public class Perceptron implements StructuredAlgorithm {
 					// Randomize the order to process the training examples.
 					idxEx = random.nextInt(inputsB.length);
 
-				// TODO debug
-				// TrainHmmMain.print = true;
-
 				// Update the current model weights according with the predicted
 				// output for this training example.
 				loss += trainOneExample(inputsB[idxEx], outputsB[idxEx],
 						predictedsB[idxEx]);
-
-				// TODO debug
-				// TrainHmmMain.print = false;
 
 			}
 
@@ -545,7 +534,7 @@ public class Perceptron implements StructuredAlgorithm {
 		double loss = model.update(input, referenceOutput, predictedOutput,
 				getCurrentLearningRate());
 
-		// TODO debug
+		// Debug.
 		if (DebugUtil.print && loss != 0d)
 			DebugUtil.printSequence((SequenceInput) input,
 					(SequenceOutput) referenceOutput,

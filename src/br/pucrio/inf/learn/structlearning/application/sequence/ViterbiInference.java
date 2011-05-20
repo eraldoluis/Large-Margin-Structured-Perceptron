@@ -19,12 +19,6 @@ public class ViterbiInference implements Inference {
 	private int defaultState;
 
 	/**
-	 * State code that indicates non-annotated tokens. In general, this will be
-	 * an invalid value (less than zero or greater than the number of states).
-	 */
-	private int nonAnnotatedStateCode;
-
-	/**
 	 * Weight of the loss function in the objective function for annotated
 	 * elements.
 	 */
@@ -57,34 +51,10 @@ public class ViterbiInference implements Inference {
 	 */
 	public ViterbiInference(int defaultState) {
 		this.defaultState = defaultState;
-		this.nonAnnotatedStateCode = -1;
 		this.lossAnnotatedWeight = 0d;
 		this.lossNonAnnotatedWeight = 0d;
 		this.lossReferenceOutput = null;
 		this.lossPartiallyAnnotatedOutput = null;
-	}
-
-	/**
-	 * Create a Viterbi inference algorithm using the given state as the default
-	 * state and the given code as the indicator of non-annotated tokens, i.e.,
-	 * token labeled with this state code are considered unlabeled.
-	 * 
-	 * @param defaultState
-	 * @param nonAnnotatedStateCode
-	 */
-	public ViterbiInference(int defaultState, int nonAnnotatedStateCode) {
-		this(defaultState);
-		this.nonAnnotatedStateCode = nonAnnotatedStateCode;
-	}
-
-	/**
-	 * Set the state code that indicates non-annotated tokens. This might be an
-	 * invalid value, i.e., less than zero or greater than the number of states.
-	 * 
-	 * @param nonAnnotatedStateCode
-	 */
-	public void setNonAnnotatedStateCode(int nonAnnotatedStateCode) {
-		this.nonAnnotatedStateCode = nonAnnotatedStateCode;
 	}
 
 	@Override
@@ -264,7 +234,9 @@ public class ViterbiInference implements Inference {
 
 		// Weights for the first token.
 		int curState = partiallyLabeledOutput.getLabel(0);
-		if (curState == nonAnnotatedStateCode) {
+
+		if (curState < 0) {
+			// Non-annotated token.
 			for (int state = 0; state < numberOfStates; ++state) {
 				delta[0][state] = getLossAugmentedTokenEmissionWeight(hmm,
 						input, 0, state) + hmm.getInitialStateParameter(state);
@@ -279,7 +251,7 @@ public class ViterbiInference implements Inference {
 		for (int tkn = 1; tkn < lenExample; ++tkn) {
 			int prevState = curState;
 			curState = partiallyLabeledOutput.getLabel(tkn);
-			if (curState == nonAnnotatedStateCode) {
+			if (curState < 0) {
 				// If the current token is non-annotated, we need to calculate
 				// the best previous state and corresponding weight for each
 				// possible state.
@@ -297,7 +269,7 @@ public class ViterbiInference implements Inference {
 
 		// Find the best state for the last token.
 		int lastState = partiallyLabeledOutput.getLabel(lenExample - 1);
-		if (lastState == nonAnnotatedStateCode) {
+		if (lastState < 0) {
 
 			// The default state is always the fisrt option.
 			int bestState = defaultState;
@@ -348,7 +320,7 @@ public class ViterbiInference implements Inference {
 	protected void partialViterbi(Hmm hmm, int previousState, double[][] delta,
 			int[][] psi, SequenceInput input, int token, int toState,
 			int defaultState) {
-		if (previousState == nonAnnotatedStateCode) {
+		if (previousState < 0) {
 			// If the previous token is non-annotated, we must choose the
 			// previous best state using the original procedure.
 			viterbi(hmm, delta, psi, input, token, toState, defaultState);

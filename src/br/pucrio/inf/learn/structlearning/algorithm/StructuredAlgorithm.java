@@ -71,4 +71,13 @@ public interface StructuredAlgorithm {
 	 */
 	public void setListener(TrainingListener listener);
 
+	/**
+	 * Set the seed of the random-number generator. If this method is not
+	 * called, the generator uses the default Java seed (a number very likely to
+	 * be different from any other invocation).
+	 * 
+	 * @param seed
+	 */
+	public void setSeed(long seed);
+
 }

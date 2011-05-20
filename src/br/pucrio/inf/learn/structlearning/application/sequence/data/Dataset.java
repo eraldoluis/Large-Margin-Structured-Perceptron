@@ -385,7 +385,7 @@ public class Dataset {
 				// non-annotated state code, instead of encoding this special
 				// label. Note that the above test always returns false if the
 				// special label is null (totally annotated dataset).
-				sequenceOutputAsList.add(nonAnnotatedStateCode);
+				sequenceOutputAsList.add(-10);
 			else {
 				int code = stateEncoding.put(label);
 				if (code < 0)

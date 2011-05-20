@@ -65,6 +65,14 @@ public class AveragedArrayBasedHmm extends Hmm implements Cloneable {
 	}
 
 	@Override
+	public int getNumberOfSymbols() {
+		if (emissions.length == 0)
+			return 0;
+		// This data structure explicitly represents all features for all state.
+		return emissions[0].length;
+	}
+
+	@Override
 	public double getInitialStateParameter(int state) {
 		return initialState[state].get();
 	}
@@ -79,6 +87,21 @@ public class AveragedArrayBasedHmm extends Hmm implements Cloneable {
 		if (symbol < 0)
 			return 0d;
 		return emissions[state][symbol].get();
+	}
+
+	@Override
+	public void setInitialStateParameter(int state, double value) {
+		initialState[state].set(value);
+	}
+
+	@Override
+	public void setTransitionParameter(int fromState, int toState, double value) {
+		transitions[fromState][toState].set(value);
+	}
+
+	@Override
+	public void setEmissionParameter(int state, int symbol, double value) {
+		emissions[state][symbol].set(value);
 	}
 
 	@Override
@@ -178,6 +201,17 @@ public class AveragedArrayBasedHmm extends Hmm implements Cloneable {
 		 * was summed into the <code>sum</code> value).
 		 */
 		private int lastSummedIteration;
+
+		/**
+		 * Set the value of this weight.
+		 * 
+		 * @param value
+		 */
+		public void set(double value) {
+			weight = value;
+			sum = 0d;
+			update = 0d;
+		}
 
 		/**
 		 * Add the given value <code>val</code> to this weight. In fact, this

@@ -236,9 +236,10 @@ public class BloomFilter<KeyType> implements Serializable {
 		if (obj == null) {
 			return false;
 		}
-		if (getClass() != obj.getClass()) {
+		if (!getClass().isInstance(obj)) {
 			return false;
 		}
+		@SuppressWarnings("unchecked")
 		final BloomFilter<KeyType> other = (BloomFilter<KeyType>) obj;
 		if (this.expectedNumberOfFilterElements != other.expectedNumberOfFilterElements) {
 			return false;

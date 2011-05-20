@@ -26,6 +26,13 @@ public abstract class Hmm implements Model {
 	public abstract int getNumberOfStates();
 
 	/**
+	 * Return the total number of symbols (features) used in this model.
+	 * 
+	 * @return
+	 */
+	public abstract int getNumberOfSymbols();
+
+	/**
 	 * Return the weight associated with the given initial state.
 	 * 
 	 * @param state
@@ -44,6 +51,37 @@ public abstract class Hmm implements Model {
 	 * @return
 	 */
 	public abstract double getTransitionParameter(int fromState, int toState);
+
+	/**
+	 * Set the value (weight) of the initial parameter associated with the given
+	 * state.
+	 * 
+	 * @param state
+	 * @param value
+	 */
+	public abstract void setInitialStateParameter(int state, double value);
+
+	/**
+	 * Set the value (weight) of the transition parameter associated with the
+	 * given pair of states.
+	 * 
+	 * @param fromState
+	 * @param toState
+	 * @param value
+	 */
+	public abstract void setTransitionParameter(int fromState, int toState,
+			double value);
+
+	/**
+	 * Set the value (weight) of the emission parameter associated with the
+	 * given state-symbol pair.
+	 * 
+	 * @param state
+	 * @param symbol
+	 * @param value
+	 */
+	public abstract void setEmissionParameter(int state, int symbol,
+			double value);
 
 	/**
 	 * Return the weight associated with the emission of the given symbol from

@@ -41,7 +41,7 @@ public class TrainHmmMain implements Command {
 
 	private static final Log LOG = LogFactory.getLog(TrainHmmMain.class);
 
-	private static final int NON_ANNOTATED_LABEL_CODE = -33;
+	private static final int NON_ANNOTATED_LABEL_CODE = -10;
 
 	/**
 	 * Available training algorithms.
@@ -316,15 +316,16 @@ public class TrainHmmMain implements Command {
 		CommandLineOptionsUtil.printOptionValues(cmdLine, options);
 
 		// Get the options specified in the command-line.
-		String[] inputCorpusFileNames = cmdLine.getOptionValues('i');
+		String[] inputCorpusFileNames = cmdLine.getOptionValues("incorpus");
 		String additionalCorpusFileName = cmdLine.getOptionValue("inadd");
-		String modelFileName = cmdLine.getOptionValue('o');
-		int numEpochs = Integer.parseInt(cmdLine.getOptionValue('T', "10"));
+		String modelFileName = cmdLine.getOptionValue("model");
+		int numEpochs = Integer.parseInt(cmdLine.getOptionValue("numepochs",
+				"10"));
 		double learningRate = Double.parseDouble(cmdLine.getOptionValue(
 				"learnrate", "1"));
-		String defaultLabel = cmdLine.getOptionValue('d', "0");
+		String defaultLabel = cmdLine.getOptionValue("defstate", "0");
 		String nullLabel = cmdLine.getOptionValue("nullstate", defaultLabel);
-		String testCorpusFileName = cmdLine.getOptionValue('t');
+		String testCorpusFileName = cmdLine.getOptionValue("testCorpus");
 		boolean evalPerEpoch = cmdLine.hasOption("perepoch");
 		String labels = cmdLine.getOptionValue("labels");
 		String encodingFile = cmdLine.getOptionValue("encoding");
@@ -583,15 +584,10 @@ public class TrainHmmMain implements Command {
 						Double.parseDouble(lossNonAnnotatedWeightStr),
 						lossNonAnnotatedWeightInc, true, averageWeights,
 						learningRateUpdateStrategy);
-
 			break;
 		}
 
 		if (nonAnnotatedLabel != null) {
-			// Non-annotated state label was specified and therefore the input
-			// dataset can contain non-annotated tokens that must be properly
-			// tackled by the inference algorithm.
-			viterbiInference.setNonAnnotatedStateCode(NON_ANNOTATED_LABEL_CODE);
 			// Signal the presence of partially-labeled examples to the
 			// algorithm.
 			alg.setPartiallyAnnotatedExamples(true);
