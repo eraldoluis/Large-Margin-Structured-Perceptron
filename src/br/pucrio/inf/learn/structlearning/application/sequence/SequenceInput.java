@@ -1,10 +1,6 @@
 package br.pucrio.inf.learn.structlearning.application.sequence;
 
-import java.util.Collection;
-import java.util.Iterator;
-
 import br.pucrio.inf.learn.structlearning.data.ExampleInput;
-import br.pucrio.inf.learn.structlearning.data.ExampleOutput;
 
 /**
  * Input sequence structure.
@@ -18,63 +14,14 @@ import br.pucrio.inf.learn.structlearning.data.ExampleOutput;
  * @author eraldo
  * 
  */
-public class SequenceInput implements ExampleInput {
-
-	/**
-	 * Identifier of this input example.
-	 */
-	private String id;
-
-	/**
-	 * Feature codes within this example. They are organized by tokens.
-	 */
-	private int[][] featureCodes;
-
-	/**
-	 * Feature values (weights) within this example. They are organized as the
-	 * featureCodes properties.
-	 */
-	private double[][] featureWeights;
-
-	/**
-	 * Create a new sequence using the given ID and the given list of feature
-	 * codes.
-	 * 
-	 * The feature weights are assumed to be one for features present in the
-	 * list and zero otherwise.
-	 * 
-	 * @param id
-	 * @param tokens
-	 */
-	public SequenceInput(String id,
-			Collection<? extends Collection<Integer>> tokens) {
-		this.id = id;
-		this.featureCodes = new int[tokens.size()][];
-		this.featureWeights = new double[tokens.size()][];
-		int tknIdx = 0;
-		for (Collection<Integer> token : tokens) {
-			this.featureCodes[tknIdx] = new int[token.size()];
-			this.featureWeights[tknIdx] = new double[token.size()];
-
-			int ftrIdx = 0;
-			for (int ftr : token) {
-				this.featureCodes[tknIdx][ftrIdx] = ftr;
-				this.featureWeights[tknIdx][ftrIdx] = 1.0;
-				++ftrIdx;
-			}
-
-			++tknIdx;
-		}
-	}
+public interface SequenceInput extends ExampleInput {
 
 	/**
 	 * Return the number of tokens in this sequence.
 	 * 
 	 * @return
 	 */
-	public int size() {
-		return featureCodes.length;
-	}
+	public int size();
 
 	/**
 	 * Return the number of features for the given token.
@@ -82,9 +29,7 @@ public class SequenceInput implements ExampleInput {
 	 * @param token
 	 * @return
 	 */
-	public int getNumberOfFeatures(int token) {
-		return featureCodes[token].length;
-	}
+	public int getNumberOfFeatures(int token);
 
 	/**
 	 * Return the feature in the given index for the given token.
@@ -93,9 +38,7 @@ public class SequenceInput implements ExampleInput {
 	 * @param index
 	 * @return
 	 */
-	public int getFeature(int token, int index) {
-		return featureCodes[token][index];
-	}
+	public int getFeature(int token, int index);
 
 	/**
 	 * Return the weight associated with the feature in the given index.
@@ -104,9 +47,7 @@ public class SequenceInput implements ExampleInput {
 	 * @param index
 	 * @return
 	 */
-	public double getFeatureWeight(int token, int index) {
-		return featureWeights[token][index];
-	}
+	public double getFeatureWeight(int token, int index);
 
 	/**
 	 * Return an iterator for the features of the given token.
@@ -114,86 +55,6 @@ public class SequenceInput implements ExampleInput {
 	 * @param token
 	 * @return
 	 */
-	public Iterable<Integer> getFeatureCodes(int token) {
-		return new FeatureCodeIterator(token);
-	}
-
-	@Override
-	public void normalize(double norm) {
-		for (int tkn = 0; tkn < featureWeights.length; ++tkn) {
-			// Current token weight vector.
-			double[] weights = featureWeights[tkn];
-			// Sum the weights.
-			double sum = 0d;
-			for (int ftr = 0; ftr < weights.length; ++ftr)
-				sum += weights[ftr];
-			// Normalize the weights.
-			for (int ftr = 0; ftr < weights.length; ++ftr)
-				weights[ftr] = weights[ftr] * norm / sum;
-		}
-	}
-
-	@Override
-	public ExampleOutput createOutput() {
-		return new SequenceOutput(featureCodes.length);
-	}
-
-	@Override
-	public String getId() {
-		return id;
-	}
-
-	/**
-	 * Iterate over the features of a token.
-	 * 
-	 * @author eraldo
-	 * 
-	 */
-	private class FeatureCodeIterator implements Iterator<Integer>,
-			Iterable<Integer> {
-
-		/**
-		 * Token index whose features this iterator iterates over.
-		 */
-		private int token;
-
-		/**
-		 * Current index within the feature array.
-		 */
-		private int curIndex;
-
-		/**
-		 * Create an iterator over the features of the given token.
-		 * 
-		 * @param token
-		 */
-		public FeatureCodeIterator(int token) {
-			this.token = token;
-			this.curIndex = -1;
-		}
-
-		@Override
-		public boolean hasNext() {
-			return curIndex < featureCodes[token].length - 1;
-		}
-
-		@Override
-		public Integer next() {
-			++curIndex;
-			return featureCodes[token][curIndex];
-		}
-
-		@Override
-		public void remove() {
-			throw new UnsupportedOperationException(
-					"This is an immutable iterator. One cannot remove an item.");
-		}
-
-		@Override
-		public Iterator<Integer> iterator() {
-			return this;
-		}
-
-	}
+	public Iterable<Integer> getFeatureCodes(int token);
 
 }

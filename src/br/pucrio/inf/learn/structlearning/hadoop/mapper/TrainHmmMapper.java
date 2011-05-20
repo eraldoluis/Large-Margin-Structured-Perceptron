@@ -33,6 +33,7 @@ public class TrainHmmMapper extends
 		} catch (Exception e) {
 			config = null;
 			LOG.error("Configuring the mapper", e);
+			throw new InterruptedException(e.getMessage());
 		}
 	}
 
@@ -47,8 +48,8 @@ public class TrainHmmMapper extends
 	protected void cleanup(Context context) throws IOException,
 			InterruptedException {
 		// Train over the small dataset alone.
-		config.alg.train(config.smallDataset.getInputs(),
-				config.smallDataset.getOutputs(), null, null);
+		// TODO config.alg.train(config.smallDataset.getInputs(),
+		// config.smallDataset.getOutputs(), null, null);
 		// Emit the resulting model.
 		config.emitModelAsStripes(context);
 	}

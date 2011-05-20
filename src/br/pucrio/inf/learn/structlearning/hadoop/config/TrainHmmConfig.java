@@ -1,14 +1,15 @@
 package br.pucrio.inf.learn.structlearning.hadoop.config;
 
 import java.io.IOException;
-import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map.Entry;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.filecache.DistributedCache;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.DoubleWritable;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.MapWritable;
@@ -16,8 +17,11 @@ import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapreduce.JobContext;
 import org.apache.hadoop.mapreduce.TaskInputOutputContext;
 
+import br.pucrio.inf.learn.mr.data.ExampleData;
+import br.pucrio.inf.learn.mr.data.ExampleKey;
 import br.pucrio.inf.learn.mr.data.HmmDistributionKey;
 import br.pucrio.inf.learn.mr.data.HmmDistributionKey.DistributionType;
+import br.pucrio.inf.learn.mr.util.DistributedCacheUtil;
 import br.pucrio.inf.learn.mr.util.MultipleSequenceFileReader;
 import br.pucrio.inf.learn.structlearning.algorithm.StructuredAlgorithm;
 import br.pucrio.inf.learn.structlearning.algorithm.perceptron.AwayFromWorsePerceptron;
@@ -27,6 +31,8 @@ import br.pucrio.inf.learn.structlearning.algorithm.perceptron.Perceptron.LearnR
 import br.pucrio.inf.learn.structlearning.algorithm.perceptron.TowardBetterPerceptron;
 import br.pucrio.inf.learn.structlearning.application.sequence.AveragedArrayBasedHmm;
 import br.pucrio.inf.learn.structlearning.application.sequence.Hmm;
+import br.pucrio.inf.learn.structlearning.application.sequence.SequenceInput;
+import br.pucrio.inf.learn.structlearning.application.sequence.SequenceOutput;
 import br.pucrio.inf.learn.structlearning.application.sequence.ViterbiInference;
 import br.pucrio.inf.learn.structlearning.application.sequence.data.Dataset;
 import br.pucrio.inf.learn.structlearning.application.sequence.data.DatasetException;
@@ -46,25 +52,15 @@ public class TrainHmmConfig {
 	 */
 	private static final Log LOG = LogFactory.getLog(TrainHmmMain.class);
 
-	private static void addDistributedCacheFile(JobContext jobContext,
-			String fileName, String linkName, String property)
-			throws URISyntaxException {
-		// Configuration dictionary.
-		Configuration conf = jobContext.getConfiguration();
-
-		// Add the file to the distributed cache using a link.
-		LOG.info(String.format("Adding file %s in distributed cache as %s.",
-				fileName, linkName));
-		DistributedCache.addCacheFile(new URI(fileName + "#" + linkName), conf);
-		conf.set(property, linkName);
-
-		// Create symlinks to the cached files.
-		DistributedCache.createSymlink(conf);
+	public static void setSmallCorpus(Configuration conf, String fileName)
+			throws URISyntaxException, IOException {
+		DistributedCacheUtil.putMultipleSequenceFiles(conf, new Path(fileName),
+				"structlearning.incorpus");
 	}
 
-	public static void setSmallCorpus(JobContext jobContext, String fileName)
-			throws URISyntaxException {
-		addDistributedCacheFile(jobContext, fileName, "smallCorpus",
+	public static MultipleSequenceFileReader getSmallCorpusReader(
+			Configuration conf) throws IOException {
+		return DistributedCacheUtil.getMultipleSequenceFileReader(conf,
 				"structlearning.incorpus");
 	}
 
@@ -122,7 +118,8 @@ public class TrainHmmConfig {
 	}
 
 	public Hmm hmm;
-	public Dataset smallDataset;
+	public SequenceInput[] inputs;
+	public SequenceOutput[] outputs;
 	public ViterbiInference inference;
 	public StructuredAlgorithm alg;
 
@@ -150,9 +147,10 @@ public class TrainHmmConfig {
 		ViterbiInference inference = new ViterbiInference(defaultState);
 
 		// Load the small dataset.
-		Dataset smallDataset = null;
-		if (inCorpuFileName != null)
-			smallDataset = new Dataset(inCorpuFileName, null, null);
+		MultipleSequenceFileReader reader = getSmallCorpusReader(conf);
+		List<SequenceInput> inputs = new LinkedList<SequenceInput>();
+		List<SequenceOutput> outputs = new LinkedList<SequenceOutput>();
+		readExamples(reader, inputs, outputs);
 
 		// Create an empty model.
 		Hmm hmm = new AveragedArrayBasedHmm(numStates, numSymbols);
@@ -194,9 +192,17 @@ public class TrainHmmConfig {
 		trainHmmConfig.alg = alg;
 		trainHmmConfig.hmm = hmm;
 		trainHmmConfig.inference = inference;
-		trainHmmConfig.smallDataset = smallDataset;
 
 		return trainHmmConfig;
+	}
+
+	private static void readExamples(MultipleSequenceFileReader reader,
+			List<SequenceInput> inputs, List<SequenceOutput> outputs) throws IOException {
+		ExampleKey key = new ExampleKey();
+		ExampleData data = new ExampleData();
+		while (reader.next(key, data)) {
+			// TODO SequenceInput input = new SequenceInput(id, tokens)
+		}
 	}
 
 	/**

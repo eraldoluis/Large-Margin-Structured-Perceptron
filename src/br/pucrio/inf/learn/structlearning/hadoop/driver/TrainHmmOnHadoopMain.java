@@ -186,7 +186,7 @@ public class TrainHmmOnHadoopMain extends Configured implements Tool {
 		is.close();
 
 		// Set the required options.
-		TrainHmmConfig.setSmallCorpus(job, inputCorpusFileName);
+		// TODO TrainHmmConfig.setSmallCorpus(job, inputCorpusFileName);
 		TrainHmmConfig.setNumberOfStates(job, stateEncoding.size());
 		TrainHmmConfig.setNumberOfSymbols(job, featureEncoding.size());
 

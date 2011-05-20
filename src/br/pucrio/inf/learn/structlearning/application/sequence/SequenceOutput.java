@@ -1,8 +1,5 @@
 package br.pucrio.inf.learn.structlearning.application.sequence;
 
-import java.util.Arrays;
-import java.util.Collection;
-
 import br.pucrio.inf.learn.structlearning.data.ExampleOutput;
 
 /**
@@ -11,41 +8,14 @@ import br.pucrio.inf.learn.structlearning.data.ExampleOutput;
  * @author eraldo
  * 
  */
-public class SequenceOutput implements ExampleOutput {
-
-	/**
-	 * Sequence of labels.
-	 */
-	private int[] labels;
-
-	protected SequenceOutput() {
-	}
-
-	public SequenceOutput(int size) {
-		labels = new int[size];
-	}
-
-	public SequenceOutput(Iterable<Integer> labels, int size) {
-		this(size);
-		int idx = 0;
-		for (int label : labels) {
-			this.labels[idx] = label;
-			++idx;
-		}
-	}
-
-	public SequenceOutput(Collection<Integer> labels) {
-		this(labels, labels.size());
-	}
+public interface SequenceOutput extends ExampleOutput {
 
 	/**
 	 * Return the number of tokens in this sequence.
 	 * 
 	 * @return
 	 */
-	public int size() {
-		return labels.length;
-	}
+	public int size();
 
 	/**
 	 * Return the label of the given token.
@@ -53,9 +23,7 @@ public class SequenceOutput implements ExampleOutput {
 	 * @param token
 	 * @return
 	 */
-	public int getLabel(int token) {
-		return labels[token];
-	}
+	public int getLabel(int token);
 
 	/**
 	 * Set the label for the given token.
@@ -63,27 +31,6 @@ public class SequenceOutput implements ExampleOutput {
 	 * @param token
 	 * @param label
 	 */
-	public void setLabel(int token, int label) {
-		labels[token] = label;
-	}
-
-	@Override
-	public ExampleOutput createNewObject() {
-		return new SequenceOutput(labels.length);
-	}
-
-	@Override
-	public Object clone() throws CloneNotSupportedException {
-		SequenceOutput copy = new SequenceOutput();
-		copy.labels = labels.clone();
-		return copy;
-	}
-
-	@Override
-	public boolean equals(Object obj) {
-		if (getClass() != obj.getClass())
-			return false;
-		return Arrays.equals(labels, ((SequenceOutput) obj).labels);
-	}
+	public void setLabel(int token, int label);
 
 }

@@ -12,6 +12,8 @@ import java.util.LinkedList;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import br.pucrio.inf.learn.structlearning.application.sequence.ArraySequenceInput;
+import br.pucrio.inf.learn.structlearning.application.sequence.ArraySequenceOutput;
 import br.pucrio.inf.learn.structlearning.application.sequence.SequenceInput;
 import br.pucrio.inf.learn.structlearning.application.sequence.SequenceOutput;
 import br.pucrio.inf.learn.structlearning.data.FeatureEncoding;
@@ -252,8 +254,8 @@ public class Dataset {
 	 */
 	public void load(BufferedReader reader) throws IOException,
 			DatasetException {
-		LinkedList<SequenceInput> inputSequences = new LinkedList<SequenceInput>();
-		LinkedList<SequenceOutput> outputSequences = new LinkedList<SequenceOutput>();
+		LinkedList<ArraySequenceInput> inputSequences = new LinkedList<ArraySequenceInput>();
+		LinkedList<ArraySequenceOutput> outputSequences = new LinkedList<ArraySequenceOutput>();
 
 		// Parse each example.
 		int numTotal = 0;
@@ -341,8 +343,8 @@ public class Dataset {
 	 * @throws DatasetException
 	 *             if there is some format problem with the given string.
 	 */
-	public boolean parseExample(Collection<SequenceInput> sequenceInputs,
-			Collection<SequenceOutput> sequenceOutputs, String buff)
+	public boolean parseExample(Collection<ArraySequenceInput> sequenceInputs,
+			Collection<ArraySequenceOutput> sequenceOutputs, String buff)
 			throws DatasetException {
 		// Split tokens.
 		String tokens[] = buff.split("\\t");
@@ -401,8 +403,8 @@ public class Dataset {
 
 		// Store the loaded example.
 		if (!skipCompletelyNonAnnotatedExamples || someAnnotatedToken) {
-			sequenceInputs.add(new SequenceInput(id, sequenceInputAsList));
-			sequenceOutputs.add(new SequenceOutput(sequenceOutputAsList,
+			sequenceInputs.add(new ArraySequenceInput(id, sequenceInputAsList));
+			sequenceOutputs.add(new ArraySequenceOutput(sequenceOutputAsList,
 					sequenceOutputAsList.size()));
 			return true;
 		}
