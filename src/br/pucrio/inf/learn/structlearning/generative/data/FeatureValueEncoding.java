@@ -26,12 +26,12 @@ public class FeatureValueEncoding {
 	/**
 	 * Reserved label for unseen labels when using read-only mapping.
 	 */
-	public static final String UNSEEN_LABEL = "__UNSEENLABEL__";
+	public static final String UNSEEN_FEATURE = "__UNSEEN_FEATURE__";
 
 	/**
 	 * Reserved code for unseen labels when using read-only mapping.
 	 */
-	public static final int UNSEEN_CODE = Integer.MAX_VALUE;
+	public static final int UNSEEN_CODE = Integer.MIN_VALUE;
 
 	/**
 	 * Label (String) to code (Integer) mapping.
@@ -143,7 +143,7 @@ public class FeatureValueEncoding {
 		Integer code = mapFromLabelToCode.get(label);
 		if (code == null) {
 			// If this is a read-only mapping, return the unseen code.
-			if (readOnly || label.equals(UNSEEN_LABEL))
+			if (readOnly || label.equals(UNSEEN_FEATURE))
 				return UNSEEN_CODE;
 
 			code = mapFromCodeToLabel.size();
@@ -162,8 +162,8 @@ public class FeatureValueEncoding {
 	 * @return the label corresponding to the given code.
 	 */
 	public String getLabelByCode(int code) {
-		if (code == UNSEEN_CODE)
-			return UNSEEN_LABEL;
+		if (code == UNSEEN_CODE || code < 0)
+			return UNSEEN_FEATURE;
 		return mapFromCodeToLabel.get(code);
 	}
 
@@ -178,7 +178,7 @@ public class FeatureValueEncoding {
 	public int getCodeByLabel(String label) {
 		Integer code = mapFromLabelToCode.get(label);
 		if (code == null) {
-			if (readOnly || label.equals(UNSEEN_LABEL))
+			if (readOnly || label.equals(UNSEEN_FEATURE))
 				return UNSEEN_CODE;
 			return -1;
 		}

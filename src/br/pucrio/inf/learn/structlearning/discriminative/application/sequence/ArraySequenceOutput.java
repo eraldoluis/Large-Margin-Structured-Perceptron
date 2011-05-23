@@ -59,13 +59,6 @@ public class ArraySequenceOutput implements SequenceOutput {
 	}
 
 	@Override
-	public Object clone() throws CloneNotSupportedException {
-		ArraySequenceOutput copy = new ArraySequenceOutput();
-		copy.labels = labels.clone();
-		return copy;
-	}
-
-	@Override
 	public boolean equals(Object obj) {
 		if (getClass() != obj.getClass())
 			return false;

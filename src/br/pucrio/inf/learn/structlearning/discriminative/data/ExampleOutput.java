@@ -16,12 +16,4 @@ public interface ExampleOutput {
 	 */
 	ExampleOutput createNewObject();
 
-	/**
-	 * Create a new object with the same content.
-	 * 
-	 * @return
-	 * @throws CloneNotSupportedException
-	 */
-	Object clone() throws CloneNotSupportedException;
-
 }
