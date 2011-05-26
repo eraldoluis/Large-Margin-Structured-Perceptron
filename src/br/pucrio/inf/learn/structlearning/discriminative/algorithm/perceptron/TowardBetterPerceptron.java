@@ -52,8 +52,8 @@ public class TowardBetterPerceptron extends LossAugmentedPerceptron {
 	}
 
 	@Override
-	public double trainOneExample(ExampleInput input,
-			ExampleOutput correctOutput, ExampleOutput predictedOutput) {
+	public double train(ExampleInput input, ExampleOutput correctOutput,
+			ExampleOutput predictedOutput) {
 
 		// Infer the whole output structure. This is the "worse" output
 		// structure used to update the model.

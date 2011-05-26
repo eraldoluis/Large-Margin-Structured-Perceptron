@@ -35,6 +35,11 @@ public class Dataset {
 	private static final Log LOG = LogFactory.getLog(Dataset.class);
 
 	/**
+	 * Special code used to indicate non-annotated tokens.
+	 */
+	public static final int NON_ANNOTATED_STATE_CODE = -10;
+
+	/**
 	 * Map string feature values to integer values (codes).
 	 */
 	protected FeatureEncoding<String> featureEncoding;
@@ -58,11 +63,6 @@ public class Dataset {
 	 * Special label that indicates non-annotated tokens.
 	 */
 	protected String nonAnnotatedStateLabel;
-
-	/**
-	 * Invalid state code to be used for the non-annotated tokens.
-	 */
-	protected int nonAnnotatedStateCode;
 
 	/**
 	 * If <code>true</code>, when loading partially-labeled datasets, skip
@@ -99,12 +99,10 @@ public class Dataset {
 	}
 
 	public Dataset(FeatureEncoding<String> featureEncoding,
-			FeatureEncoding<String> stateEncoding,
-			String nonAnnotatedStateLabel, int nonAnnotatedStateCode) {
+			FeatureEncoding<String> stateEncoding, String nonAnnotatedStateLabel) {
 		this.featureEncoding = featureEncoding;
 		this.stateEncoding = stateEncoding;
 		this.nonAnnotatedStateLabel = nonAnnotatedStateLabel;
-		this.nonAnnotatedStateCode = nonAnnotatedStateCode;
 		this.skipCompletelyNonAnnotatedExamples = false;
 	}
 
@@ -122,11 +120,10 @@ public class Dataset {
 		load(fileName);
 	}
 
-	public Dataset(String fileName, String nonAnnotatedStateLabel,
-			int nonAnnotatedStateCode) throws IOException, DatasetException {
+	public Dataset(String fileName, String nonAnnotatedStateLabel)
+			throws IOException, DatasetException {
 		this(new StringMapEncoding(), new StringMapEncoding());
 		this.nonAnnotatedStateLabel = nonAnnotatedStateLabel;
-		this.nonAnnotatedStateCode = nonAnnotatedStateCode;
 		load(fileName);
 	}
 
@@ -167,23 +164,20 @@ public class Dataset {
 	}
 
 	public Dataset(String fileName, FeatureEncoding<String> featureEncoding,
-			FeatureEncoding<String> stateEncoding,
-			String nonAnnotatedStateLabel, int nonAnnotateStateCode)
+			FeatureEncoding<String> stateEncoding, String nonAnnotatedStateLabel)
 			throws IOException, DatasetException {
 		this(featureEncoding, stateEncoding);
 		this.nonAnnotatedStateLabel = nonAnnotatedStateLabel;
-		this.nonAnnotatedStateCode = nonAnnotateStateCode;
 		load(fileName);
 	}
 
 	public Dataset(String fileName, FeatureEncoding<String> featureEncoding,
 			FeatureEncoding<String> stateEncoding,
-			String nonAnnotatedStateLabel, int nonAnnotateStateCode,
+			String nonAnnotatedStateLabel,
 			boolean skipCompletelyNonAnnotatedExamples) throws IOException,
 			DatasetException {
 		this(featureEncoding, stateEncoding);
 		this.nonAnnotatedStateLabel = nonAnnotatedStateLabel;
-		this.nonAnnotatedStateCode = nonAnnotateStateCode;
 		this.skipCompletelyNonAnnotatedExamples = skipCompletelyNonAnnotatedExamples;
 		load(fileName);
 	}
@@ -387,7 +381,7 @@ public class Dataset {
 				// non-annotated state code, instead of encoding this special
 				// label. Note that the above test always returns false if the
 				// special label is null (totally annotated dataset).
-				sequenceOutputAsList.add(-10);
+				sequenceOutputAsList.add(NON_ANNOTATED_STATE_CODE);
 			else {
 				int code = stateEncoding.put(label);
 				if (code < 0)

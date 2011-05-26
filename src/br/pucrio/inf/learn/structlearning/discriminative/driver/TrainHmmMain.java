@@ -41,12 +41,10 @@ public class TrainHmmMain implements Command {
 
 	private static final Log LOG = LogFactory.getLog(TrainHmmMain.class);
 
-	private static final int NON_ANNOTATED_LABEL_CODE = -10;
-
 	/**
 	 * Available training algorithms.
 	 */
-	private static enum AlgorithmType {
+	public static enum AlgorithmType {
 		/**
 		 * Ordinary structured Perceptron
 		 */
@@ -437,7 +435,7 @@ public class TrainHmmMain implements Command {
 
 			// Get the list of input paths and concatenate the corpora in them.
 			inputCorpusA = new Dataset(featureEncoding, stateEncoding,
-					nonAnnotatedLabel, NON_ANNOTATED_LABEL_CODE);
+					nonAnnotatedLabel);
 			inputCorpusA
 					.setSkipCompletelyNonAnnotatedExamples(skipCompletelyNonAnnotatedExamples);
 
@@ -451,7 +449,6 @@ public class TrainHmmMain implements Command {
 			for (int idxFile = 1; idxFile < inputCorpusFileNames.length; ++idxFile) {
 				Dataset other = new Dataset(inputCorpusFileNames[idxFile],
 						featureEncoding, stateEncoding, nonAnnotatedLabel,
-						NON_ANNOTATED_LABEL_CODE,
 						skipCompletelyNonAnnotatedExamples);
 				inputCorpusA.add(other);
 			}
@@ -476,7 +473,6 @@ public class TrainHmmMain implements Command {
 
 				inputCorpusB = new Dataset(additionalCorpusFileName,
 						featureEncoding, stateEncoding, nonAnnotatedLabel,
-						NON_ANNOTATED_LABEL_CODE,
 						skipCompletelyNonAnnotatedExamples);
 
 				if (normalizeInput)

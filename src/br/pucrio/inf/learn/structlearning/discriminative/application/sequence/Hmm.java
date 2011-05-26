@@ -102,6 +102,17 @@ public abstract class Hmm implements Model {
 	protected abstract void updateInitialStateParameter(int state, double value);
 
 	/**
+	 * Update the specified transition (fromToken, toToken) feature using the
+	 * given learning rate.
+	 * 
+	 * @param fromToken
+	 * @param toToken
+	 * @param learningRate
+	 */
+	protected abstract void updateTransitionParameter(int fromToken,
+			int toToken, double learningRate);
+
+	/**
 	 * Update the model features, corresponding to a given state, that are
 	 * present in a token of the given input sequence. The given learning rate
 	 * is used as a multiplier for each update.
@@ -113,17 +124,6 @@ public abstract class Hmm implements Model {
 	 */
 	protected abstract void updateEmissionParameters(SequenceInput input,
 			int token, int state, double learningRate);
-
-	/**
-	 * Update the specified transition (fromToken, toToken) feature using the
-	 * given learning rate.
-	 * 
-	 * @param fromToken
-	 * @param toToken
-	 * @param learningRate
-	 */
-	protected abstract void updateTransitionParameter(int fromToken,
-			int toToken, double learningRate);
 
 	/**
 	 * The sub-classes must implement this to ease some use cases (e.g.,

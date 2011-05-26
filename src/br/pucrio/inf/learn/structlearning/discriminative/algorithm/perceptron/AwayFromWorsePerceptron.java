@@ -52,8 +52,8 @@ public class AwayFromWorsePerceptron extends LossAugmentedPerceptron {
 	}
 
 	@Override
-	public double trainOneExample(ExampleInput input,
-			ExampleOutput correctOutput, ExampleOutput predictedOutput) {
+	public double train(ExampleInput input, ExampleOutput correctOutput,
+			ExampleOutput predictedOutput) {
 
 		ExampleOutput referenceOutput = correctOutput;
 		if (partiallyAnnotatedExamples) {

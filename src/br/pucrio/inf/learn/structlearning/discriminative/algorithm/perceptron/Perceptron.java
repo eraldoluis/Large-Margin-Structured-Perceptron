@@ -5,7 +5,7 @@ import java.util.Random;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import br.pucrio.inf.learn.structlearning.discriminative.algorithm.StructuredAlgorithm;
+import br.pucrio.inf.learn.structlearning.discriminative.algorithm.OnlineStructuredAlgorithm;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.TrainingListener;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.SequenceInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.SequenceOutput;
@@ -23,7 +23,7 @@ import br.pucrio.inf.learn.util.DebugUtil;
  * @author eraldof
  * 
  */
-public class Perceptron implements StructuredAlgorithm {
+public class Perceptron implements OnlineStructuredAlgorithm {
 
 	private static final Log LOG = LogFactory.getLog(Perceptron.class);
 
@@ -337,8 +337,7 @@ public class Perceptron implements StructuredAlgorithm {
 
 			// Update the current model weights according with the predicted
 			// output for this training example.
-			loss += trainOneExample(inputs[idxEx], outputs[idxEx],
-					predicteds[idxEx]);
+			loss += train(inputs[idxEx], outputs[idxEx], predicteds[idxEx]);
 
 			// Progress report.
 			if (reportProgressInterval > 0
@@ -471,7 +470,7 @@ public class Perceptron implements StructuredAlgorithm {
 
 				// Update the current model weights according with the predicted
 				// output for this training example.
-				loss += trainOneExample(inputsA[idxEx], outputsA[idxEx],
+				loss += train(inputsA[idxEx], outputsA[idxEx],
 						predictedsA[idxEx]);
 
 			} else {
@@ -485,7 +484,7 @@ public class Perceptron implements StructuredAlgorithm {
 
 				// Update the current model weights according with the predicted
 				// output for this training example.
-				loss += trainOneExample(inputsB[idxEx], outputsB[idxEx],
+				loss += train(inputsB[idxEx], outputsB[idxEx],
 						predictedsB[idxEx]);
 
 			}
@@ -506,19 +505,15 @@ public class Perceptron implements StructuredAlgorithm {
 
 	}
 
-	/**
-	 * Update the current model using the two given outputs for one input.
-	 * 
-	 * @param input
-	 * @param correctOutput
-	 * @param predictedOutput
-	 * @return the loss between the correct and the predicted outputs.
-	 */
-	public double trainOneExample(ExampleInput input,
-			ExampleOutput correctOutput, ExampleOutput predictedOutput) {
+	@Override
+	public double train(ExampleInput input, ExampleOutput correctOutput,
+			ExampleOutput predictedOutput) {
 
 		ExampleOutput referenceOutput = correctOutput;
 		if (partiallyAnnotatedExamples) {
+
+			LOG.info("Filling the gaps...");
+
 			// If the user asked to consider partially-labeled examples then
 			// infer the missing values within the given correct output
 			// structure before updating the current model.
