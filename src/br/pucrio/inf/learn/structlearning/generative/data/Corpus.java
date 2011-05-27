@@ -11,7 +11,10 @@ import java.util.Iterator;
 import java.util.Vector;
 
 /**
- * Represent a text dataset.
+ * Represent a text dataset, i.e., a corpus in column format. The corpus
+ * comprises a list of text segments (e.g., sentences) which in turn comprise a
+ * sequence of tokens. All tokens have the same number of features and in the
+ * same order.
  * 
  * Provide methods for manipulating a text dataset. Some operations are: create
  * new features, remove features, get feature values, get a complete example,
@@ -21,7 +24,7 @@ import java.util.Vector;
  * encode the string values.
  * 
  */
-public class Dataset implements Iterable<DatasetExample> {
+public class Corpus implements Iterable<DatasetExample> {
 
 	/**
 	 * Control the mapping from string feature values to integer values and
@@ -50,7 +53,7 @@ public class Dataset implements Iterable<DatasetExample> {
 	/**
 	 * Default constructor.
 	 */
-	public Dataset() {
+	public Corpus() {
 		featureValueEncoding = new FeatureValueEncoding();
 		featureLabels = new Vector<String>();
 		examples = new Vector<Vector<Vector<Integer>>>();
@@ -62,7 +65,7 @@ public class Dataset implements Iterable<DatasetExample> {
 	 * 
 	 * @param featureValueEncoding
 	 */
-	public Dataset(FeatureValueEncoding featureValueEncoding) {
+	public Corpus(FeatureValueEncoding featureValueEncoding) {
 		this.featureValueEncoding = featureValueEncoding;
 		featureLabels = new Vector<String>();
 		examples = new Vector<Vector<Vector<Integer>>>();
@@ -78,7 +81,7 @@ public class Dataset implements Iterable<DatasetExample> {
 	 * @throws DatasetException
 	 * @throws IOException
 	 */
-	public Dataset(String fileName) throws IOException, DatasetException {
+	public Corpus(String fileName) throws IOException, DatasetException {
 		featureValueEncoding = new FeatureValueEncoding();
 		featureLabels = new Vector<String>();
 		examples = new Vector<Vector<Vector<Integer>>>();
@@ -86,7 +89,7 @@ public class Dataset implements Iterable<DatasetExample> {
 		load(fileName);
 	}
 
-	public Dataset(InputStream is) throws IOException, DatasetException {
+	public Corpus(InputStream is) throws IOException, DatasetException {
 		featureValueEncoding = new FeatureValueEncoding();
 		featureLabels = new Vector<String>();
 		examples = new Vector<Vector<Vector<Integer>>>();
@@ -108,7 +111,7 @@ public class Dataset implements Iterable<DatasetExample> {
 	 * @throws DatasetException
 	 *             if the file contains invalid data.
 	 */
-	public Dataset(String fileName, FeatureValueEncoding featureValueEncoding)
+	public Corpus(String fileName, FeatureValueEncoding featureValueEncoding)
 			throws IOException, DatasetException {
 		this.featureValueEncoding = featureValueEncoding;
 		featureLabels = new Vector<String>();
@@ -140,7 +143,7 @@ public class Dataset implements Iterable<DatasetExample> {
 	 * 
 	 * @return a 2-element array with the two splits.
 	 */
-	public Dataset[] split(int propor) {
+	public Corpus[] split(int propor) {
 		return null;
 	}
 
@@ -154,7 +157,7 @@ public class Dataset implements Iterable<DatasetExample> {
 	 *             if the given dataset has a different shape or a different
 	 *             feature-value encoding.
 	 */
-	public void add(Dataset dataset) throws DatasetException {
+	public void add(Corpus dataset) throws DatasetException {
 		if (dataset.getNumberOfFeatures() != getNumberOfFeatures())
 			throw new DatasetException(
 					"Both datasets need to have the same number of features.");
@@ -701,8 +704,8 @@ public class Dataset implements Iterable<DatasetExample> {
 		}
 
 		@Override
-		public Dataset getDataset() {
-			return Dataset.this;
+		public Corpus getDataset() {
+			return Corpus.this;
 		}
 
 		@Override

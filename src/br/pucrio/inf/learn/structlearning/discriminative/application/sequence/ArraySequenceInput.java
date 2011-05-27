@@ -72,7 +72,7 @@ public class ArraySequenceInput implements SequenceInput {
 	}
 
 	@Override
-	public int getNumberOfFeatures(int token) {
+	public int getNumberOfInputFeatures(int token) {
 		return featureCodes[token].length;
 	}
 

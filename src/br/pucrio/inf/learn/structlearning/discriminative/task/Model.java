@@ -51,6 +51,12 @@ public interface Model {
 	void save(PrintStream ps, FeatureEncoding<String> featureEncoding,
 			FeatureEncoding<String> stateEncoding);
 
+	/**
+	 * Return an identical copy of this object.
+	 * 
+	 * @return
+	 * @throws CloneNotSupportedException
+	 */
 	Object clone() throws CloneNotSupportedException;
 
 }

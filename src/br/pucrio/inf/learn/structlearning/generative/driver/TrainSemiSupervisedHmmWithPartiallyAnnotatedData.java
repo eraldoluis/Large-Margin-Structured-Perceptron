@@ -7,7 +7,7 @@ import org.apache.log4j.Logger;
 import br.pucrio.inf.learn.structlearning.generative.core.HmmModel;
 import br.pucrio.inf.learn.structlearning.generative.core.HmmTrainer;
 import br.pucrio.inf.learn.structlearning.generative.core.SemiSupervisedHmmTrainer;
-import br.pucrio.inf.learn.structlearning.generative.data.Dataset;
+import br.pucrio.inf.learn.structlearning.generative.data.Corpus;
 import br.pucrio.inf.learn.structlearning.generative.data.DatasetExample;
 
 
@@ -57,7 +57,7 @@ public class TrainSemiSupervisedHmmWithPartiallyAnnotatedData {
 
 		logger.info("Loading dataset...");
 		// Load the trainset.
-		Dataset trainset = new Dataset(trainFileName);
+		Corpus trainset = new Corpus(trainFileName);
 		int size = trainset.getNumberOfExamples();
 
 		logger.info("Training initial model (supervised)...");

@@ -1,5 +1,6 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.sequence;
 
+import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.Dataset;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Inference;
@@ -251,7 +252,7 @@ public class ViterbiInference implements Inference {
 		for (int tkn = 1; tkn < lenExample; ++tkn) {
 			int prevState = curState;
 			curState = partiallyLabeledOutput.getLabel(tkn);
-			if (curState < 0) {
+			if (curState == Dataset.NON_ANNOTATED_STATE_CODE) {
 				// If the current token is non-annotated, we need to calculate
 				// the best previous state and corresponding weight for each
 				// possible state.
@@ -269,7 +270,7 @@ public class ViterbiInference implements Inference {
 
 		// Find the best state for the last token.
 		int lastState = partiallyLabeledOutput.getLabel(lenExample - 1);
-		if (lastState < 0) {
+		if (lastState == Dataset.NON_ANNOTATED_STATE_CODE) {
 
 			// The default state is always the fisrt option.
 			int bestState = defaultState;
@@ -320,7 +321,7 @@ public class ViterbiInference implements Inference {
 	protected void partialViterbi(Hmm hmm, int previousState, double[][] delta,
 			int[][] psi, SequenceInput input, int token, int toState,
 			int defaultState) {
-		if (previousState < 0) {
+		if (previousState == Dataset.NON_ANNOTATED_STATE_CODE) {
 			// If the previous token is non-annotated, we must choose the
 			// previous best state using the original procedure.
 			viterbi(hmm, delta, psi, input, token, toState, defaultState);

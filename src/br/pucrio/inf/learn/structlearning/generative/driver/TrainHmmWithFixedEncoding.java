@@ -2,7 +2,7 @@ package br.pucrio.inf.learn.structlearning.generative.driver;
 
 import br.pucrio.inf.learn.structlearning.generative.core.HmmModel;
 import br.pucrio.inf.learn.structlearning.generative.core.HmmTrainer;
-import br.pucrio.inf.learn.structlearning.generative.data.Dataset;
+import br.pucrio.inf.learn.structlearning.generative.data.Corpus;
 import br.pucrio.inf.learn.structlearning.generative.data.FeatureValueEncoding;
 
 /**
@@ -48,7 +48,7 @@ public class TrainHmmWithFixedEncoding {
 				encodingFileName, true);
 
 		// Load the trainset.
-		Dataset trainset = new Dataset(trainFileName, encoding);
+		Corpus trainset = new Corpus(trainFileName, encoding);
 
 		// Train an HMM model.
 		HmmTrainer hmmTrainer = new HmmTrainer();

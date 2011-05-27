@@ -3,7 +3,7 @@ package br.pucrio.inf.learn.structlearning.generative.driver;
 import java.io.IOException;
 import java.util.HashSet;
 
-import br.pucrio.inf.learn.structlearning.generative.data.Dataset;
+import br.pucrio.inf.learn.structlearning.generative.data.Corpus;
 import br.pucrio.inf.learn.structlearning.generative.data.DatasetExample;
 import br.pucrio.inf.learn.structlearning.generative.data.DatasetException;
 
@@ -57,7 +57,7 @@ public class CalculateDatasetsIntersection {
 		}
 
 		// Load the first dataset.
-		Dataset dataset1 = new Dataset(fileName1);
+		Corpus dataset1 = new Corpus(fileName1);
 		int ftr1 = dataset1.getFeatureIndex(featureLabel);
 		int filterFtr1 = dataset1.getFeatureIndex(filterFtrLabel);
 		int filterValue1 = dataset1.getFeatureValueEncoding().getCodeByLabel(
@@ -76,7 +76,7 @@ public class CalculateDatasetsIntersection {
 		}
 
 		// Load the second dataset.
-		Dataset dataset2 = new Dataset(fileName2,
+		Corpus dataset2 = new Corpus(fileName2,
 				dataset1.getFeatureValueEncoding());
 		int ftr2 = dataset2.getFeatureIndex(featureLabel);
 		// int filterFtr2 = dataset2.getFeatureIndex(filterFtrLabel);

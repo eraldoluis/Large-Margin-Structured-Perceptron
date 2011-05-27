@@ -3,7 +3,7 @@ package br.pucrio.inf.learn.structlearning.generative.driver;
 import br.pucrio.inf.learn.structlearning.generative.core.HmmModel;
 import br.pucrio.inf.learn.structlearning.generative.core.HmmTrainer;
 import br.pucrio.inf.learn.structlearning.generative.core.UnsupervisedHmmTrainer;
-import br.pucrio.inf.learn.structlearning.generative.data.Dataset;
+import br.pucrio.inf.learn.structlearning.generative.data.Corpus;
 
 /**
  * Semi-supervised train an HMM model using two trainsets. The first one is used
@@ -45,7 +45,7 @@ public class TrainSemiSupervisedHmm {
 				numIterations, smoothing));
 
 		// Load the first trainset.
-		Dataset trainsetS = new Dataset(trainFileNameS);
+		Corpus trainsetS = new Corpus(trainFileNameS);
 
 		// Supervised train the initial model.
 		HmmTrainer hmmTrainer = new HmmTrainer();
@@ -65,7 +65,7 @@ public class TrainSemiSupervisedHmm {
 			stateFeaturesV[state] = model.getStateLabel(state);
 
 		// Load the second trainset.
-		Dataset trainsetU = new Dataset(trainFileNameU,
+		Corpus trainsetU = new Corpus(trainFileNameU,
 				trainsetS.getFeatureValueEncoding());
 
 		// Train an HMM model.

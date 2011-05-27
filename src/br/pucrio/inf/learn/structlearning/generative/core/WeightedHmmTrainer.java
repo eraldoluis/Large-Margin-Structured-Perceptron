@@ -5,7 +5,7 @@ import java.util.Vector;
 
 import org.apache.log4j.Logger;
 
-import br.pucrio.inf.learn.structlearning.generative.data.Dataset;
+import br.pucrio.inf.learn.structlearning.generative.data.Corpus;
 import br.pucrio.inf.learn.structlearning.generative.data.DatasetExample;
 import br.pucrio.inf.learn.structlearning.generative.data.DatasetException;
 
@@ -46,7 +46,7 @@ public class WeightedHmmTrainer extends HmmTrainer {
 		this.weights = new Vector<Object>(weights);
 	}
 
-	public HmmModel train(Dataset trainset, String observationFeatureLabel,
+	public HmmModel train(Corpus trainset, String observationFeatureLabel,
 			String stateFeatureLabel, String defaultStateLabel)
 			throws DatasetException, HmmException {
 

@@ -6,7 +6,7 @@ import java.util.Map.Entry;
 import java.util.Random;
 import java.util.Vector;
 
-import br.pucrio.inf.learn.structlearning.generative.data.Dataset;
+import br.pucrio.inf.learn.structlearning.generative.data.Corpus;
 import br.pucrio.inf.learn.structlearning.generative.data.DatasetExample;
 import br.pucrio.inf.learn.structlearning.generative.data.DatasetException;
 import br.pucrio.inf.learn.structlearning.generative.data.FeatureValueEncoding;
@@ -30,7 +30,7 @@ public class UnsupervisedHmmTrainer {
 	/**
 	 * The trainset.
 	 */
-	protected Dataset trainset;
+	protected Corpus trainset;
 
 	/**
 	 * Current model.
@@ -147,7 +147,7 @@ public class UnsupervisedHmmTrainer {
 	 *             feature label.
 	 * @throws HmmException
 	 */
-	public HmmModel train(Dataset trainset, String observationFeatureLabel,
+	public HmmModel train(Corpus trainset, String observationFeatureLabel,
 			String[] stateFeatureLabels, int numIterations)
 			throws DatasetException, HmmException {
 

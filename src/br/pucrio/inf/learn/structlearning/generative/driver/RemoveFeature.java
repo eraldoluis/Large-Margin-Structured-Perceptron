@@ -5,7 +5,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
 
-import br.pucrio.inf.learn.structlearning.generative.data.Dataset;
+import br.pucrio.inf.learn.structlearning.generative.data.Corpus;
 import br.pucrio.inf.learn.structlearning.generative.data.DatasetException;
 
 
@@ -43,7 +43,7 @@ public class RemoveFeature {
 			is = new FileInputStream(inFileName);
 
 		// Load the dataset.
-		Dataset dataset = new Dataset(is);
+		Corpus dataset = new Corpus(is);
 		if (!inFileName.equals("-stdin"))
 			is.close();
 

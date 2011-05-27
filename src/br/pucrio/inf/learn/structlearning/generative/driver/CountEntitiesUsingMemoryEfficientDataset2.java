@@ -7,7 +7,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map.Entry;
 
-import br.pucrio.inf.learn.structlearning.generative.data.Dataset;
+import br.pucrio.inf.learn.structlearning.generative.data.Corpus;
 import br.pucrio.inf.learn.structlearning.generative.data.DatasetExample;
 import br.pucrio.inf.learn.structlearning.generative.data.DatasetException;
 import br.pucrio.inf.learn.structlearning.generative.evaluation.Evaluation;
@@ -70,7 +70,7 @@ public class CountEntitiesUsingMemoryEfficientDataset2 {
 		int idx = 0;
 		for (String fileName : fileNames) {
 			// Load the dataset.
-			Dataset dataset = new Dataset();
+			Corpus dataset = new Corpus();
 			for (int ftrIdx = 0; ftrIdx < numFeatures; ++ftrIdx)
 				dataset.createNewFeature("ftr" + ftrIdx);
 			dataset.loadWithoutHeader(fileName);

@@ -2,7 +2,7 @@ package br.pucrio.inf.learn.structlearning.generative.driver;
 
 import br.pucrio.inf.learn.structlearning.generative.core.HmmModel;
 import br.pucrio.inf.learn.structlearning.generative.core.HmmTrainer;
-import br.pucrio.inf.learn.structlearning.generative.data.Dataset;
+import br.pucrio.inf.learn.structlearning.generative.data.Corpus;
 
 /**
  * Train an HMM model on the data within a given file and save the model in the
@@ -36,7 +36,7 @@ public class TrainHmm {
 				modelFileName));
 
 		// Load the trainset.
-		Dataset trainset = new Dataset(trainFileName);
+		Corpus trainset = new Corpus(trainFileName);
 
 		// Train an HMM model.
 		HmmTrainer hmmTrainer = new HmmTrainer();

@@ -7,7 +7,7 @@ import java.util.LinkedList;
 import java.util.Map;
 import java.util.Set;
 
-import br.pucrio.inf.learn.structlearning.generative.data.Dataset;
+import br.pucrio.inf.learn.structlearning.generative.data.Corpus;
 import br.pucrio.inf.learn.structlearning.generative.data.DatasetExample;
 import br.pucrio.inf.learn.structlearning.generative.data.DatasetException;
 
@@ -47,7 +47,7 @@ public class Evaluation {
 	 *            the name of the feature that contains the predicted labels.
 	 * @return
 	 */
-	public double evaluateAccuracy(Dataset dataset, String goldFeatureLabel,
+	public double evaluateAccuracy(Corpus dataset, String goldFeatureLabel,
 			String predictedFeatureLabel) {
 
 		int goldFeature = dataset.getFeatureIndex(goldFeatureLabel);
@@ -83,7 +83,7 @@ public class Evaluation {
 	 * 
 	 * @throws DatasetException
 	 */
-	public Map<String, Performance> evaluateSequences(Dataset dataset,
+	public Map<String, Performance> evaluateSequences(Corpus dataset,
 			String goldFeatureLabel, String predictedFeatureLabel)
 			throws DatasetException {
 
@@ -167,7 +167,7 @@ public class Evaluation {
 	 * @throws DatasetException
 	 *             if the given feature label does not exist.
 	 */
-	public Collection<TypedChunk> extractEntities(Dataset dataset,
+	public Collection<TypedChunk> extractEntities(Corpus dataset,
 			String featureLabel) throws DatasetException {
 		int idxFeature = dataset.getFeatureIndex(featureLabel);
 		LinkedList<TypedChunk> list = new LinkedList<TypedChunk>();
@@ -376,7 +376,7 @@ public class Evaluation {
 	 * @param alwaysUseBTag
 	 * @throws DatasetException
 	 */
-	public void tagEntities(Dataset dataset, String featureLabel,
+	public void tagEntities(Corpus dataset, String featureLabel,
 			Iterable<TypedChunk> entities, boolean cleanFeature,
 			boolean alwaysUseBTag) throws DatasetException {
 		// Encode the null tag.

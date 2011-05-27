@@ -5,7 +5,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map.Entry;
 
-import br.pucrio.inf.learn.structlearning.generative.data.Dataset;
+import br.pucrio.inf.learn.structlearning.generative.data.Corpus;
 import br.pucrio.inf.learn.structlearning.generative.data.DatasetExample;
 import br.pucrio.inf.learn.structlearning.generative.data.DatasetException;
 import br.pucrio.inf.learn.structlearning.generative.evaluation.Evaluation;
@@ -37,7 +37,7 @@ public class CountEntities {
 				+ "\tFeature: %s\n", fileName, featureLabel));
 
 		// Load the dataset.
-		Dataset dataset = new Dataset(fileName);
+		Corpus dataset = new Corpus(fileName);
 
 		// Extract the entities.
 		Evaluation ev = new Evaluation("0");

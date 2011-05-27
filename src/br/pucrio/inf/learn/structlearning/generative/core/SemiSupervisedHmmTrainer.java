@@ -3,7 +3,7 @@ package br.pucrio.inf.learn.structlearning.generative.core;
 import java.util.Map;
 import java.util.Vector;
 
-import br.pucrio.inf.learn.structlearning.generative.data.Dataset;
+import br.pucrio.inf.learn.structlearning.generative.data.Corpus;
 import br.pucrio.inf.learn.structlearning.generative.data.DatasetExample;
 import br.pucrio.inf.learn.structlearning.generative.data.DatasetException;
 import br.pucrio.inf.learn.structlearning.generative.evaluation.Evaluation;
@@ -46,7 +46,7 @@ public class SemiSupervisedHmmTrainer extends UnsupervisedHmmTrainer {
 	 */
 	protected boolean[] tagged;
 
-	private Dataset testset;
+	private Corpus testset;
 
 	/**
 	 * Default constructor.
@@ -94,7 +94,7 @@ public class SemiSupervisedHmmTrainer extends UnsupervisedHmmTrainer {
 	 *             feature label.
 	 * @throws HmmException
 	 */
-	public HmmModel train(Dataset trainset, String observationFeatureLabel,
+	public HmmModel train(Corpus trainset, String observationFeatureLabel,
 			String stateFeatureLabel, String[] stateFeatureLabels,
 			int numIterations) throws DatasetException, HmmException {
 
@@ -107,7 +107,7 @@ public class SemiSupervisedHmmTrainer extends UnsupervisedHmmTrainer {
 				stateFeatureLabels, numIterations);
 	}
 
-	public void setTuningSet(Dataset dataset) {
+	public void setTuningSet(Corpus dataset) {
 		this.testset = dataset;
 	}
 

@@ -4,7 +4,7 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.LinkedList;
 
-import br.pucrio.inf.learn.structlearning.generative.data.Dataset;
+import br.pucrio.inf.learn.structlearning.generative.data.Corpus;
 import br.pucrio.inf.learn.structlearning.generative.data.DatasetException;
 import br.pucrio.inf.learn.structlearning.generative.evaluation.Evaluation;
 import br.pucrio.inf.learn.structlearning.generative.evaluation.TypedChunk;
@@ -40,7 +40,7 @@ public class AddStructuralNoiseToDataset {
 			RandomGenerator.gen.setSeed(seed);
 
 		// Load the dataset.
-		Dataset dataset = new Dataset(inFileName);
+		Corpus dataset = new Corpus(inFileName);
 
 		// Extract the entities.
 		Evaluation ev = new Evaluation("0");

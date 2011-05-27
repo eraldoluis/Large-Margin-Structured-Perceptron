@@ -20,7 +20,7 @@ import org.apache.log4j.Logger;
  * @author eraldof
  * 
  */
-public class MemoryEfficientDataset extends Dataset {
+public class MemoryEfficientDataset extends Corpus {
 
 	private static Logger logger = Logger
 			.getLogger(MemoryEfficientDataset.class);
@@ -137,7 +137,7 @@ public class MemoryEfficientDataset extends Dataset {
 	}
 
 	@Override
-	public void add(Dataset dataset) throws DatasetException {
+	public void add(Corpus dataset) throws DatasetException {
 		throw new UnsupportedOperationException();
 	}
 
@@ -201,7 +201,7 @@ public class MemoryEfficientDataset extends Dataset {
 		throw new UnsupportedOperationException();
 	}
 
-	private class Example extends Dataset.Example {
+	private class Example extends Corpus.Example {
 
 		protected int size;
 

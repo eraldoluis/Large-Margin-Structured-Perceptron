@@ -5,7 +5,7 @@ import java.util.Vector;
 import br.pucrio.inf.learn.structlearning.generative.core.HmmModel;
 import br.pucrio.inf.learn.structlearning.generative.core.SemiSupervisedHmmTrainer;
 import br.pucrio.inf.learn.structlearning.generative.core.WeightedHmmTrainer;
-import br.pucrio.inf.learn.structlearning.generative.data.Dataset;
+import br.pucrio.inf.learn.structlearning.generative.data.Corpus;
 import br.pucrio.inf.learn.util.RandomGenerator;
 
 
@@ -61,11 +61,11 @@ public class TrainWeightedSemiSupervisedHmmWithFullyAndNoAnnotatedData {
 				"B-ORG", "I-ORG", "B-MISC", "I-MISC" };
 
 		// Load the first trainset (supervised).
-		Dataset trainsetS = new Dataset(trainFileNameS);
+		Corpus trainsetS = new Corpus(trainFileNameS);
 		int size1 = trainsetS.getNumberOfExamples();
 
 		// Load the second trainset (semi-supervised).
-		Dataset trainsetSS = new Dataset(trainFileNameSS,
+		Corpus trainsetSS = new Corpus(trainFileNameSS,
 				trainsetS.getFeatureValueEncoding());
 		int size2 = trainsetSS.getNumberOfExamples();
 

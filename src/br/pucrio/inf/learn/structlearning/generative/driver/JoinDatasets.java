@@ -2,7 +2,7 @@ package br.pucrio.inf.learn.structlearning.generative.driver;
 
 import java.io.IOException;
 
-import br.pucrio.inf.learn.structlearning.generative.data.Dataset;
+import br.pucrio.inf.learn.structlearning.generative.data.Corpus;
 import br.pucrio.inf.learn.structlearning.generative.data.DatasetException;
 
 
@@ -23,10 +23,10 @@ public class JoinDatasets {
 		System.out.println("Joining the datasets into " + outFileName);
 
 		// Load the dataset.
-		Dataset dataset = new Dataset(args[arg++]);
+		Corpus dataset = new Corpus(args[arg++]);
 		int origSize = dataset.getNumberOfExamples();
 		while (arg < args.length) {
-			Dataset joinDataset = new Dataset(args[arg++], dataset.getFeatureValueEncoding());
+			Corpus joinDataset = new Corpus(args[arg++], dataset.getFeatureValueEncoding());
 			dataset.add(joinDataset);
 		}
 

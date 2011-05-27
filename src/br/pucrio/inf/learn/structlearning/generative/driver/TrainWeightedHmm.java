@@ -6,7 +6,7 @@ import java.util.Vector;
 import br.pucrio.inf.learn.structlearning.generative.core.HmmException;
 import br.pucrio.inf.learn.structlearning.generative.core.HmmModel;
 import br.pucrio.inf.learn.structlearning.generative.core.WeightedHmmTrainer;
-import br.pucrio.inf.learn.structlearning.generative.data.Dataset;
+import br.pucrio.inf.learn.structlearning.generative.data.Corpus;
 import br.pucrio.inf.learn.structlearning.generative.data.DatasetException;
 
 
@@ -47,8 +47,8 @@ public class TrainWeightedHmm {
 				modelFileName));
 
 		// Load the trainsets.
-		Dataset trainset1 = new Dataset(trainFileName1);
-		Dataset trainset2 = new Dataset(trainFileName2,
+		Corpus trainset1 = new Corpus(trainFileName1);
+		Corpus trainset2 = new Corpus(trainFileName2,
 				trainset1.getFeatureValueEncoding());
 
 		// Create the weight vector.

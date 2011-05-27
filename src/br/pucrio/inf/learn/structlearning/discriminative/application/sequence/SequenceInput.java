@@ -24,15 +24,16 @@ public interface SequenceInput extends ExampleInput {
 	public int size();
 
 	/**
-	 * Return the number of features for the given token.
+	 * Return the number of input features (discounting the possible label
+	 * information) in the given token.
 	 * 
 	 * @param token
 	 * @return
 	 */
-	public int getNumberOfFeatures(int token);
+	public int getNumberOfInputFeatures(int token);
 
 	/**
-	 * Return the feature in the given index for the given token.
+	 * Return the feature in the given index of the given token.
 	 * 
 	 * @param token
 	 * @param index

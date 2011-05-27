@@ -5,7 +5,7 @@ import java.io.InputStream;
 import java.io.PrintStream;
 import java.util.Collection;
 
-import br.pucrio.inf.learn.structlearning.generative.data.Dataset;
+import br.pucrio.inf.learn.structlearning.generative.data.Corpus;
 import br.pucrio.inf.learn.structlearning.generative.data.DatasetExample;
 import br.pucrio.inf.learn.structlearning.generative.evaluation.Evaluation;
 import br.pucrio.inf.learn.structlearning.generative.evaluation.TypedChunk;
@@ -60,7 +60,7 @@ public class ConvertDatasetIobStyle {
 			is = new FileInputStream(inFileName);
 
 		// Load the dataset.
-		Dataset dataset = new Dataset(is);
+		Corpus dataset = new Corpus(is);
 
 		if (!inFileName.equals("-stdin"))
 			is.close();

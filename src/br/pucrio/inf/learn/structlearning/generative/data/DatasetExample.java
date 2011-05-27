@@ -20,7 +20,7 @@ public interface DatasetExample {
 	 * 
 	 * @return the dataset of this example.
 	 */
-	Dataset getDataset();
+	Corpus getDataset();
 
 	/**
 	 * Return the index of this example within its dataset.

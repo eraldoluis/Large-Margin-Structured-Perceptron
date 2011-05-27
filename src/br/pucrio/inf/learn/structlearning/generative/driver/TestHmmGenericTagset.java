@@ -2,7 +2,7 @@ package br.pucrio.inf.learn.structlearning.generative.driver;
 
 import br.pucrio.inf.learn.structlearning.generative.core.HmmModel;
 import br.pucrio.inf.learn.structlearning.generative.core.HmmModel.Smoothing;
-import br.pucrio.inf.learn.structlearning.generative.data.Dataset;
+import br.pucrio.inf.learn.structlearning.generative.data.Corpus;
 import br.pucrio.inf.learn.structlearning.generative.evaluation.Evaluation;
 
 /**
@@ -73,7 +73,7 @@ public class TestHmmGenericTagset {
 			model.setImplicitZeroEmissionProbabilities();
 
 		// Create a dataset and fill the features with automatic names.
-		Dataset testset = new Dataset(model.getFeatureValueEncoding());
+		Corpus testset = new Corpus(model.getFeatureValueEncoding());
 		for (int idxFtr = 0; idxFtr < numFeatures; ++idxFtr)
 			testset.createNewFeature("ftr" + idxFtr);
 

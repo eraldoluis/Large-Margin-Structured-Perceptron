@@ -3,7 +3,7 @@ package br.pucrio.inf.learn.structlearning.generative.driver;
 import java.util.Map;
 
 import br.pucrio.inf.learn.structlearning.generative.core.HmmModel;
-import br.pucrio.inf.learn.structlearning.generative.data.Dataset;
+import br.pucrio.inf.learn.structlearning.generative.data.Corpus;
 import br.pucrio.inf.learn.structlearning.generative.evaluation.Evaluation;
 import br.pucrio.inf.learn.structlearning.generative.evaluation.Performance;
 
@@ -54,7 +54,7 @@ public class TestHmmFromHadoop {
 		}
 
 		// Load the testset.
-		Dataset testset = new Dataset(testFileName,
+		Corpus testset = new Corpus(testFileName,
 				model.getFeatureValueEncoding());
 
 		// Test the model on a testset.

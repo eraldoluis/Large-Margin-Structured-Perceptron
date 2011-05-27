@@ -19,7 +19,7 @@ import java.util.Vector;
 
 import org.apache.log4j.Logger;
 
-import br.pucrio.inf.learn.structlearning.generative.data.Dataset;
+import br.pucrio.inf.learn.structlearning.generative.data.Corpus;
 import br.pucrio.inf.learn.structlearning.generative.data.DatasetExample;
 import br.pucrio.inf.learn.structlearning.generative.data.DatasetException;
 import br.pucrio.inf.learn.structlearning.generative.data.FeatureValueEncoding;
@@ -315,7 +315,7 @@ public class HmmModel {
 	 * @param observationFeature
 	 * @throws DatasetException
 	 */
-	public void tag(Dataset dataset, String observationFeatureLabel,
+	public void tag(Corpus dataset, String observationFeatureLabel,
 			String stateFeatureLabel) throws DatasetException {
 		// Get the indexes of the observation and state features.
 		this.observationFeature = dataset
@@ -365,7 +365,7 @@ public class HmmModel {
 	 *             <code>FeatureValueEncoding</code> of this model and the given
 	 *             dataset are not the same.
 	 */
-	public void generateExamples(Dataset dataset,
+	public void generateExamples(Corpus dataset,
 			String observationFeatureLabel, String stateFeatureLabel,
 			int numberOfExamples, double lengthMean, double standardDeviation)
 			throws DatasetException {
@@ -425,7 +425,7 @@ public class HmmModel {
 	 * @param length
 	 *            length of the example.
 	 */
-	protected void generateExample(Dataset dataset, String id,
+	protected void generateExample(Corpus dataset, String id,
 			Vector<Integer> baseToken, int observationFeature,
 			int stateFeature, int length) {
 

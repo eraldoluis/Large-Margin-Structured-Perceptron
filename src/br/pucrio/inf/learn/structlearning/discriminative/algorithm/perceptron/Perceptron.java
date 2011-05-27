@@ -512,6 +512,7 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 		ExampleOutput referenceOutput = correctOutput;
 		if (partiallyAnnotatedExamples) {
 
+			// TODO debug
 			LOG.info("Filling the gaps...");
 
 			// If the user asked to consider partially-labeled examples then
@@ -520,10 +521,17 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 			referenceOutput = correctOutput.createNewObject();
 			inferenceImpl.partialInference(model, input, correctOutput,
 					referenceOutput);
-		}
+		} else
+			// TODO debug
+			LOG.info("NOT filling the gaps...");
 
 		// Predict the best output with the current mobel.
 		inferenceImpl.inference(model, input, predictedOutput);
+
+		for (int tkn = 0; tkn < ((SequenceOutput) predictedOutput).size(); ++tkn)
+			if (((SequenceOutput) predictedOutput).getLabel(tkn) < 0)
+				LOG.error("Token " + tkn + " of example " + input.getId()
+						+ " is less than zero.");
 
 		// Update the current model and return the loss for this example.
 		double loss = model.update(input, referenceOutput, predictedOutput,

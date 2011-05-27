@@ -1,7 +1,7 @@
 package br.pucrio.inf.learn.structlearning.generative.driver;
 
 import br.pucrio.inf.learn.structlearning.generative.core.HmmModel;
-import br.pucrio.inf.learn.structlearning.generative.data.Dataset;
+import br.pucrio.inf.learn.structlearning.generative.data.Corpus;
 import br.pucrio.inf.learn.util.RandomGenerator;
 
 /**
@@ -52,7 +52,7 @@ public class GenerateDatasetFromHmmModel {
 			RandomGenerator.gen.setSeed(seed);
 
 		// Create the output dataset.
-		Dataset dataset = new Dataset();
+		Corpus dataset = new Corpus();
 		dataset.createNewFeature(observationFeatureLabel);
 		dataset.createNewFeature(stateFeatureLabel);
 
