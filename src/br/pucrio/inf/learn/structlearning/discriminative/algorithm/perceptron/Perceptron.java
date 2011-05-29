@@ -512,18 +512,13 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 		ExampleOutput referenceOutput = correctOutput;
 		if (partiallyAnnotatedExamples) {
 
-			// TODO debug
-			LOG.info("Filling the gaps...");
-
 			// If the user asked to consider partially-labeled examples then
 			// infer the missing values within the given correct output
 			// structure before updating the current model.
 			referenceOutput = correctOutput.createNewObject();
 			inferenceImpl.partialInference(model, input, correctOutput,
 					referenceOutput);
-		} else
-			// TODO debug
-			LOG.info("NOT filling the gaps...");
+		}
 
 		// Predict the best output with the current mobel.
 		inferenceImpl.inference(model, input, predictedOutput);
