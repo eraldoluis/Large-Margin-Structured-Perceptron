@@ -65,7 +65,7 @@ public class Lookup3Encoding implements FeatureEncoding<String> {
 
 	@Override
 	public int put(String value) {
-		return Lookup3Hash.hash(value.getBytes(), seed) % size;
+		return Math.abs(Lookup3Hash.hash32(value.getBytes(), seed)) % size;
 	}
 
 	@Override
@@ -75,7 +75,7 @@ public class Lookup3Encoding implements FeatureEncoding<String> {
 
 	@Override
 	public int getCodeByValue(String value) {
-		return Lookup3Hash.hash(value.getBytes(), seed);
+		return put(value);
 	}
 
 	@Override

@@ -43,7 +43,7 @@ public class JavaHashCodeEncoding implements FeatureEncoding<String> {
 
 	@Override
 	public int put(String value) {
-		return value.hashCode() % size;
+		return Math.abs(value.hashCode()) % size;
 	}
 
 	@Override
@@ -53,7 +53,7 @@ public class JavaHashCodeEncoding implements FeatureEncoding<String> {
 
 	@Override
 	public int getCodeByValue(String value) {
-		return value.hashCode() % size;
+		return put(value);
 	}
 
 	@Override

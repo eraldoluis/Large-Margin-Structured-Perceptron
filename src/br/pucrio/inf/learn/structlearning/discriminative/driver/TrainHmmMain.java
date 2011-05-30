@@ -16,8 +16,8 @@ import br.pucrio.inf.learn.structlearning.discriminative.algorithm.TrainingListe
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.AwayFromWorsePerceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.LossAugmentedPerceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.Perceptron;
-import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.TowardBetterPerceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.Perceptron.LearnRateUpdateStrategy;
+import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.TowardBetterPerceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.AveragedArrayBasedHmm;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.SequenceInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.SequenceOutput;
@@ -26,6 +26,7 @@ import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.da
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.evaluation.F1Measure;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.evaluation.IobChunkEvaluation;
 import br.pucrio.inf.learn.structlearning.discriminative.data.FeatureEncoding;
+import br.pucrio.inf.learn.structlearning.discriminative.data.HybridStringEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.JavaHashCodeEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.Lookup3Encoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.Murmur2Encoding;
@@ -155,9 +156,14 @@ public class TrainHmmMain implements Command {
 								+ " the proper size of the hash table will be"
 								+ " 2^n, where n is the specified number of"
 								+ " bits.").create());
+
+		options.addOption(OptionBuilder.withLongOpt("hashseed")
+				.withArgName("seed").hasArg()
+				.withDescription("Seed for the hash-based encodings.").create());
+
 		options.addOption(OptionBuilder
 				.withLongOpt("murmur3")
-				.withArgName("size,seed")
+				.withArgName("size")
 				.hasArg()
 				.withDescription(
 						"Use a Murmur3 hash function to encode the feature values. "
@@ -170,6 +176,7 @@ public class TrainHmmMain implements Command {
 								+ " the proper size of the hash table will be"
 								+ " 2^n, where n is the specified number of"
 								+ " bits.").create());
+
 		options.addOption(OptionBuilder
 				.withLongOpt("murmur2")
 				.withArgName("size,seed")
@@ -323,10 +330,11 @@ public class TrainHmmMain implements Command {
 				"learnrate", "1"));
 		String defaultLabel = cmdLine.getOptionValue("defstate", "0");
 		String nullLabel = cmdLine.getOptionValue("nullstate", defaultLabel);
-		String testCorpusFileName = cmdLine.getOptionValue("testCorpus");
+		String testCorpusFileName = cmdLine.getOptionValue("testcorpus");
 		boolean evalPerEpoch = cmdLine.hasOption("perepoch");
 		String labels = cmdLine.getOptionValue("labels");
 		String encodingFile = cmdLine.getOptionValue("encoding");
+		String hashSeed = cmdLine.getOptionValue("hashseed");
 		String murmur = cmdLine.getOptionValue("murmur");
 		String murmur3 = cmdLine.getOptionValue("murmur3");
 		String murmur2 = cmdLine.getOptionValue("murmur2");
@@ -356,6 +364,7 @@ public class TrainHmmMain implements Command {
 		double weightAdditionalCorpus = -1d;
 		double weightStep = -1d;
 		FeatureEncoding<String> featureEncoding = null;
+		FeatureEncoding<String> additionalFeatureEncoding = null;
 		StringMapEncoding stateEncoding = null;
 		try {
 
@@ -367,59 +376,77 @@ public class TrainHmmMain implements Command {
 				// unambiguously but any unknown value will be ignored.
 				featureEncoding = new StringMapEncoding(encodingFile);
 
-			} else if (murmur != null) {
+			}
+
+			// Additional feature encoding (or the only one, if a fixed encoding
+			// file is not given).
+			if (murmur != null) {
 
 				// Create a feature encoding based on the Murmur3 hash function.
 				int size = parseValueDirectOrBits(murmur);
-				int seed = parseEncodingSeed(murmur);
-				if (seed != Integer.MIN_VALUE)
-					featureEncoding = new Murmur3Encoding(size);
+				if (hashSeed == null)
+					additionalFeatureEncoding = new Murmur3Encoding(size);
 				else
-					featureEncoding = new Murmur3Encoding(size, seed);
+					additionalFeatureEncoding = new Murmur3Encoding(size,
+							Integer.parseInt(hashSeed));
 
 			} else if (murmur3 != null) {
 
 				// Create a feature encoding based on the Murmur3 hash function.
 				int size = parseValueDirectOrBits(murmur3);
-				int seed = parseEncodingSeed(murmur3);
-				if (seed != Integer.MIN_VALUE)
-					featureEncoding = new Murmur3Encoding(size);
+				if (hashSeed == null)
+					additionalFeatureEncoding = new Murmur3Encoding(size);
 				else
-					featureEncoding = new Murmur3Encoding(size, seed);
+					additionalFeatureEncoding = new Murmur3Encoding(size,
+							Integer.parseInt(hashSeed));
 
 			} else if (murmur2 != null) {
 
 				// Create a feature encoding based on the Murmur2 hash function.
 				int size = parseValueDirectOrBits(murmur2);
-				int seed = parseEncodingSeed(murmur2);
-				if (seed != Integer.MIN_VALUE)
-					featureEncoding = new Murmur2Encoding(size);
+				if (hashSeed == null)
+					additionalFeatureEncoding = new Murmur2Encoding(size);
 				else
-					featureEncoding = new Murmur2Encoding(size, seed);
+					additionalFeatureEncoding = new Murmur2Encoding(size,
+							Integer.parseInt(hashSeed));
 
 			} else if (lookup3 != null) {
 
 				// Create a feature encoding based on the Lookup3 hash function.
 				int size = parseValueDirectOrBits(lookup3);
-				int seed = parseEncodingSeed(lookup3);
-				if (seed != Integer.MIN_VALUE)
-					featureEncoding = new Lookup3Encoding(size);
+				if (hashSeed == null)
+					additionalFeatureEncoding = new Lookup3Encoding(size);
 				else
-					featureEncoding = new Lookup3Encoding(size, seed);
+					additionalFeatureEncoding = new Lookup3Encoding(size,
+							Integer.parseInt(hashSeed));
 
 			} else if (javaHashSizeStr != null) {
 
 				// Create a feature encoding based on the Java hash function.
-				featureEncoding = new JavaHashCodeEncoding(
+				additionalFeatureEncoding = new JavaHashCodeEncoding(
 						parseValueDirectOrBits(javaHashSizeStr));
 
-			} else {
-
-				// Create an empty and flexible feature encoding that will
-				// encode unambiguously all feature values.
-				featureEncoding = new StringMapEncoding();
-
 			}
+
+			if (featureEncoding == null) {
+
+				if (additionalFeatureEncoding == null)
+					// No encoding given by the user. Create an empty and
+					// flexible feature encoding that will encode unambiguously
+					// all feature values. If the training dataset is big, this
+					// may not fit in memory.
+					featureEncoding = new StringMapEncoding();
+				else
+					// Only one feature encoding given.
+					featureEncoding = additionalFeatureEncoding;
+
+			} else if (additionalFeatureEncoding != null)
+				// The user specified two encodings. Combine the two.
+				featureEncoding = new HybridStringEncoding(featureEncoding,
+						additionalFeatureEncoding);
+
+			LOG.info("Feature encoding: "
+					+ featureEncoding.getClass().getSimpleName());
 
 			// Create or load the state label encoding.
 			if (labels != null)
@@ -734,10 +761,7 @@ public class TrainHmmMain implements Command {
 	 * @param valStr
 	 * @return
 	 */
-	private static int parseValueDirectOrBits(String valStr) {
-		if (valStr.contains(","))
-			valStr = valStr.split("[,]")[0];
-
+	public static int parseValueDirectOrBits(String valStr) {
 		if (valStr.endsWith("b")) {
 			// The size is specified in bits.
 			String bitsStr = valStr.substring(0, valStr.length() - 1);
@@ -747,19 +771,6 @@ public class TrainHmmMain implements Command {
 
 		// The size is specified directly.
 		return Integer.parseInt(valStr);
-	}
-
-	/**
-	 * Parse the string given as parameter in the encoding option and return the
-	 * specified seed value or -Integer.MIN_VALUE otherwise.
-	 * 
-	 * @param valStr
-	 * @return
-	 */
-	private static int parseEncodingSeed(String valStr) {
-		if (valStr.contains(","))
-			return Integer.parseInt(valStr.split("[,]")[1]);
-		return Integer.MIN_VALUE;
 	}
 
 	/**

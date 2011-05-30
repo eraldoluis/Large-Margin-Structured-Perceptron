@@ -9,7 +9,7 @@ package br.pucrio.inf.learn.util;
 public class Murmur2Hash {
 
 	@SuppressWarnings("fallthrough")
-	public static int hash(byte[] data, int seed) {
+	public static int hash32(byte[] data, int seed) {
 		// 'm' and 'r' are mixing constants generated offline.
 		// They're not really 'magic', they just happen to work well.
 		int m = 0x5bd1e995;

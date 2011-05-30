@@ -79,7 +79,7 @@ public class Lookup3Hash {
 		return c;
 	}
 
-	public static int hash(byte[] key, int seed) {
+	public static int hash32(byte[] key, int seed) {
 		int a, b, c;
 		int length = key.length;
 		a = b = c = 0xdeadbeef + length + seed;
