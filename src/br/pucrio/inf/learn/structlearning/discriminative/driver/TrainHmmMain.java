@@ -342,8 +342,8 @@ public class TrainHmmMain implements Command {
 		String javaHashSizeStr = cmdLine.getOptionValue("javahash");
 		String tagsetFileName = cmdLine.getOptionValue("tagset");
 		String nonAnnotatedLabel = cmdLine.getOptionValue("nonannlabel");
-		Double reportProgressRate = Double.parseDouble(cmdLine
-				.getOptionValue("progress"));
+		Double reportProgressRate = Double.parseDouble(cmdLine.getOptionValue(
+				"progress", "0.1"));
 		String seedStr = cmdLine.getOptionValue("seed");
 		double lossWeight = Double.parseDouble(cmdLine.getOptionValue(
 				"lossweight", "0d"));
@@ -512,6 +512,9 @@ public class TrainHmmMain implements Command {
 			LOG.error("Parsing command-line options", e);
 			System.exit(1);
 		}
+
+		LOG.info("Feature encoding size: " + featureEncoding.size());
+		LOG.info("Tagset size: " + stateEncoding.size());
 
 		LOG.info("Allocating initial model...");
 		ViterbiInference viterbiInference = new ViterbiInference(inputCorpusA

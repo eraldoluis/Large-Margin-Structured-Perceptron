@@ -40,6 +40,16 @@ public class Dataset {
 	public static final int NON_ANNOTATED_STATE_CODE = -10;
 
 	/**
+	 * Special code used to indicate unknown token labels.
+	 */
+	public static final int UNKNOWN_STATE_CODE = -20;
+
+	/**
+	 * Special code used to indicate unknown features.
+	 */
+	public static final int UNKNOWN_FEATURE_CODE = -30;
+
+	/**
 	 * Map string feature values to integer values (codes).
 	 */
 	protected FeatureEncoding<String> featureEncoding;

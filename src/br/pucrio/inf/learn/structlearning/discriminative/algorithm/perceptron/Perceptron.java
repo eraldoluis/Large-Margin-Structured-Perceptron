@@ -25,6 +25,9 @@ import br.pucrio.inf.learn.util.DebugUtil;
  */
 public class Perceptron implements OnlineStructuredAlgorithm {
 
+	/**
+	 * Logging object.
+	 */
 	private static final Log LOG = LogFactory.getLog(Perceptron.class);
 
 	/**
@@ -511,7 +514,6 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 
 		ExampleOutput referenceOutput = correctOutput;
 		if (partiallyAnnotatedExamples) {
-
 			// If the user asked to consider partially-labeled examples then
 			// infer the missing values within the given correct output
 			// structure before updating the current model.
