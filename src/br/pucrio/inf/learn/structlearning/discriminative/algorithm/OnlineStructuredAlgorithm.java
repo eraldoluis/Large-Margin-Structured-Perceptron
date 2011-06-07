@@ -30,4 +30,18 @@ public interface OnlineStructuredAlgorithm extends StructuredAlgorithm {
 	public double train(ExampleInput input, ExampleOutput output,
 			ExampleOutput predicted);
 
+	/**
+	 * Set the learning rate.
+	 * 
+	 * @param rate
+	 */
+	public void setLearningRate(double rate);
+
+	/**
+	 * Return the current iteration.
+	 * 
+	 * @return
+	 */
+	public int getIteration();
+
 }

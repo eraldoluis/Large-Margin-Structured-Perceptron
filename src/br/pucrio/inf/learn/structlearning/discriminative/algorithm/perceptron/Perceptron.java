@@ -331,7 +331,7 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 			System.out.print("Progress: ");
 
 		// Iterate over the training examples, updating the weight vector.
-		for (int idx = 0; idx < inputs.length; ++idx, ++iteration) {
+		for (int idx = 0; idx < inputs.length; ++idx) {
 
 			int idxEx = idx;
 			if (randomize)
@@ -457,7 +457,7 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 			System.out.print("Progress: ");
 
 		// Iterate over the training examples, updating the weight vector.
-		for (int idx = 0, idxA = 0, idxB = 0; idx < totalLength; ++idx, ++iteration) {
+		for (int idx = 0, idxA = 0, idxB = 0; idx < totalLength; ++idx) {
 
 			// Randomly choose from A or B datasets.
 			double aOrB = random.nextDouble();
@@ -543,6 +543,8 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 		// Averaged-Perceptron: account the updates into the averaged weights.
 		model.sumUpdates(iteration);
 
+		++iteration;
+
 		return loss;
 	}
 
@@ -555,6 +557,11 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 	 */
 	public void setReportProgressRate(double rate) {
 		reportProgressRate = rate;
+	}
+
+	@Override
+	public int getIteration() {
+		return iteration;
 	}
 
 }

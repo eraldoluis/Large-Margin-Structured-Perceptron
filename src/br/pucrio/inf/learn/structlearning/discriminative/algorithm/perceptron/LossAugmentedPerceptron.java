@@ -140,6 +140,8 @@ public class LossAugmentedPerceptron extends Perceptron {
 		// weights.
 		model.sumUpdates(iteration);
 
+		++iteration;
+
 		return loss;
 
 	}

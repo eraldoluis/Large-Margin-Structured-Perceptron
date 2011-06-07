@@ -97,6 +97,8 @@ public class AwayFromWorsePerceptron extends LossAugmentedPerceptron {
 		// Averaged-Perceptron: account the updates into the averaged
 		// weights.
 		model.sumUpdates(iteration);
+		
+		++iteration;
 
 		return loss;
 

@@ -250,6 +250,7 @@ public class AveragedArrayBasedHmm extends Hmm implements Cloneable {
 		 * Average this weight.
 		 * 
 		 * @param numberOfIterations
+		 *            total number of iterations of the training algorithm.
 		 */
 		public void average(int numberOfIterations) {
 			// Account any residual value.

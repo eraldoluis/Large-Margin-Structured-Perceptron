@@ -97,6 +97,8 @@ public class TowardBetterPerceptron extends LossAugmentedPerceptron {
 		// weights.
 		model.sumUpdates(iteration);
 
+		++iteration;
+
 		return loss;
 
 	}
