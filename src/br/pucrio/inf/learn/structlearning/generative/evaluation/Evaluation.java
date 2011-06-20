@@ -11,7 +11,6 @@ import br.pucrio.inf.learn.structlearning.generative.data.Corpus;
 import br.pucrio.inf.learn.structlearning.generative.data.DatasetExample;
 import br.pucrio.inf.learn.structlearning.generative.data.DatasetException;
 
-
 public class Evaluation {
 	private String nullTag;
 	private Set<String> validChunkTypes;
@@ -89,6 +88,12 @@ public class Evaluation {
 
 		int goldFeature = dataset.getFeatureIndex(goldFeatureLabel);
 		int predictedFeature = dataset.getFeatureIndex(predictedFeatureLabel);
+		return evaluateSequences(dataset, goldFeature, predictedFeature);
+
+	}
+
+	public Map<String, Performance> evaluateSequences(Corpus dataset,
+			int goldFeature, int predictedFeature) throws DatasetException {
 
 		HashSet<TypedChunk> correct = new HashSet<TypedChunk>();
 		HashSet<TypedChunk> predicted = new HashSet<TypedChunk>();

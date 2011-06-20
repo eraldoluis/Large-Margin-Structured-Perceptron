@@ -26,7 +26,6 @@ import br.pucrio.inf.learn.structlearning.generative.data.FeatureValueEncoding;
 import br.pucrio.inf.learn.structlearning.generative.data.HmmModelStrings;
 import br.pucrio.inf.learn.util.RandomGenerator;
 
-
 /**
  * Store a hidden Markov model parameters and provide some services over this
  * model. Implement some smoothing techniques and a tagging algorithm (Viterbi).
@@ -334,6 +333,30 @@ public class HmmModel {
 			throw new DatasetException(
 					"The dataset given for tagging has a different feature-value encoding."
 							+ "You need to use the same.");
+
+		for (int idxExample = 0; idxExample < dataset.getNumberOfExamples(); ++idxExample)
+			viterbi(dataset.getExample(idxExample));
+	}
+
+	public void tag(Corpus dataset, int observationFeature, int stateFeature)
+			throws DatasetException {
+
+		if (dataset.getFeatureValueEncoding() != featureValueEncoding)
+			throw new DatasetException(
+					"The dataset given for tagging has a different feature-value encoding."
+							+ "You need to use the same.");
+
+		// Get the indexes of the observation and state features.
+		this.observationFeature = observationFeature;
+
+		this.stateFeature = stateFeature;
+		if (this.stateFeature < 0)
+			this.stateFeature = dataset.createNewFeature("label");
+
+		// Get the default state.
+		this.defaultState = getStateByString(defaultStateLabel);
+		if (this.defaultState < 0)
+			this.defaultState = 0;
 
 		for (int idxExample = 0; idxExample < dataset.getNumberOfExamples(); ++idxExample)
 			viterbi(dataset.getExample(idxExample));

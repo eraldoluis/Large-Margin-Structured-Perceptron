@@ -64,7 +64,7 @@ public class HmmModelStrings {
 
 		// State set.
 		String buff;
-		while ((buff = reader.readLine()) != null) {
+		while ((buff = skipBlanksAndComments(reader)) != null) {
 			String[] keyAndValueSequence = buff.split("\\s");
 			if (keyAndValueSequence.length < 1)
 				continue;
@@ -85,6 +85,16 @@ public class HmmModelStrings {
 						getMapFromMap(probTransitions, state));
 			}
 		}
+	}
+
+	protected String skipBlanksAndComments(BufferedReader reader)
+			throws IOException {
+		String buff;
+		while ((buff = reader.readLine()) != null) {
+			if (buff.trim().length() > 0 && !buff.startsWith("#"))
+				break;
+		}
+		return buff;
 	}
 
 	public void incEmissionCount(String state, String symbol) {

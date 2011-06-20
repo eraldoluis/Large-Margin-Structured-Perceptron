@@ -120,6 +120,18 @@ public class Corpus implements Iterable<DatasetExample> {
 		load(fileName);
 	}
 
+	public Corpus(String fileName, FeatureValueEncoding featureValueEncoding,
+			boolean skipHeader) throws IOException, DatasetException {
+		this.featureValueEncoding = featureValueEncoding;
+		featureLabels = new Vector<String>();
+		examples = new Vector<Vector<Vector<Integer>>>();
+		exampleIDs = new Vector<String>();
+		if (skipHeader)
+			loadWithoutHeader(fileName);
+		else
+			load(fileName);
+	}
+
 	/**
 	 * Return a stub for the example at the given index.
 	 * 
@@ -479,6 +491,11 @@ public class Corpus implements Iterable<DatasetExample> {
 		// Parse each example.
 		while ((buff = skipBlanksAndComments(reader)) != null)
 			parseExample(buff);
+
+		featureLabels = new Vector<String>();
+		int numFeatures = examples.get(0).get(0).size();
+		for (int i = 0; i < numFeatures; ++i)
+			featureLabels.add("ftr" + i);
 	}
 
 	protected String skipBlanksAndComments(BufferedReader reader)
@@ -553,10 +570,6 @@ public class Corpus implements Iterable<DatasetExample> {
 
 			// Split the token into its features.
 			String[] features = token.split("[ ]");
-			if (features.length != getNumberOfFeatures())
-				throw new DatasetException(
-						"Incorrect number of features on the following example:\n"
-								+ buff);
 
 			// Encode the feature values.
 			Vector<Integer> featuresAsVector = new Vector<Integer>(
