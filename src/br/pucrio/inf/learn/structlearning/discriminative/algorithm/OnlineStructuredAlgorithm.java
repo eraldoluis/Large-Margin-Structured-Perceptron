@@ -4,12 +4,45 @@ import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 
 /**
- * Interface for a structured learning algorithm.
+ * Interface for a structured, online learning algorithm.
  * 
  * @author eraldof
  * 
  */
 public interface OnlineStructuredAlgorithm extends StructuredAlgorithm {
+
+	/**
+	 * Strategy to update the learning rate.
+	 * 
+	 * @author eraldof
+	 * 
+	 */
+	public enum LearnRateUpdateStrategy {
+		/**
+		 * No update, i.e., constant learning rate.
+		 */
+		NONE,
+
+		/**
+		 * The learning rate is equal to n/t, where n is the initial learning
+		 * rate and t is the current iteration (number of processed examples).
+		 */
+		LINEAR,
+
+		/**
+		 * The learning rate is equal to n/(t*t), where n is the initial
+		 * learning rate and t is the current iteration (number of processed
+		 * examples).
+		 */
+		QUADRATIC,
+
+		/**
+		 * The learning rate is equal to n/(sqrt(t)), where n is the initial
+		 * learning rate and t is the current iteration (number of processed
+		 * examples).
+		 */
+		SQUARE_ROOT
+	}
 
 	/**
 	 * Update the currect model using the given correct output and the predicted

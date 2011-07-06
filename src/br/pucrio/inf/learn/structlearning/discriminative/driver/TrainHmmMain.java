@@ -12,11 +12,11 @@ import org.apache.commons.cli.PosixParser;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import br.pucrio.inf.learn.structlearning.discriminative.algorithm.OnlineStructuredAlgorithm.LearnRateUpdateStrategy;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.TrainingListener;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.AwayFromWorsePerceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.LossAugmentedPerceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.Perceptron;
-import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.Perceptron.LearnRateUpdateStrategy;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.TowardBetterPerceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.AveragedArrayBasedHmm;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.SequenceInput;

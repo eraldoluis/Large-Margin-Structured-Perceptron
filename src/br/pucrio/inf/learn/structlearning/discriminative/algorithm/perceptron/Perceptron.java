@@ -31,39 +31,6 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 	private static final Log LOG = LogFactory.getLog(Perceptron.class);
 
 	/**
-	 * Strategy to update the learning rate.
-	 * 
-	 * @author eraldof
-	 * 
-	 */
-	public enum LearnRateUpdateStrategy {
-		/**
-		 * No update, i.e., constant learning rate.
-		 */
-		NONE,
-
-		/**
-		 * The learning rate is equal to n/t, where n is the initial learning
-		 * rate and t is the current iteration (number of processed examples).
-		 */
-		LINEAR,
-
-		/**
-		 * The learning rate is equal to n/(t*t), where n is the initial
-		 * learning rate and t is the current iteration (number of processed
-		 * examples).
-		 */
-		QUADRATIC,
-
-		/**
-		 * The learning rate is equal to n/(sqrt(t)), where n is the initial
-		 * learning rate and t is the current iteration (number of processed
-		 * examples).
-		 */
-		SQUARE_ROOT
-	}
-
-	/**
 	 * Task-specific implementation of inference algorithms.
 	 */
 	protected Inference inferenceImpl;
