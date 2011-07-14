@@ -2,12 +2,12 @@ package br.pucrio.inf.learn.structlearning.generative.core;
 
 import java.util.Vector;
 
-import org.apache.log4j.Logger;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 
 import br.pucrio.inf.learn.structlearning.generative.data.Corpus;
 import br.pucrio.inf.learn.structlearning.generative.data.DatasetExample;
 import br.pucrio.inf.learn.structlearning.generative.data.DatasetException;
-
 
 /**
  * Generative HMM trainer.
@@ -20,7 +20,7 @@ public class HmmTrainer {
 	/**
 	 * Logger.
 	 */
-	private static Logger logger = Logger.getLogger(HmmTrainer.class);
+	private static Log LOG = LogFactory.getLog(HmmTrainer.class);
 
 	/**
 	 * Index of the feature used as observation value.
@@ -84,7 +84,7 @@ public class HmmTrainer {
 			// Example length.
 			int lenEx = example.size();
 			if (lenEx <= 0) {
-				logger.warn("Empty example within training set. Id: "
+				LOG.warn("Empty example within training set. Id: "
 						+ example.getID());
 				continue;
 			}

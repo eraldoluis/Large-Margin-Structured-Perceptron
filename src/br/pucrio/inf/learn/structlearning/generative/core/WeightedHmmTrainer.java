@@ -3,12 +3,12 @@ package br.pucrio.inf.learn.structlearning.generative.core;
 import java.util.Collection;
 import java.util.Vector;
 
-import org.apache.log4j.Logger;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 
 import br.pucrio.inf.learn.structlearning.generative.data.Corpus;
 import br.pucrio.inf.learn.structlearning.generative.data.DatasetExample;
 import br.pucrio.inf.learn.structlearning.generative.data.DatasetException;
-
 
 /**
  * Generative HMM trainer with different weights for the examples.
@@ -21,7 +21,7 @@ public class WeightedHmmTrainer extends HmmTrainer {
 	/**
 	 * Logger.
 	 */
-	private static Logger logger = Logger.getLogger(WeightedHmmTrainer.class);
+	private static Log logger = LogFactory.getLog(WeightedHmmTrainer.class);
 
 	/**
 	 * Weight for each example. Each weight may be either just a

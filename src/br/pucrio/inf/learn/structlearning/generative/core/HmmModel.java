@@ -17,7 +17,8 @@ import java.util.Map.Entry;
 import java.util.Random;
 import java.util.Vector;
 
-import org.apache.log4j.Logger;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 
 import br.pucrio.inf.learn.structlearning.generative.data.Corpus;
 import br.pucrio.inf.learn.structlearning.generative.data.DatasetExample;
@@ -35,7 +36,7 @@ import br.pucrio.inf.learn.util.RandomGenerator;
  */
 public class HmmModel {
 
-	static Logger logger = Logger.getLogger(HmmModel.class);
+	static Log LOG = LogFactory.getLog(HmmModel.class);
 
 	/**
 	 * For non-seen observations, use the state with this label.
@@ -1147,13 +1148,9 @@ public class HmmModel {
 	 */
 	protected void normalizeArray(double[] values) {
 		// Calculate the sum of all values within the array.
-		int numZeroValues = 0;
 		double sum = 0.0;
-		for (double val : values) {
-			if (val <= 0.0)
-				++numZeroValues;
+		for (double val : values)
 			sum += val;
-		}
 
 		if (sum <= 0.0)
 			return;

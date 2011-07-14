@@ -10,7 +10,8 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.Vector;
 
-import org.apache.log4j.Logger;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 
 /**
  * A dataset class that does not load all the examples in memory. It loads
@@ -22,8 +23,7 @@ import org.apache.log4j.Logger;
  */
 public class MemoryEfficientDataset extends Corpus {
 
-	private static Logger logger = Logger
-			.getLogger(MemoryEfficientDataset.class);
+	private static Log LOG = LogFactory.getLog(MemoryEfficientDataset.class);
 
 	protected int lastExampleSize;
 
@@ -74,7 +74,7 @@ public class MemoryEfficientDataset extends Corpus {
 		try {
 			return new MemoryEfficientDatasetIterator();
 		} catch (IOException e) {
-			logger.error("Reading the input files", e);
+			LOG.error("Reading the input files", e);
 			return null;
 		}
 	}
@@ -307,7 +307,7 @@ public class MemoryEfficientDataset extends Corpus {
 
 				// Read the next line.
 				lastLine = skipBlanksAndComments(curFileReader);
-				
+
 				curExample.setSize(lastExampleSize);
 
 				// Return the stub for the parsed example.

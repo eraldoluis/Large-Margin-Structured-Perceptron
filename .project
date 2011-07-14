@@ -14,4 +14,10 @@
 	<natures>
 		<nature>org.eclipse.jdt.core.javanature</nature>
 	</natures>
+	<variableList>
+		<variable>
+			<name>HADOOP_HOME</name>
+			<value>file:/home/eraldo/hadoop</value>
+		</variable>
+	</variableList>
 </projectDescription>
