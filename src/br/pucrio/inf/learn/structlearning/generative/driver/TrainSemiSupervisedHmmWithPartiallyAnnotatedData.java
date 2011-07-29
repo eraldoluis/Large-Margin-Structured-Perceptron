@@ -2,14 +2,14 @@ package br.pucrio.inf.learn.structlearning.generative.driver;
 
 import java.util.Vector;
 
-import org.apache.log4j.Logger;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 
 import br.pucrio.inf.learn.structlearning.generative.core.HmmModel;
 import br.pucrio.inf.learn.structlearning.generative.core.HmmTrainer;
 import br.pucrio.inf.learn.structlearning.generative.core.SemiSupervisedHmmTrainer;
 import br.pucrio.inf.learn.structlearning.generative.data.Corpus;
 import br.pucrio.inf.learn.structlearning.generative.data.DatasetExample;
-
 
 /**
  * Semi-supervised train an HMM model using two trainsets. The first one is used
@@ -22,11 +22,10 @@ import br.pucrio.inf.learn.structlearning.generative.data.DatasetExample;
  */
 public class TrainSemiSupervisedHmmWithPartiallyAnnotatedData {
 
-	private static Logger logger = Logger
-			.getLogger(TrainSemiSupervisedHmmWithPartiallyAnnotatedData.class);
+	private static Log logger = LogFactory
+			.getLog(TrainSemiSupervisedHmmWithPartiallyAnnotatedData.class);
 
 	public static void main(String[] args) throws Exception {
-
 
 		if (args.length != 6) {
 			System.err.print("Syntax error. Correct syntax:\n"
