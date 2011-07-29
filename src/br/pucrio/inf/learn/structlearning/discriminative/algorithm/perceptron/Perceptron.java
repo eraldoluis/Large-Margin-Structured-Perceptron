@@ -199,7 +199,8 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 	}
 
 	/**
-	 * Return the learning rate for the current iteration.
+	 * Return the learning rate for the current iteration according to the
+	 * chosen update strategy.
 	 * 
 	 * @return
 	 */
