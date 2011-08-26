@@ -11,7 +11,6 @@ import br.pucrio.inf.learn.structlearning.generative.data.DatasetException;
 import br.pucrio.inf.learn.structlearning.generative.evaluation.Evaluation;
 import br.pucrio.inf.learn.structlearning.generative.evaluation.TypedChunk;
 
-
 public class CountEntities {
 
 	/**
@@ -47,12 +46,12 @@ public class CountEntities {
 		int numTokens = 0;
 		int numExamples = dataset.getNumberOfExamples();
 		int numEntities = 0;
-		int numExamplesWithSomeEntity = 0;
+		// int numExamplesWithSomeEntity = 0;
 		for (DatasetExample example : dataset) {
 			int numEntitiesInThisExample = ev.extractEntitiesByType(example,
 					featureLabel, entitiesByType);
-			if (numEntitiesInThisExample > 0)
-				++numExamplesWithSomeEntity;
+			// if (numEntitiesInThisExample > 0)
+			// ++numExamplesWithSomeEntity;
 			numEntities += numEntitiesInThisExample;
 			numTokens += example.size();
 		}
