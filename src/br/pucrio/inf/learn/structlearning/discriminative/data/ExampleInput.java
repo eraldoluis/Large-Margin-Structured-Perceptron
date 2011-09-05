@@ -9,7 +9,7 @@ package br.pucrio.inf.learn.structlearning.discriminative.data;
 public interface ExampleInput {
 
 	/**
-	 * Return the text identifier of this example.
+	 * Return the textual identifier of this example.
 	 * 
 	 * @return
 	 */

@@ -1,5 +1,11 @@
-package br.pucrio.inf.learn.structlearning.discriminative.application.sequence.evaluation;
+package br.pucrio.inf.learn.structlearning.discriminative.evaluation;
 
+/**
+ * Generic precision and recall data and methods to calculate f1.
+ * 
+ * @author eraldo
+ * 
+ */
 public class F1Measure {
 
 	private String caption;
@@ -57,6 +63,13 @@ public class F1Measure {
 		return ++numCorrectlyPredicted;
 	}
 
+	/**
+	 * Absolute number of correct objects. That is equal to the sum of true
+	 * positives (correctly retrieved objects) and false negatives (missed
+	 * objects).
+	 * 
+	 * @return
+	 */
 	public int getNumObjects() {
 		return numObjects;
 	}
@@ -65,7 +78,14 @@ public class F1Measure {
 		this.numObjects = numObjects;
 	}
 
-	public int getNumPredicted() {
+	/**
+	 * Absolute number of retrieved objects (both correct and incorrect). That
+	 * is equal to the sum of true positives (correctly retrieved objects) and
+	 * false positives (incorrectly retrieved objects).
+	 * 
+	 * @return
+	 */
+	public int getNumRetrieved() {
 		return numPredicted;
 	}
 
@@ -73,7 +93,13 @@ public class F1Measure {
 		this.numPredicted = numPredicted;
 	}
 
-	public int getNumCorrectlyPredicted() {
+	/**
+	 * Absolute number of correctly retrieved objects. That is equal to true
+	 * positives.
+	 * 
+	 * @return
+	 */
+	public int getNumCorrectlyRetrieved() {
 		return numCorrectlyPredicted;
 	}
 

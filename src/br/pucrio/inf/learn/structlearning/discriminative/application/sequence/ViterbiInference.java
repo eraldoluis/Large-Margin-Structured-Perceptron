@@ -92,7 +92,7 @@ public class ViterbiInference implements Inference {
 	}
 
 	@Override
-	public void lossAugmentedInference(Model model, ExampleInput input,
+	public void lossAugmentedPartialInference(Model model, ExampleInput input,
 			ExampleOutput lossPartiallyLabeledOutput,
 			ExampleOutput referenceOutput, ExampleOutput inferedOutput,
 			double lossAnnotatedWeight, double lossNonAnnotatedWeight) {

@@ -76,7 +76,7 @@ public class AwayFromWorsePerceptron extends LossAugmentedPerceptron {
 			// Predict the best output structure to the current input structure
 			// using a loss-augmented objective function that uses different
 			// weights for annotated and non-annotated tokens.
-			inferenceImpl.lossAugmentedInference(model, input, correctOutput,
+			inferenceImpl.lossAugmentedPartialInference(model, input, correctOutput,
 					referenceOutput, lossAugmentedPredictedOutput,
 					lossAnnotatedWeight, lossNonAnnotatedWeight);
 

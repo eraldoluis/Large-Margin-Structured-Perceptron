@@ -3,6 +3,7 @@ package br.pucrio.inf.learn.structlearning.discriminative.driver;
 import java.io.FileNotFoundException;
 import java.io.PrintStream;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.OptionBuilder;
@@ -23,8 +24,8 @@ import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.Se
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.SequenceOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.ViterbiInference;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.Dataset;
-import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.evaluation.F1Measure;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.evaluation.IobChunkEvaluation;
+import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.evaluation.LabeledTokenEvaluation;
 import br.pucrio.inf.learn.structlearning.discriminative.data.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.HybridStringEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.JavaHashCodeEncoding;
@@ -33,14 +34,41 @@ import br.pucrio.inf.learn.structlearning.discriminative.data.Murmur2Encoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.Murmur3Encoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.StringMapEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.driver.Driver.Command;
+import br.pucrio.inf.learn.structlearning.discriminative.evaluation.EntityF1Evaluation;
+import br.pucrio.inf.learn.structlearning.discriminative.evaluation.F1Measure;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Inference;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Model;
 import br.pucrio.inf.learn.util.CommandLineOptionsUtil;
 import br.pucrio.inf.learn.util.DebugUtil;
 
+/**
+ * Driver to discriminatively train a sequential model (HMM) using
+ * perceptron-based algorithms.
+ * 
+ * @author eraldo
+ * 
+ */
 public class TrainHmmMain implements Command {
 
+	/**
+	 * Logging object.
+	 */
 	private static final Log LOG = LogFactory.getLog(TrainHmmMain.class);
+
+	/**
+	 * Type of task to be performed.
+	 */
+	public static enum TaskType {
+		/**
+		 * IOB sequence labeling task.
+		 */
+		IOB,
+
+		/**
+		 * Token labeling task.
+		 */
+		TOKEN
+	}
 
 	/**
 	 * Available training algorithms.
@@ -71,6 +99,13 @@ public class TrainHmmMain implements Command {
 	@Override
 	public void run(String[] args) {
 		Options options = new Options();
+		options.addOption(OptionBuilder
+				.withLongOpt("task")
+				.withArgName("iob | token")
+				.hasArg()
+				.withDescription(
+						"Which type of task is performed: IOB sequence "
+								+ "labeling or token labeling").create());
 		options.addOption(OptionBuilder
 				.withLongOpt("alg")
 				.withArgName("perc | loss | afworse | tobetter")
@@ -320,7 +355,8 @@ public class TrainHmmMain implements Command {
 		// Print the list of options along the values provided by the user.
 		CommandLineOptionsUtil.printOptionValues(cmdLine, options);
 
-		// Get the options specified in the command-line.
+		// Get the options given in the command-line or the corresponding
+		// default values.
 		String[] inputCorpusFileNames = cmdLine.getOptionValues("incorpus");
 		String additionalCorpusFileName = cmdLine.getOptionValue("inadd");
 		String modelFileName = cmdLine.getOptionValue("model");
@@ -441,7 +477,8 @@ public class TrainHmmMain implements Command {
 					featureEncoding = additionalFeatureEncoding;
 
 			} else if (additionalFeatureEncoding != null)
-				// The user specified two encodings. Combine the two.
+				// The user specified two encodings. Combine them in one hybrid
+				// encoding.
 				featureEncoding = new HybridStringEncoding(featureEncoding,
 						additionalFeatureEncoding);
 
@@ -523,12 +560,34 @@ public class TrainHmmMain implements Command {
 				inputCorpusA.getNumberOfStates(),
 				inputCorpusA.getNumberOfSymbols());
 
+		// Parse the task type option.
+		TaskType taskType = null;
+		String taskTypeStr = cmdLine.getOptionValue("task", "iob");
+		if (taskTypeStr.equals("iob"))
+			taskType = TaskType.IOB;
+		else if (taskTypeStr.equals("token"))
+			taskType = TaskType.TOKEN;
+		else {
+			System.err.println("Unknown task type: " + taskTypeStr);
+			CommandLineOptionsUtil.usage(getClass().getSimpleName(), options);
+			System.exit(1);
+		}
+
+		EntityF1Evaluation eval = null;
+		switch (taskType) {
+		case IOB:
+			eval = new IobChunkEvaluation(inputCorpusA.getStateEncoding(),
+					nullLabel);
+			break;
+		case TOKEN:
+			eval = new LabeledTokenEvaluation(inputCorpusA.getStateEncoding());
+			break;
+		}
+
 		// Parse algorithm type option.
 		AlgorithmType algType = null;
-		String algTypeStr = cmdLine.getOptionValue("alg");
-		if (algTypeStr == null)
-			algType = AlgorithmType.PERCEPTRON;
-		else if (algTypeStr.equals("perc"))
+		String algTypeStr = cmdLine.getOptionValue("alg", "perc");
+		if (algTypeStr.equals("perc"))
 			algType = AlgorithmType.PERCEPTRON;
 		else if (algTypeStr.equals("loss"))
 			algType = AlgorithmType.LOSS_PERCEPTRON;
@@ -645,9 +704,9 @@ public class TrainHmmMain implements Command {
 					testset.normalizeInputStructures(testset
 							.getMaxNumberOfEmissionFeatures());
 
-				alg.setListener(new EvaluateModelListener(testset.getInputs(),
-						testset.getOutputs(), inputCorpusA.getStateEncoding(),
-						nullLabel, averageWeights));
+				alg.setListener(new EvaluateModelListener(eval, testset
+						.getInputs(), testset.getOutputs(), inputCorpusA
+						.getStateEncoding(), nullLabel, averageWeights));
 
 			} catch (Exception e) {
 				LOG.error("Loading testset " + testCorpusFileName, e);
@@ -660,6 +719,12 @@ public class TrainHmmMain implements Command {
 			DebugUtil.featureEncoding = featureEncoding;
 			DebugUtil.stateEncoding = stateEncoding;
 			DebugUtil.print = true;
+			try {
+				stateEncoding.save("pos-por-tagset.txt");
+			} catch (FileNotFoundException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		}
 
 		LOG.info("Training model...");
@@ -705,8 +770,6 @@ public class TrainHmmMain implements Command {
 				for (int idx = 0; idx < inputs.length; ++idx)
 					predicteds[idx] = (SequenceOutput) inputs[idx]
 							.createOutput();
-				IobChunkEvaluation eval = new IobChunkEvaluation(
-						inputCorpusA.getStateEncoding(), nullLabel);
 
 				// Fill the list of predicted outputs.
 				for (int idx = 0; idx < inputs.length; ++idx)
@@ -715,23 +778,11 @@ public class TrainHmmMain implements Command {
 							predicteds[idx]);
 
 				// Evaluate the sequences.
-				Map<String, F1Measure> results = eval.evaluateSequences(inputs,
+				Map<String, F1Measure> results = eval.evaluateExamples(inputs,
 						outputs, predicteds);
 
-				// Write results: precision, recall and F-1 values.
-				System.out.println();
-				System.out.println("|  *Class*  |  *P*  |  *R*  |  *F*  |");
-				String[] labelOrder = { "LOC", "MISC", "ORG", "PER", "overall" };
-				for (String label : labelOrder) {
-					F1Measure res = results.get(label);
-					if (res == null)
-						continue;
-					System.out.println(String.format(
-							"|  %s  |  %6.2f |  %6.2f |  %6.2f |", label,
-							100 * res.getPrecision(), 100 * res.getRecall(),
-							100 * res.getF1()));
-				}
-				System.out.println();
+				// Write results (precision, recall and F-1) per class.
+				printF1Results("Final performance:", results);
 
 			} catch (Exception e) {
 				LOG.error("Loading testset " + testCorpusFileName, e);
@@ -777,6 +828,53 @@ public class TrainHmmMain implements Command {
 	}
 
 	/**
+	 * Print the given result set and title.
+	 * 
+	 * @param title
+	 * @param results
+	 */
+	private static void printF1Results(String title,
+			Map<String, F1Measure> results) {
+
+		// Title and header.
+		System.out.println("\n" + title + "\n");
+		System.out.println("|+");
+		System.out
+				.println("! Class !! P !! R !! F !! Total (TP+FN) !! Retrieved (TP+FP) !! Correct (TP)");
+
+		// Per-class results.
+		for (Entry<String, F1Measure> res : results.entrySet()) {
+			String label = res.getKey();
+			if (label.equals("overall"))
+				continue;
+			F1Measure f1 = res.getValue();
+			if (f1 == null)
+				continue;
+			System.out.println("|-");
+			System.out.println(String.format(
+					"| %s || %.2f ||  %.2f || %.2f || %d || %d || %d", label,
+					100 * f1.getPrecision(), 100 * f1.getRecall(),
+					100 * f1.getF1(), f1.getNumObjects(), f1.getNumRetrieved(),
+					f1.getNumCorrectlyRetrieved()));
+		}
+
+		// Overall result.
+		F1Measure f1 = results.get("overall");
+		if (f1 != null) {
+			System.out.println("|-");
+			System.out.println(String.format(
+					"| %s || %.2f || %.2f || %.2f || %d || %d || %d",
+					"overall", 100 * f1.getPrecision(), 100 * f1.getRecall(),
+					100 * f1.getF1(), f1.getNumObjects(), f1.getNumRetrieved(),
+					f1.getNumCorrectlyRetrieved()));
+		}
+
+		// Footer.
+		System.out.println();
+
+	}
+
+	/**
 	 * Training listener to evaluate models after each iteration.
 	 * 
 	 * @author eraldof
@@ -784,7 +882,7 @@ public class TrainHmmMain implements Command {
 	 */
 	private static class EvaluateModelListener implements TrainingListener {
 
-		private IobChunkEvaluation eval;
+		private EntityF1Evaluation eval;
 
 		private SequenceInput[] inputs;
 
@@ -794,11 +892,8 @@ public class TrainHmmMain implements Command {
 
 		private boolean averageWeights;
 
-		private static final String[] labelOrder = { "LOC", "MISC", "ORG",
-				"PER", "overall" };
-
-		public EvaluateModelListener(SequenceInput[] inputs,
-				SequenceOutput[] outputs,
+		public EvaluateModelListener(EntityF1Evaluation eval,
+				SequenceInput[] inputs, SequenceOutput[] outputs,
 				FeatureEncoding<String> stateEncoding, String nullLabel,
 				boolean averageWeights) {
 			this.inputs = inputs;
@@ -807,7 +902,7 @@ public class TrainHmmMain implements Command {
 			// Allocate output sequences for predictions.
 			for (int idx = 0; idx < inputs.length; ++idx)
 				predicteds[idx] = (SequenceOutput) inputs[idx].createOutput();
-			this.eval = new IobChunkEvaluation(stateEncoding, nullLabel);
+			this.eval = eval;
 			this.averageWeights = averageWeights;
 		}
 
@@ -832,8 +927,16 @@ public class TrainHmmMain implements Command {
 
 			if (averageWeights) {
 				try {
+
 					// Clone the current model to average it, if necessary.
 					hmm = (Model) hmm.clone();
+
+					// The averaged perceptron averages the final model only in
+					// the end of the training process, hence we need to average
+					// the temporary model here in order to have a better
+					// picture of its current (intermediary) performance.
+					hmm.average(iteration);
+
 				} catch (CloneNotSupportedException e) {
 					LOG.error("Cloning current model on epoch " + epoch
 							+ " and iteration " + iteration, e);
@@ -841,36 +944,19 @@ public class TrainHmmMain implements Command {
 				}
 			}
 
-			// Average the current model.
-			if (averageWeights)
-				hmm.average(iteration);
-
 			// Fill the list of predicted outputs.
 			for (int idx = 0; idx < inputs.length; ++idx)
 				// Predict (tag the output sequence).
 				inferenceImpl.inference(hmm, inputs[idx], predicteds[idx]);
 
 			// Evaluate the sequences.
-			Map<String, F1Measure> results = eval.evaluateSequences(inputs,
+			Map<String, F1Measure> results = eval.evaluateExamples(inputs,
 					outputs, predicteds);
 
-			// Write results: precision, recall and F-1 values.
-			System.out.println();
-			System.out.println("Performance after epoch " + epoch);
-			System.out.println("|  *Class*  |  *P*  |  *R*  |  *F*  |");
-			for (String label : labelOrder) {
-				F1Measure res = results.get(label);
-				if (res == null)
-					continue;
-				System.out.println(String.format(
-						"|  %s  |  %6.2f |  %6.2f |  %6.2f |", label,
-						100 * res.getPrecision(), 100 * res.getRecall(),
-						100 * res.getF1()));
-			}
-			System.out.println();
+			// Write results (precision, recall and F-1) per class.
+			printF1Results("Performance after epoch " + epoch + ":", results);
 
 			return true;
 		}
-
 	}
 }
