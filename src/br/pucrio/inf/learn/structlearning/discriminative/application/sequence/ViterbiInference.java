@@ -130,6 +130,9 @@ public class ViterbiInference implements Inference {
 		int numberOfStates = hmm.getNumberOfStates();
 		int lenExample = input.size();
 
+		if (lenExample <= 0)
+			return;
+
 		// Best partial-path weights.
 		double[][] delta = new double[lenExample][numberOfStates];
 		// Best partial-path backward table.

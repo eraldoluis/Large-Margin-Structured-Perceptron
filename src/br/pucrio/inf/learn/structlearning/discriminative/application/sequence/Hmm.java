@@ -168,6 +168,9 @@ public abstract class Hmm implements Model {
 
 		double loss = 0d;
 
+		if (input.size() <= 0)
+			return loss;
+
 		// First token.
 		int labelCorrect = outputCorrect.getLabel(0);
 		int labelPredicted = outputPredicted.getLabel(0);
