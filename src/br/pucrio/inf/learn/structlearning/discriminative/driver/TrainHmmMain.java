@@ -19,9 +19,11 @@ import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.Aw
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.LossAugmentedPerceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.Perceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.TowardBetterPerceptron;
-import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.AveragedArrayBasedHmm;
+import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.AveragedArrayHmm;
+import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.AveragedArrayHmm2ndOrder;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.SequenceInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.SequenceOutput;
+import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.Viterbi2ndOrderInference;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.ViterbiInference;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.Dataset;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.evaluation.IobChunkEvaluation;
@@ -106,6 +108,13 @@ public class TrainHmmMain implements Command {
 				.withDescription(
 						"Which type of task is performed: IOB sequence "
 								+ "labeling or token labeling").create());
+		options.addOption(OptionBuilder
+				.withLongOpt("structure")
+				.withArgName("hmm | hmm2")
+				.hasArg()
+				.withDescription(
+						"Which structure to use: hmm (first-order HMM), "
+								+ "hmm2 (second-order HMM).").create());
 		options.addOption(OptionBuilder
 				.withLongOpt("alg")
 				.withArgName("perc | loss | afworse | tobetter")
@@ -553,12 +562,27 @@ public class TrainHmmMain implements Command {
 		LOG.info("Feature encoding size: " + featureEncoding.size());
 		LOG.info("Tagset size: " + stateEncoding.size());
 
+		// Structure.
 		LOG.info("Allocating initial model...");
-		ViterbiInference viterbiInference = new ViterbiInference(inputCorpusA
-				.getStateEncoding().put(defaultLabel));
-		AveragedArrayBasedHmm hmm = new AveragedArrayBasedHmm(
-				inputCorpusA.getNumberOfStates(),
-				inputCorpusA.getNumberOfSymbols());
+		Model model = null;
+		Inference inference = null;
+		String structure = cmdLine.getOptionValue("structure", "hmm");
+		if (structure.equals("hmm")) {
+			inference = new ViterbiInference(inputCorpusA.getStateEncoding()
+					.put(defaultLabel));
+			model = new AveragedArrayHmm(inputCorpusA.getNumberOfStates(),
+					inputCorpusA.getNumberOfSymbols());
+		} else if (structure.equals("hmm2")) {
+			inference = new Viterbi2ndOrderInference(inputCorpusA
+					.getStateEncoding().put(defaultLabel));
+			model = new AveragedArrayHmm2ndOrder(
+					inputCorpusA.getNumberOfStates(),
+					inputCorpusA.getNumberOfSymbols());
+		} else {
+			System.err.println("Unknown structure: " + structure);
+			CommandLineOptionsUtil.usage(getClass().getSimpleName(), options);
+			System.exit(1);
+		}
 
 		// Parse the task type option.
 		TaskType taskType = null;
@@ -626,20 +650,19 @@ public class TrainHmmMain implements Command {
 		case PERCEPTRON:
 			// Ordinary Perceptron implementation (Collins'): does not consider
 			// customized loss functions.
-			alg = new Perceptron(viterbiInference, hmm, numEpochs,
-					learningRate, true, averageWeights,
-					learningRateUpdateStrategy);
+			alg = new Perceptron(inference, model, numEpochs, learningRate,
+					true, averageWeights, learningRateUpdateStrategy);
 			break;
 		case LOSS_PERCEPTRON:
 			// Loss-augumented implementation: considers customized loss
 			// function (per-token misclassification loss).
 			if (lossNonAnnotatedWeightStr == null)
-				alg = new LossAugmentedPerceptron(viterbiInference, hmm,
-						numEpochs, learningRate, lossWeight, true,
-						averageWeights, learningRateUpdateStrategy);
+				alg = new LossAugmentedPerceptron(inference, model, numEpochs,
+						learningRate, lossWeight, true, averageWeights,
+						learningRateUpdateStrategy);
 			else
-				alg = new LossAugmentedPerceptron(viterbiInference, hmm,
-						numEpochs, learningRate, lossWeight,
+				alg = new LossAugmentedPerceptron(inference, model, numEpochs,
+						learningRate, lossWeight,
 						Double.parseDouble(lossNonAnnotatedWeightStr),
 						lossNonAnnotatedWeightInc, true, averageWeights,
 						learningRateUpdateStrategy);
@@ -647,12 +670,12 @@ public class TrainHmmMain implements Command {
 		case AWAY_FROM_WORSE_PERCEPTRON:
 			// Away-from-worse implementation.
 			if (lossNonAnnotatedWeightStr == null)
-				alg = new AwayFromWorsePerceptron(viterbiInference, hmm,
-						numEpochs, learningRate, lossWeight, true,
-						averageWeights, learningRateUpdateStrategy);
+				alg = new AwayFromWorsePerceptron(inference, model, numEpochs,
+						learningRate, lossWeight, true, averageWeights,
+						learningRateUpdateStrategy);
 			else
-				alg = new AwayFromWorsePerceptron(viterbiInference, hmm,
-						numEpochs, learningRate, lossWeight,
+				alg = new AwayFromWorsePerceptron(inference, model, numEpochs,
+						learningRate, lossWeight,
 						Double.parseDouble(lossNonAnnotatedWeightStr),
 						lossNonAnnotatedWeightInc, true, averageWeights,
 						learningRateUpdateStrategy);
@@ -660,12 +683,12 @@ public class TrainHmmMain implements Command {
 		case TOWARD_BETTER_PERCEPTRON:
 			// Toward-better implementation.
 			if (lossNonAnnotatedWeightStr == null)
-				alg = new TowardBetterPerceptron(viterbiInference, hmm,
-						numEpochs, learningRate, lossWeight, true,
-						averageWeights, learningRateUpdateStrategy);
+				alg = new TowardBetterPerceptron(inference, model, numEpochs,
+						learningRate, lossWeight, true, averageWeights,
+						learningRateUpdateStrategy);
 			else
-				alg = new TowardBetterPerceptron(viterbiInference, hmm,
-						numEpochs, learningRate, lossWeight,
+				alg = new TowardBetterPerceptron(inference, model, numEpochs,
+						learningRate, lossWeight,
 						Double.parseDouble(lossNonAnnotatedWeightStr),
 						lossNonAnnotatedWeightInc, true, averageWeights,
 						learningRateUpdateStrategy);
@@ -719,12 +742,6 @@ public class TrainHmmMain implements Command {
 			DebugUtil.featureEncoding = featureEncoding;
 			DebugUtil.stateEncoding = stateEncoding;
 			DebugUtil.print = true;
-			try {
-				stateEncoding.save("pos-por-tagset.txt");
-			} catch (FileNotFoundException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
 		}
 
 		LOG.info("Training model...");
@@ -774,8 +791,7 @@ public class TrainHmmMain implements Command {
 				// Fill the list of predicted outputs.
 				for (int idx = 0; idx < inputs.length; ++idx)
 					// Predict (tag the output sequence).
-					viterbiInference.inference(hmm, inputs[idx],
-							predicteds[idx]);
+					inference.inference(model, inputs[idx], predicteds[idx]);
 
 				// Evaluate the sequences.
 				Map<String, F1Measure> results = eval.evaluateExamples(inputs,
@@ -795,7 +811,7 @@ public class TrainHmmMain implements Command {
 			PrintStream ps;
 			try {
 				ps = new PrintStream(modelFileName);
-				hmm.save(ps, inputCorpusA.getFeatureEncoding(),
+				model.save(ps, inputCorpusA.getFeatureEncoding(),
 						inputCorpusA.getStateEncoding());
 				ps.close();
 			} catch (FileNotFoundException e) {

@@ -105,12 +105,12 @@ public abstract class Hmm implements Model {
 	 * Update the specified transition (fromToken, toToken) feature using the
 	 * given learning rate.
 	 * 
-	 * @param fromToken
-	 * @param toToken
-	 * @param learningRate
+	 * @param fromState
+	 * @param toState
+	 * @param value
 	 */
-	protected abstract void updateTransitionParameter(int fromToken,
-			int toToken, double learningRate);
+	protected abstract void updateTransitionParameter(int fromState,
+			int toState, double value);
 
 	/**
 	 * Update the model features, corresponding to a given state, that are
