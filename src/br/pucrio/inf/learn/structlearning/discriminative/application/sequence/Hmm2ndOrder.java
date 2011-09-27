@@ -4,6 +4,8 @@ import java.io.PrintStream;
 
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
+import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceInput;
+import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.FeatureEncoding;

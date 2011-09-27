@@ -1,7 +1,7 @@
 package br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron;
 
-import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.SequenceInput;
-import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.SequenceOutput;
+import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceInput;
+import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Inference;
@@ -76,7 +76,7 @@ public class AwayFromWorsePerceptron extends LossAugmentedPerceptron {
 			// Predict the best output structure to the current input structure
 			// using a loss-augmented objective function that uses different
 			// weights for annotated and non-annotated tokens.
-			inferenceImpl.lossAugmentedPartialInference(model, input, correctOutput,
+			inferenceImpl.lossAugmentedInferenceWithPartiallyLabeledReference(model, input, correctOutput,
 					referenceOutput, lossAugmentedPredictedOutput,
 					lossAnnotatedWeight, lossNonAnnotatedWeight);
 

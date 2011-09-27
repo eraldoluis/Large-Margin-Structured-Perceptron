@@ -94,12 +94,18 @@ public class AveragedParameter implements Comparable<AveragedParameter>,
 
 	@Override
 	public int compareTo(AveragedParameter other) {
-		return toString().compareTo(other.toString());
+		if (this == other)
+			return 0;
+		int idThis = System.identityHashCode(this);
+		int idOther = System.identityHashCode(other);
+		if (idThis < idOther)
+			return -1;
+		return 1;
 	}
 
 	@Override
-	protected Object clone() throws CloneNotSupportedException {
-		return super.clone();
+	public AveragedParameter clone() throws CloneNotSupportedException {
+		return (AveragedParameter) super.clone();
 	}
 
 }

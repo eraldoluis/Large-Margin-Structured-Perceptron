@@ -36,4 +36,9 @@ public interface ExampleInput {
 	 */
 	public void normalize(double norm);
 
+	/**
+	 * Sort feature values to speedup kernel functions computations.
+	 */
+	public void sortFeatureValues();
+
 }

@@ -7,8 +7,8 @@ import org.apache.commons.logging.LogFactory;
 
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.OnlineStructuredAlgorithm;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.TrainingListener;
-import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.SequenceInput;
-import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.SequenceOutput;
+import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceInput;
+import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.FeatureEncoding;
@@ -60,6 +60,22 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 	 * example. This is necessary for the averaged-Perceptron implementation.
 	 */
 	protected int iteration;
+
+	/**
+	 * Training input structures.
+	 */
+	protected ExampleInput[] inputs;
+
+	/**
+	 * Training output structures.
+	 */
+	protected ExampleOutput[] outputs;
+
+	/**
+	 * Index of the training example in the current iteration, within the
+	 * examples array given for the training method.
+	 */
+	protected int indexCurrentExample;
 
 	/**
 	 * An object to observe the training process.
@@ -224,6 +240,10 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 			FeatureEncoding<String> featureEncoding,
 			FeatureEncoding<String> stateEncoding) {
 
+		// Training examples.
+		this.inputs = inputs;
+		this.outputs = outputs;
+
 		// Allocate predicted output objects for the training example.
 		ExampleOutput[] predicteds = new ExampleOutput[outputs.length];
 		for (int idx = 0; idx < inputs.length; ++idx)
@@ -301,20 +321,28 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 		// Iterate over the training examples, updating the weight vector.
 		for (int idx = 0; idx < inputs.length; ++idx) {
 
-			int idxEx = idx;
+			indexCurrentExample = idx;
 			if (randomize)
 				// Randomize the order to process the training examples.
-				idxEx = random.nextInt(inputs.length);
+				indexCurrentExample = random.nextInt(inputs.length);
 
-			// Update the current model weights according with the predicted
-			// output for this training example.
-			loss += train(inputs[idxEx], outputs[idxEx], predicteds[idxEx]);
+			/*
+			 * Update the current model weights according with the predicted
+			 * output for this training example.
+			 */
+			loss += train(inputs[indexCurrentExample],
+					outputs[indexCurrentExample],
+					predicteds[indexCurrentExample]);
 
 			// Progress report.
 			if (reportProgressInterval > 0
-					&& (idx + 1) % reportProgressInterval == 0)
-				System.out.print(Math.round((idx + 1) * 100d / inputs.length)
-						+ "% ");
+					&& (idx + 1) % reportProgressInterval == 0) {
+				LOG.info(Math.round((idx + 1) * 100d / inputs.length) + "% ");
+				// Progress report listener.
+				if (listener != null)
+					listener.progressReport(inferenceImpl, model, epoch, loss,
+							iteration);
+			}
 
 		}
 
@@ -413,10 +441,12 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 		// Accumulate the loss over all examples in this epoch.
 		double loss = 0d;
 
-		// Use only the dataset A length to determine the length of an epoch.
-		// This allows some easier comparison settings (per-epoch plots, for
-		// instance) among models trained with different B datasets but only one
-		// A dataset.
+		/*
+		 * Use only the dataset A length to determine the length of an epoch.
+		 * This allows some easier comparison settings (per-epoch plots, for
+		 * instance) among models trained with different B datasets but only one
+		 * A dataset.
+		 */
 		int totalLength = inputsA.length;
 
 		// Progress report.
@@ -439,8 +469,10 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 					// Randomize the order to process the training examples.
 					idxEx = random.nextInt(inputsA.length);
 
-				// Update the current model weights according with the predicted
-				// output for this training example.
+				/*
+				 * Update the current model weights according with the predicted
+				 * output for this training example.
+				 */
 				loss += train(inputsA[idxEx], outputsA[idxEx],
 						predictedsA[idxEx]);
 
@@ -453,8 +485,10 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 					// Randomize the order to process the training examples.
 					idxEx = random.nextInt(inputsB.length);
 
-				// Update the current model weights according with the predicted
-				// output for this training example.
+				/*
+				 * Update the current model weights according with the predicted
+				 * output for this training example.
+				 */
 				loss += train(inputsB[idxEx], outputsB[idxEx],
 						predictedsB[idxEx]);
 
@@ -482,9 +516,11 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 
 		ExampleOutput referenceOutput = correctOutput;
 		if (partiallyAnnotatedExamples) {
-			// If the user asked to consider partially-labeled examples then
-			// infer the missing values within the given correct output
-			// structure before updating the current model.
+			/*
+			 * If the user asked to consider partially-labeled examples then
+			 * infer the missing values within the given correct output
+			 * structure before updating the current model.
+			 */
 			referenceOutput = correctOutput.createNewObject();
 			inferenceImpl.partialInference(model, input, correctOutput,
 					referenceOutput);
@@ -503,7 +539,7 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 				getCurrentLearningRate());
 
 		// Debug.
-		if (DebugUtil.print && loss != 0d)
+		if (DebugUtil.print)
 			DebugUtil.printSequence((SequenceInput) input,
 					(SequenceOutput) referenceOutput,
 					(SequenceOutput) predictedOutput, loss);

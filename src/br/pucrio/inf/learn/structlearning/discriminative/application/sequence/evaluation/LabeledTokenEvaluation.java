@@ -2,7 +2,7 @@ package br.pucrio.inf.learn.structlearning.discriminative.application.sequence.e
 
 import java.util.Collection;
 
-import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.SequenceOutput;
+import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.FeatureEncoding;

@@ -3,6 +3,8 @@ package br.pucrio.inf.learn.structlearning.discriminative.application.sequence;
 import java.util.Set;
 import java.util.TreeSet;
 
+import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceInput;
+
 /**
  * Implementation of an HMM using averaged-weight arrays to store the
  * parameters. This class is useful for the averaged Perceptron algorithm.
@@ -152,8 +154,8 @@ public class AveragedArrayHmm extends Hmm implements Cloneable {
 	@Override
 	public Object clone() throws CloneNotSupportedException {
 		// Allocate an empty model.
-		AveragedArrayHmm copy = new AveragedArrayHmm(
-				getNumberOfStates(), emissions[0].length);
+		AveragedArrayHmm copy = new AveragedArrayHmm(getNumberOfStates(),
+				emissions[0].length);
 
 		// Clone each weight.
 		for (int state = 0; state < getNumberOfStates(); ++state) {

@@ -12,10 +12,6 @@ import java.util.LinkedList;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.ArraySequenceInput;
-import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.ArraySequenceOutput;
-import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.SequenceInput;
-import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.SequenceOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.StringMapEncoding;
 
@@ -527,6 +523,15 @@ public class Dataset {
 	 */
 	public int getMaxNumberOfEmissionFeatures() {
 		return maxNumberOfEmissionFeatures;
+	}
+
+	/**
+	 * Sort feature values of each token to speedup kernel functions
+	 * computations.
+	 */
+	public void sortFeatureValues() {
+		for (SequenceInput seq : inputSequences)
+			seq.sortFeatureValues();
 	}
 
 }

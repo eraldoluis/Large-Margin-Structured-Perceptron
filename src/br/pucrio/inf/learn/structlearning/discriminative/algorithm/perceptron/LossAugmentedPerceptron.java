@@ -1,7 +1,7 @@
 package br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron;
 
-import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.SequenceInput;
-import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.SequenceOutput;
+import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceInput;
+import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.FeatureEncoding;
@@ -105,39 +105,46 @@ public class LossAugmentedPerceptron extends Perceptron {
 
 		ExampleOutput referenceOutput = correctOutput;
 		if (partiallyAnnotatedExamples) {
-			// If the user asked to consider partially-labeled examples then
-			// infer the missing values within the given correct output
-			// structure before updating the current model.
+			/*
+			 * If the user asked to consider partially-labeled examples then
+			 * infer the missing values within the given correct output
+			 * structure before updating the current model.
+			 */
 			referenceOutput = correctOutput.createNewObject();
 			inferenceImpl.partialInference(model, input, correctOutput,
 					referenceOutput);
 		}
 
 		if (lossNonAnnotatedWeight < 0)
-			// Predict the best output structure to the current input structure
-			// using a loss-augmented objective function.
+			/*
+			 * Predict the best output structure to the current input structure
+			 * using a loss-augmented objective function.
+			 */
 			inferenceImpl.lossAugmentedInference(model, input, referenceOutput,
 					predictedOutput, lossAnnotatedWeight);
 		else
-			// Predict the best output structure to the current input structure
-			// using a loss-augmented objective function that uses different
-			// weights for annotated and non-annotated tokens.
-			inferenceImpl.lossAugmentedPartialInference(model, input, correctOutput,
-					referenceOutput, predictedOutput, lossAnnotatedWeight,
-					lossNonAnnotatedWeight);
+			/*
+			 * Predict the best output structure to the current input structure
+			 * using a loss-augmented objective function that uses different
+			 * weights for annotated and non-annotated tokens.
+			 */
+			inferenceImpl.lossAugmentedInferenceWithPartiallyLabeledReference(model, input,
+					correctOutput, referenceOutput, predictedOutput,
+					lossAnnotatedWeight, lossNonAnnotatedWeight);
 
 		// Update the current model and return the loss for this example.
 		double loss = model.update(input, referenceOutput, predictedOutput,
 				getCurrentLearningRate());
 
 		// Debug.
-		if (DebugUtil.print && loss != 0d)
+		if (DebugUtil.print)
 			DebugUtil.printSequence((SequenceInput) input,
 					(SequenceOutput) referenceOutput,
 					(SequenceOutput) predictedOutput, loss);
 
-		// Averaged-Perceptron: account the updates into the averaged
-		// weights.
+		/*
+		 * Averaged-Perceptron: account the updates into the averaged weights.
+		 */
 		model.sumUpdates(iteration);
 
 		++iteration;

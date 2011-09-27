@@ -1,6 +1,8 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.sequence;
 
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
+import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceInput;
+import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Inference;
@@ -94,7 +96,7 @@ public class Viterbi2ndOrderInference implements Inference {
 	}
 
 	@Override
-	public void lossAugmentedPartialInference(Model model, ExampleInput input,
+	public void lossAugmentedInferenceWithPartiallyLabeledReference(Model model, ExampleInput input,
 			ExampleOutput lossPartiallyLabeledOutput,
 			ExampleOutput referenceOutput, ExampleOutput inferedOutput,
 			double lossAnnotatedWeight, double lossNonAnnotatedWeight) {

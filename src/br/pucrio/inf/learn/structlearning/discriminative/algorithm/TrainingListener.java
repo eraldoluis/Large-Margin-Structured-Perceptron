@@ -47,8 +47,7 @@ public interface TrainingListener {
 	 * 
 	 * @return <code>false</code> to stop the training procedure.
 	 */
-	boolean beforeEpoch(Inference impl, Model curModel, int epoch,
-			int iteration);
+	boolean beforeEpoch(Inference impl, Model curModel, int epoch, int iteration);
 
 	/**
 	 * Called after an epoch (processing the whole training set).
@@ -67,7 +66,18 @@ public interface TrainingListener {
 	 * 
 	 * @return
 	 */
-	boolean afterEpoch(Inference impl, Model curModel, int epoch,
-			double loss, int iteration);
+	boolean afterEpoch(Inference impl, Model curModel, int epoch, double loss,
+			int iteration);
 
+	/**
+	 * Called on each progress report.
+	 * 
+	 * @param impl
+	 * @param curModel
+	 * @param epoch
+	 * @param loss
+	 * @param iteration
+	 */
+	void progressReport(Inference impl, Model curModel, int epoch, double loss,
+			int iteration);
 }

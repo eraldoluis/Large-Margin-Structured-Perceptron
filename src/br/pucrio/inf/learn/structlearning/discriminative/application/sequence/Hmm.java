@@ -1,7 +1,10 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.sequence;
 
 import java.io.PrintStream;
+import java.util.Arrays;
 
+import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceInput;
+import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.FeatureEncoding;
@@ -133,24 +136,26 @@ public abstract class Hmm implements Model {
 	public abstract Object clone() throws CloneNotSupportedException;
 
 	/**
-	 * Return the sum of the emission weights associated with the features in
-	 * the token <code>token</code> of the sequence <code>input</code>.
+	 * Return the (kernelized) emission weights associated with the given token
+	 * for each possible state.
 	 * 
 	 * @param input
 	 * @param token
-	 * @param state
-	 * @return
+	 * @param weights
 	 */
-	public double getTokenEmissionWeight(SequenceInput input, int token,
-			int state) {
-		double accum = 0d;
+	public void getTokenEmissionWeights(SequenceInput input, int token,
+			double[] weights) {
+		// Clear array.
+		Arrays.fill(weights, 0d);
+
 		int numFtrs = input.getNumberOfInputFeatures(token);
+		int numStates = getNumberOfStates();
 		for (int idxFtr = 0; idxFtr < numFtrs; ++idxFtr) {
 			int ftr = input.getFeature(token, idxFtr);
 			double weight = input.getFeatureWeight(token, idxFtr);
-			accum += getEmissionParameter(state, ftr) * weight;
+			for (int state = 0; state < numStates; ++state)
+				weights[state] += getEmissionParameter(state, ftr) * weight;
 		}
-		return accum;
 	}
 
 	/**

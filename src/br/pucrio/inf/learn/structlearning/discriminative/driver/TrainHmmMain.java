@@ -16,16 +16,18 @@ import org.apache.commons.logging.LogFactory;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.OnlineStructuredAlgorithm.LearnRateUpdateStrategy;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.TrainingListener;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.AwayFromWorsePerceptron;
+import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.DualLossAugmentedPerceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.LossAugmentedPerceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.Perceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.TowardBetterPerceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.AveragedArrayHmm;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.AveragedArrayHmm2ndOrder;
-import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.SequenceInput;
-import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.SequenceOutput;
+import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.DualHmm;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.Viterbi2ndOrderInference;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.ViterbiInference;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.Dataset;
+import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceInput;
+import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.evaluation.IobChunkEvaluation;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.evaluation.LabeledTokenEvaluation;
 import br.pucrio.inf.learn.structlearning.discriminative.data.FeatureEncoding;
@@ -38,6 +40,7 @@ import br.pucrio.inf.learn.structlearning.discriminative.data.StringMapEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.driver.Driver.Command;
 import br.pucrio.inf.learn.structlearning.discriminative.evaluation.EntityF1Evaluation;
 import br.pucrio.inf.learn.structlearning.discriminative.evaluation.F1Measure;
+import br.pucrio.inf.learn.structlearning.discriminative.task.DualModel;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Inference;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Model;
 import br.pucrio.inf.learn.util.CommandLineOptionsUtil;
@@ -94,7 +97,12 @@ public class TrainHmmMain implements Command {
 		/**
 		 * Toward-better Perceptron (McAllester et al., 2011).
 		 */
-		TOWARD_BETTER_PERCEPTRON
+		TOWARD_BETTER_PERCEPTRON,
+
+		/**
+		 * Dual (kernelized) loss-augmented perceptron.
+		 */
+		DUAL_PERCEPTRON,
 	}
 
 	@SuppressWarnings("static-access")
@@ -117,14 +125,25 @@ public class TrainHmmMain implements Command {
 								+ "hmm2 (second-order HMM).").create());
 		options.addOption(OptionBuilder
 				.withLongOpt("alg")
-				.withArgName("perc | loss | afworse | tobetter")
+				.withArgName("perc | loss | afworse | tobetter | dual")
 				.hasArg()
 				.withDescription(
-						"Which training algorithm to be used: "
-								+ "perc (ordinary Perceptron), "
-								+ "loss (Loss-augmented Perceptron), "
-								+ "afworse (away-from-worse Perceptron), "
-								+ "tobetter (toward-better Perceptron)")
+						"The training algorithm: "
+								+ "perc (ordinary perceptron), "
+								+ "loss (Loss-augmented perceptron), "
+								+ "afworse (away-from-worse perceptron), "
+								+ "tobetter (toward-better perceptron), "
+								+ "dual (dual (kernelized) perceptron")
+				.create());
+		options.addOption(OptionBuilder
+				.withLongOpt("kernel")
+				.withArgName("poly2 | poly3 | poly4")
+				.hasArg()
+				.withDescription(
+						"Kernel function: "
+								+ "poly2 (2-degree polynomial function), "
+								+ "poly3 (3-degree polynomial function), "
+								+ "poly4 (4-degree polynomial function)")
 				.create());
 		options.addOption(OptionBuilder.withLongOpt("incorpus").isRequired()
 				.withArgName("input corpus").hasArg()
@@ -562,25 +581,88 @@ public class TrainHmmMain implements Command {
 		LOG.info("Feature encoding size: " + featureEncoding.size());
 		LOG.info("Tagset size: " + stateEncoding.size());
 
+		// Parse algorithm type option.
+		AlgorithmType algType = null;
+		String algTypeStr = cmdLine.getOptionValue("alg", "perc");
+		if (algTypeStr.equals("perc"))
+			algType = AlgorithmType.PERCEPTRON;
+		else if (algTypeStr.equals("loss"))
+			algType = AlgorithmType.LOSS_PERCEPTRON;
+		else if (algTypeStr.equals("afworse"))
+			algType = AlgorithmType.AWAY_FROM_WORSE_PERCEPTRON;
+		else if (algTypeStr.equals("tobetter"))
+			algType = AlgorithmType.TOWARD_BETTER_PERCEPTRON;
+		else if (algTypeStr.equals("dual"))
+			algType = AlgorithmType.DUAL_PERCEPTRON;
+		else {
+			System.err.println("Unknown algorithm: " + algTypeStr);
+			System.exit(1);
+		}
+
+		// Kernel.
+		int polyKernelExponent = 1;
+		String kernel = cmdLine.getOptionValue("kernel");
+		if (kernel != null) {
+			if (algType != AlgorithmType.DUAL_PERCEPTRON) {
+				LOG.error("kernel=? requires alg=dual");
+				System.exit(1);
+			}
+
+			if (kernel.equals("poly1"))
+				polyKernelExponent = 1;
+			else if (kernel.equals("poly2"))
+				polyKernelExponent = 2;
+			else if (kernel.equals("poly3"))
+				polyKernelExponent = 3;
+			else if (kernel.equals("poly4"))
+				polyKernelExponent = 4;
+			else {
+				LOG.error("kernel=" + kernel + " is not a valid value");
+				System.exit(1);
+			}
+		}
+
 		// Structure.
 		LOG.info("Allocating initial model...");
 		Model model = null;
 		Inference inference = null;
 		String structure = cmdLine.getOptionValue("structure", "hmm");
 		if (structure.equals("hmm")) {
+
+			// Ordinary Viterbi-based inference algorithm.
 			inference = new ViterbiInference(inputCorpusA.getStateEncoding()
 					.put(defaultLabel));
-			model = new AveragedArrayHmm(inputCorpusA.getNumberOfStates(),
-					inputCorpusA.getNumberOfSymbols());
+
+			if (algType != AlgorithmType.DUAL_PERCEPTRON)
+				// Ordinary HMM model.
+				model = new AveragedArrayHmm(inputCorpusA.getNumberOfStates(),
+						inputCorpusA.getNumberOfSymbols());
+			else
+				// Dual HMM model.
+				model = new DualHmm(inputCorpusA.getInputs(),
+						inputCorpusA.getOutputs(),
+						inputCorpusA.getNumberOfStates(), polyKernelExponent);
+
 		} else if (structure.equals("hmm2")) {
+
+			if (algType == AlgorithmType.DUAL_PERCEPTRON) {
+				// Dual 2nd-order HMM has not been implemented yet.
+				System.err
+						.println("alg=dual is not compatible with structure=hmm2");
+				System.exit(1);
+			}
+
+			// 2nd order Viterbi-based inference algorithm.
 			inference = new Viterbi2ndOrderInference(inputCorpusA
 					.getStateEncoding().put(defaultLabel));
+
+			// 2nd order HMM model.
 			model = new AveragedArrayHmm2ndOrder(
 					inputCorpusA.getNumberOfStates(),
 					inputCorpusA.getNumberOfSymbols());
+
 		} else {
 			System.err.println("Unknown structure: " + structure);
-			CommandLineOptionsUtil.usage(getClass().getSimpleName(), options);
 			System.exit(1);
 		}
 
@@ -593,7 +675,6 @@ public class TrainHmmMain implements Command {
 			taskType = TaskType.TOKEN;
 		else {
 			System.err.println("Unknown task type: " + taskTypeStr);
-			CommandLineOptionsUtil.usage(getClass().getSimpleName(), options);
 			System.exit(1);
 		}
 
@@ -606,23 +687,6 @@ public class TrainHmmMain implements Command {
 		case TOKEN:
 			eval = new LabeledTokenEvaluation(inputCorpusA.getStateEncoding());
 			break;
-		}
-
-		// Parse algorithm type option.
-		AlgorithmType algType = null;
-		String algTypeStr = cmdLine.getOptionValue("alg", "perc");
-		if (algTypeStr.equals("perc"))
-			algType = AlgorithmType.PERCEPTRON;
-		else if (algTypeStr.equals("loss"))
-			algType = AlgorithmType.LOSS_PERCEPTRON;
-		else if (algTypeStr.equals("afworse"))
-			algType = AlgorithmType.AWAY_FROM_WORSE_PERCEPTRON;
-		else if (algTypeStr.equals("tobetter"))
-			algType = AlgorithmType.TOWARD_BETTER_PERCEPTRON;
-		else {
-			System.err.println("Unknown algorithm: " + algTypeStr);
-			CommandLineOptionsUtil.usage(getClass().getSimpleName(), options);
-			System.exit(1);
 		}
 
 		// Learning rate update strategy.
@@ -640,22 +704,27 @@ public class TrainHmmMain implements Command {
 		else {
 			System.err.println("Unknown learning rate update strategy: "
 					+ lrUpdateStrategy);
-			CommandLineOptionsUtil.usage(getClass().getSimpleName(), options);
 			System.exit(1);
 		}
 
 		// Create the chosen algorithm.
 		Perceptron alg = null;
 		switch (algType) {
+
+		/*
+		 * Ordinary Perceptron implementation (Collins'): does not consider
+		 * customized loss functions.
+		 */
 		case PERCEPTRON:
-			// Ordinary Perceptron implementation (Collins'): does not consider
-			// customized loss functions.
 			alg = new Perceptron(inference, model, numEpochs, learningRate,
 					true, averageWeights, learningRateUpdateStrategy);
 			break;
+
+		/*
+		 * Loss-augumented implementation: considers customized loss function
+		 * (per-token misclassification loss).
+		 */
 		case LOSS_PERCEPTRON:
-			// Loss-augumented implementation: considers customized loss
-			// function (per-token misclassification loss).
 			if (lossNonAnnotatedWeightStr == null)
 				alg = new LossAugmentedPerceptron(inference, model, numEpochs,
 						learningRate, lossWeight, true, averageWeights,
@@ -667,8 +736,11 @@ public class TrainHmmMain implements Command {
 						lossNonAnnotatedWeightInc, true, averageWeights,
 						learningRateUpdateStrategy);
 			break;
+
+		/*
+		 * Away-from-worse perceptron implementation.
+		 */
 		case AWAY_FROM_WORSE_PERCEPTRON:
-			// Away-from-worse implementation.
 			if (lossNonAnnotatedWeightStr == null)
 				alg = new AwayFromWorsePerceptron(inference, model, numEpochs,
 						learningRate, lossWeight, true, averageWeights,
@@ -680,8 +752,11 @@ public class TrainHmmMain implements Command {
 						lossNonAnnotatedWeightInc, true, averageWeights,
 						learningRateUpdateStrategy);
 			break;
+
+		/*
+		 * Toward-better perceptron implementation.
+		 */
 		case TOWARD_BETTER_PERCEPTRON:
-			// Toward-better implementation.
 			if (lossNonAnnotatedWeightStr == null)
 				alg = new TowardBetterPerceptron(inference, model, numEpochs,
 						learningRate, lossWeight, true, averageWeights,
@@ -693,6 +768,30 @@ public class TrainHmmMain implements Command {
 						lossNonAnnotatedWeightInc, true, averageWeights,
 						learningRateUpdateStrategy);
 			break;
+
+		/*
+		 * Dual (kernelized) loss-augumented implementation: considers
+		 * customized loss function (per-token misclassification loss) and uses
+		 * a dual representation that allows kernel functions.
+		 */
+		case DUAL_PERCEPTRON:
+			if (lossNonAnnotatedWeightStr == null)
+				alg = new DualLossAugmentedPerceptron(inference,
+						(DualModel) model, numEpochs, learningRate, lossWeight,
+						true, averageWeights, learningRateUpdateStrategy);
+			else
+				alg = new DualLossAugmentedPerceptron(inference,
+						(DualModel) model, numEpochs, learningRate, lossWeight,
+						Double.parseDouble(lossNonAnnotatedWeightStr),
+						lossNonAnnotatedWeightInc, true, averageWeights,
+						learningRateUpdateStrategy);
+
+			// Sort example features to speedup kernel functions.
+			LOG.info("Sorting feature arrays...");
+			inputCorpusA.sortFeatureValues();
+
+			break;
+
 		}
 
 		if (nonAnnotatedLabel != null) {
@@ -722,6 +821,12 @@ public class TrainHmmMain implements Command {
 						inputCorpusA.getFeatureEncoding(),
 						inputCorpusA.getStateEncoding());
 
+				if (algType == AlgorithmType.DUAL_PERCEPTRON) {
+					// Sort example features to speedup kernel functions.
+					LOG.info("Sorting test feature arrays...");
+					testset.sortFeatureValues();
+				}
+
 				if (normalizeInput)
 					// Normalize the input structures.
 					testset.normalizeInputStructures(testset
@@ -729,7 +834,8 @@ public class TrainHmmMain implements Command {
 
 				alg.setListener(new EvaluateModelListener(eval, testset
 						.getInputs(), testset.getOutputs(), inputCorpusA
-						.getStateEncoding(), nullLabel, averageWeights));
+						.getStateEncoding(), nullLabel, averageWeights,
+						algType == AlgorithmType.DUAL_PERCEPTRON));
 
 			} catch (Exception e) {
 				LOG.error("Loading testset " + testCorpusFileName, e);
@@ -774,6 +880,12 @@ public class TrainHmmMain implements Command {
 				Dataset testset = new Dataset(testCorpusFileName,
 						inputCorpusA.getFeatureEncoding(),
 						inputCorpusA.getStateEncoding());
+
+				if (algType == AlgorithmType.DUAL_PERCEPTRON) {
+					// Sort example features to speedup kernel functions.
+					LOG.info("Sorting test feature arrays...");
+					testset.sortFeatureValues();
+				}
 
 				if (normalizeInput)
 					// Normalize the input structures.
@@ -908,10 +1020,12 @@ public class TrainHmmMain implements Command {
 
 		private boolean averageWeights;
 
+		private boolean dual;
+
 		public EvaluateModelListener(EntityF1Evaluation eval,
 				SequenceInput[] inputs, SequenceOutput[] outputs,
 				FeatureEncoding<String> stateEncoding, String nullLabel,
-				boolean averageWeights) {
+				boolean averageWeights, boolean dual) {
 			this.inputs = inputs;
 			this.outputs = outputs;
 			this.predicteds = new SequenceOutput[inputs.length];
@@ -920,6 +1034,7 @@ public class TrainHmmMain implements Command {
 				predicteds[idx] = (SequenceOutput) inputs[idx].createOutput();
 			this.eval = eval;
 			this.averageWeights = averageWeights;
+			this.dual = dual;
 		}
 
 		@Override
@@ -973,6 +1088,16 @@ public class TrainHmmMain implements Command {
 			printF1Results("Performance after epoch " + epoch + ":", results);
 
 			return true;
+		}
+
+		@Override
+		public void progressReport(Inference impl, Model curModel, int epoch,
+				double loss, int iteration) {
+			if (!dual)
+				return;
+			DualHmm dualHmm = (DualHmm) curModel;
+			LOG.info(String.format("Iteration: %d | Loss: %f | # SVs: %d",
+					iteration, loss, dualHmm.getNumberOfSupportVectors()));
 		}
 	}
 }

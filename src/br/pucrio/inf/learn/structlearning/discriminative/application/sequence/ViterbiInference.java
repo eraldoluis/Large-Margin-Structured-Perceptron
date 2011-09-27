@@ -1,6 +1,8 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.sequence;
 
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.Dataset;
+import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceInput;
+import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Inference;
@@ -42,7 +44,7 @@ public class ViterbiInference implements Inference {
 	 * Output structure used to determine whether an element is annotated or
 	 * not.
 	 */
-	private SequenceOutput lossPartiallyAnnotatedOutput;
+	private SequenceOutput lossPartiallyLabeledOutput;
 
 	/**
 	 * Create a Viterbi inference algorithm using the given state as the default
@@ -55,7 +57,7 @@ public class ViterbiInference implements Inference {
 		this.lossAnnotatedWeight = 0d;
 		this.lossNonAnnotatedWeight = 0d;
 		this.lossReferenceOutput = null;
-		this.lossPartiallyAnnotatedOutput = null;
+		this.lossPartiallyLabeledOutput = null;
 	}
 
 	@Override
@@ -73,7 +75,7 @@ public class ViterbiInference implements Inference {
 
 	@Override
 	public void lossAugmentedInference(Model model, ExampleInput input,
-			ExampleOutput referenceOutput, ExampleOutput inferedOutput,
+			ExampleOutput referenceOutput, ExampleOutput predictedOutput,
 			double lossWeight) {
 		// Save the current configuration.
 		double previousLossWeight = this.lossAnnotatedWeight;
@@ -84,7 +86,8 @@ public class ViterbiInference implements Inference {
 		this.lossReferenceOutput = (SequenceOutput) referenceOutput;
 
 		// Call the ordinary inference algorithm.
-		tag((Hmm) model, (SequenceInput) input, (SequenceOutput) inferedOutput);
+		tag((Hmm) model, (SequenceInput) input,
+				(SequenceOutput) predictedOutput);
 
 		// Restore the previous configuration.
 		this.lossAnnotatedWeight = previousLossWeight;
@@ -92,40 +95,46 @@ public class ViterbiInference implements Inference {
 	}
 
 	@Override
-	public void lossAugmentedPartialInference(Model model, ExampleInput input,
-			ExampleOutput lossPartiallyLabeledOutput,
-			ExampleOutput referenceOutput, ExampleOutput inferedOutput,
+	public void lossAugmentedInferenceWithPartiallyLabeledReference(
+			Model model, ExampleInput input,
+			ExampleOutput partiallyLabeledOutput,
+			ExampleOutput referenceOutput, ExampleOutput predictedOutput,
 			double lossAnnotatedWeight, double lossNonAnnotatedWeight) {
 		// Save the current configuration.
 		double previousLossAnnotatedWeight = this.lossAnnotatedWeight;
 		double previousLossNonAnnotatedWeight = this.lossNonAnnotatedWeight;
 		SequenceOutput previousLossReferenceOutput = this.lossReferenceOutput;
-		SequenceOutput previousLossPartiallyAnnotatedOutput = this.lossPartiallyAnnotatedOutput;
+		SequenceOutput previousLossPartiallyAnnotatedOutput = this.lossPartiallyLabeledOutput;
 
 		// Configure the loss-augmented necessary properties.
 		this.lossAnnotatedWeight = lossAnnotatedWeight;
 		this.lossNonAnnotatedWeight = lossNonAnnotatedWeight;
 		this.lossReferenceOutput = (SequenceOutput) referenceOutput;
-		this.lossPartiallyAnnotatedOutput = (SequenceOutput) lossPartiallyLabeledOutput;
+		this.lossPartiallyLabeledOutput = (SequenceOutput) partiallyLabeledOutput;
 
 		// Call the ordinary inference algorithm.
-		tag((Hmm) model, (SequenceInput) input, (SequenceOutput) inferedOutput);
+		tag((Hmm) model, (SequenceInput) input,
+				(SequenceOutput) predictedOutput);
 
 		// Restore the previous configuration.
 		this.lossAnnotatedWeight = previousLossAnnotatedWeight;
 		this.lossNonAnnotatedWeight = previousLossNonAnnotatedWeight;
 		this.lossReferenceOutput = previousLossReferenceOutput;
-		this.lossPartiallyAnnotatedOutput = previousLossPartiallyAnnotatedOutput;
+		this.lossPartiallyLabeledOutput = previousLossPartiallyAnnotatedOutput;
 	}
 
 	/**
-	 * Tag the output with the best label sequence for the given input and HMM.
+	 * Tag the given output sequence with the best label sequence for the given
+	 * model and input sequence.
 	 * 
 	 * @param hmm
+	 *            the model
 	 * @param input
+	 *            the input sequence
 	 * @param output
+	 *            the output sequence to be labeled
 	 */
-	public void tag(Hmm hmm, SequenceInput input, SequenceOutput output) {
+	protected void tag(Hmm hmm, SequenceInput input, SequenceOutput output) {
 		// Example length.
 		int numberOfStates = hmm.getNumberOfStates();
 		int lenExample = input.size();
@@ -138,16 +147,26 @@ public class ViterbiInference implements Inference {
 		// Best partial-path backward table.
 		int[][] psi = new int[lenExample][numberOfStates];
 
-		// Weights for the first token.
-		for (int state = 0; state < numberOfStates; ++state) {
-			delta[0][state] = getLossAugmentedTokenEmissionWeight(hmm, input,
-					0, state) + hmm.getInitialStateParameter(state);
-		}
+		// Emission weights at each token.
+		double[] emissionWeights = new double[numberOfStates];
+
+		// Calculate emission weights at the first token.
+		hmm.getTokenEmissionWeights(input, 0, emissionWeights);
+
+		// Delta values for the first token.
+		for (int state = 0; state < numberOfStates; ++state)
+			delta[0][state] = emissionWeights[state]
+					+ hmm.getInitialStateParameter(state);
 
 		// Apply each step of the Viterbi algorithm.
-		for (int tkn = 1; tkn < lenExample; ++tkn)
+		for (int tkn = 1; tkn < lenExample; ++tkn) {
+			// Calculate emission weights at the current token.
+			hmm.getTokenEmissionWeights(input, tkn, emissionWeights);
+			// Calculate best previous state for each possible state.
 			for (int state = 0; state < numberOfStates; ++state)
-				viterbi(hmm, delta, psi, input, tkn, state, defaultState);
+				viterbi(hmm, delta, psi, tkn, state, emissionWeights[state],
+						defaultState);
+		}
 
 		// The default state is always the fisrt option.
 		int bestState = defaultState;
@@ -177,17 +196,18 @@ public class ViterbiInference implements Inference {
 	 *            contain the best accumulated weights until the previous token
 	 * @param psi
 	 *            used to store the best option
-	 * @param input
-	 *            the input structure
 	 * @param token
 	 *            the token be considered
 	 * @param toState
 	 *            the state to be considered
+	 * @param emissionWeight
+	 *            the (possibly loss-augmented) emission weight for the given
+	 *            token and state.
 	 * @param defaultState
 	 *            the default state
 	 */
-	protected void viterbi(Hmm hmm, double[][] delta, int[][] psi,
-			SequenceInput input, int token, int toState, int defaultState) {
+	protected void viterbi(Hmm hmm, double[][] delta, int[][] psi, int token,
+			int toState, double emissionWeight, int defaultState) {
 		// Number of states.
 		int numStates = hmm.getNumberOfStates();
 
@@ -206,9 +226,7 @@ public class ViterbiInference implements Inference {
 
 		// Set delta and psi according to the best from-state.
 		psi[token][toState] = maxState;
-		delta[token][toState] = maxWeight
-				+ getLossAugmentedTokenEmissionWeight(hmm, input, token,
-						toState);
+		delta[token][toState] = maxWeight + emissionWeight;
 	}
 
 	/**
@@ -224,7 +242,7 @@ public class ViterbiInference implements Inference {
 	 * @param partiallyLabeledOutput
 	 * @param predictedOutput
 	 */
-	public void partialTag(Hmm hmm, SequenceInput input,
+	protected void partialTag(Hmm hmm, SequenceInput input,
 			SequenceOutput partiallyLabeledOutput,
 			SequenceOutput predictedOutput) {
 		// Example length.
@@ -239,16 +257,21 @@ public class ViterbiInference implements Inference {
 		// Weights for the first token.
 		int curState = partiallyLabeledOutput.getLabel(0);
 
-		if (curState < 0) {
+		// Emission weights at each token.
+		double[] emissionWeights = new double[numberOfStates];
+
+		if (curState == Dataset.NON_ANNOTATED_STATE_CODE) {
 			// Non-annotated token.
-			for (int state = 0; state < numberOfStates; ++state) {
-				delta[0][state] = getLossAugmentedTokenEmissionWeight(hmm,
-						input, 0, state) + hmm.getInitialStateParameter(state);
-			}
+			hmm.getTokenEmissionWeights(input, 0, emissionWeights);
+			for (int state = 0; state < numberOfStates; ++state)
+				delta[0][state] = emissionWeights[state]
+						+ hmm.getInitialStateParameter(state);
 		} else {
-			// Do not need to calculate anything. The next token will always
-			// choose the labeled state as previous state despite delta values
-			// (see partialViterbi method).
+			/*
+			 * Do not need to calculate anything since the next token will
+			 * always choose the labeled state as previous state despite the
+			 * delta values (see <code>partialViterbi</code> method).
+			 */
 		}
 
 		// Apply each step of the Viterbi algorithm.
@@ -256,18 +279,24 @@ public class ViterbiInference implements Inference {
 			int prevState = curState;
 			curState = partiallyLabeledOutput.getLabel(tkn);
 			if (curState == Dataset.NON_ANNOTATED_STATE_CODE) {
-				// If the current token is non-annotated, we need to calculate
-				// the best previous state and corresponding weight for each
-				// possible state.
+				// Get emission weights for each state.
+				hmm.getTokenEmissionWeights(input, tkn, emissionWeights);
+				/*
+				 * If the current token is non-annotated, we need to calculate
+				 * the best previous state and corresponding weight for each
+				 * possible state.
+				 */
 				for (int state = 0; state < numberOfStates; ++state)
-					partialViterbi(hmm, prevState, delta, psi, input, tkn,
-							state, defaultState);
+					partialViterbi(hmm, prevState, delta, psi, tkn, state,
+							emissionWeights[state], defaultState);
 			} else {
-				// If the current token is annotated, we already know its state
-				// and therefore only need to calculate the best previous state
-				// to this annotated state.
-				partialViterbi(hmm, prevState, delta, psi, input, tkn,
-						curState, defaultState);
+				/*
+				 * If the current token is annotated, we already know its state
+				 * and therefore only need to calculate the best previous state
+				 * to this annotated state.
+				 */
+				partialViterbi(hmm, prevState, delta, psi, tkn, curState, 0d,
+						defaultState);
 			}
 		}
 
@@ -311,71 +340,77 @@ public class ViterbiInference implements Inference {
 	 *            the weight matrix
 	 * @param psi
 	 *            the backward path matrix
-	 * @param input
-	 *            the input sequence
 	 * @param token
 	 *            the token to be considered
 	 * @param toState
 	 *            the state to be considered
+	 * @param emissionWeight
+	 *            (possible loss-augmented) weight associated with the emission
+	 *            for the specific token and state
 	 * @param defaultState
 	 *            the default state that is chosen if every previous state
 	 *            weights the same
 	 */
 	protected void partialViterbi(Hmm hmm, int previousState, double[][] delta,
-			int[][] psi, SequenceInput input, int token, int toState,
+			int[][] psi, int token, int toState, double emissionWeight,
 			int defaultState) {
 		if (previousState == Dataset.NON_ANNOTATED_STATE_CODE) {
 			// If the previous token is non-annotated, we must choose the
 			// previous best state using the original procedure.
-			viterbi(hmm, delta, psi, input, token, toState, defaultState);
+			viterbi(hmm, delta, psi, token, toState, emissionWeight,
+					defaultState);
 		} else {
 			// If the previous token is annotated, we choose the annotated state
 			// as the best previous state.
 			psi[token][toState] = previousState;
 			delta[token][toState] = delta[token - 1][previousState]
 					+ hmm.getTransitionParameter(previousState, toState)
-					+ getLossAugmentedTokenEmissionWeight(hmm, input, token,
-							toState);
+					+ emissionWeight;
 		}
 	}
 
 	/**
-	 * Return the sum of the emission parameters of all features in the given
-	 * token and state and, additionally, augment this value with the loss
-	 * function if the user specified so.
+	 * Return the loss-augmented emision weights for each state at a given
+	 * token. The model provides the original weights and this method increments
+	 * them with the loss value.
 	 * 
 	 * @param hmm
 	 * @param input
 	 * @param token
 	 * @param state
-	 * @return
+	 * @param weights
 	 */
-	protected double getLossAugmentedTokenEmissionWeight(Hmm hmm,
-			SequenceInput input, int token, int state) {
+	protected void getLossAugmentedTokenEmissionWeights(Hmm hmm,
+			SequenceInput input, int token, double[] weights) {
+		// The ordinary emission weights for the token.
+		hmm.getTokenEmissionWeights(input, token, weights);
 
-		// The ordinary emission weight for the token.
-		double w = hmm.getTokenEmissionWeight(input, token, state);
+		// Loss-augmented is turned off.
+		if (lossReferenceOutput == null)
+			return;
 
-		// Augment the objective function value with a possible loss.
-		if (lossReferenceOutput != null
-				&& lossReferenceOutput.getLabel(token) != state) {
-			// If the user provided a loss-reference output structure and the
-			// reference token label is different from the predicted one, then
-			// count the loss value for this token.
-			if (lossPartiallyAnnotatedOutput == null
-					|| lossPartiallyAnnotatedOutput.getLabel(token) == lossReferenceOutput
-							.getLabel(token))
-				// If the user did not provide a partially-labeled output
-				// structure, or if he/she did but the token is annotated.
-				w += lossAnnotatedWeight;
-			else
-				// If the user provided a partially-labeled output structure and
-				// the token is NON-annotated.
-				w += lossNonAnnotatedWeight;
+		if (lossPartiallyLabeledOutput == null
+				|| lossPartiallyLabeledOutput.getLabel(token) != Dataset.NON_ANNOTATED_STATE_CODE) {
+			/*
+			 * If the current token is annotated.
+			 */
+			for (int state = 0; state < hmm.getNumberOfStates(); ++state) {
+				// Do not add loss for the correct state.
+				if (lossReferenceOutput.getLabel(token) == state)
+					continue;
+				weights[state] += lossAnnotatedWeight;
+			}
+		} else {
+			/*
+			 * If the current token is NON-annotated.
+			 */
+			for (int state = 0; state < hmm.getNumberOfStates(); ++state) {
+				// Do not add loss for the correct state.
+				if (lossReferenceOutput.getLabel(token) == state)
+					continue;
+				weights[state] += lossNonAnnotatedWeight;
+			}
 		}
-
-		return w;
-
 	}
 
 	/**

@@ -53,41 +53,42 @@ public interface Inference {
 	 * @param referenceOutput
 	 *            reference output structure that is used to calculate the loss
 	 *            function.
-	 * @param inferedOutput
-	 *            the infered output structure that will be filled in this
-	 *            method.
+	 * @param predictedOutput
+	 *            the predicted output structure to be filled by this method
 	 * @param lossWeight
-	 *            the weight of the loss function in the objective function.
+	 *            the weight of the loss function in the objective function
 	 */
 	void lossAugmentedInference(Model model, ExampleInput input,
-			ExampleOutput referenceOutput, ExampleOutput inferedOutput,
+			ExampleOutput referenceOutput, ExampleOutput predictedOutput,
 			double lossWeight);
 
 	/**
-	 * Loss-augmented inference algorithm that considers partially-annotated
-	 * examples. The loss function has different weights depending on whether
-	 * the considered elements is annotated or not.
+	 * Loss-augmented inference algorithm that considers partially-labeled
+	 * examples as reference to calculate the loss function. The loss function
+	 * has different weights depending on whether the considered elements is
+	 * annotated or not.
 	 * 
 	 * @param model
-	 *            the model with the feature weights.
+	 *            the model.
 	 * @param input
 	 *            the input structure.
-	 * @param lossPartiallyLabeledOutput
-	 *            the partial output structure that is used to check whether the
-	 *            element is annotated or not.
+	 * @param partiallyLabeledOutput
+	 *            the training output structure with possibly missing values
+	 *            that is used to check whether tokens are annotated or not.
 	 * @param referenceOutput
-	 *            the reference output structure that is used to calculate the
-	 *            loss function.
-	 * @param inferedOutput
-	 *            the infered output structure.
+	 *            the output structure filled by the current model and that is
+	 *            used as reference structure to calculate the updates and the
+	 *            loss function
+	 * @param predictedOutput
+	 *            the predicted output structure to be filled by this method
 	 * @param lossAnnotatedWeight
-	 *            weight used for missing elements that are annotated.
+	 *            weight used for missing elements that are annotated
 	 * @param lossNonAnnotatedWeight
-	 *            weight used for missing elements that are not annotated.
+	 *            weight used for missing elements that are not annotated
 	 */
-	void lossAugmentedPartialInference(Model model, ExampleInput input,
-			ExampleOutput lossPartiallyLabeledOutput,
-			ExampleOutput referenceOutput, ExampleOutput inferedOutput,
+	void lossAugmentedInferenceWithPartiallyLabeledReference(Model model,
+			ExampleInput input, ExampleOutput partiallyLabeledOutput,
+			ExampleOutput referenceOutput, ExampleOutput predictedOutput,
 			double lossAnnotatedWeight, double lossNonAnnotatedWeight);
 
 }

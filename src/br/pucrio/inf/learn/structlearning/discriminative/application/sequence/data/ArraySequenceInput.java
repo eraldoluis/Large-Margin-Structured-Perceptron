@@ -1,6 +1,8 @@
-package br.pucrio.inf.learn.structlearning.discriminative.application.sequence;
+package br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data;
 
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.Iterator;
 
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
@@ -58,7 +60,7 @@ public class ArraySequenceInput implements SequenceInput {
 			int ftrIdx = 0;
 			for (int ftr : token) {
 				this.featureCodes[tknIdx][ftrIdx] = ftr;
-				this.featureWeights[tknIdx][ftrIdx] = 1.0;
+				this.featureWeights[tknIdx][ftrIdx] = 1d;
 				++ftrIdx;
 			}
 
@@ -169,4 +171,61 @@ public class ArraySequenceInput implements SequenceInput {
 
 	}
 
+	@Override
+	public void sortFeatureValues() {
+		FeatureCodeComparator comp = new FeatureCodeComparator(null);
+		for (int tkn = 0; tkn < featureCodes.length; ++tkn) {
+			int numFtrs = featureCodes[tkn].length;
+
+			// Create index array.
+			Integer[] indexes = new Integer[numFtrs];
+			for (int idxFtr = 0; idxFtr < numFtrs; ++idxFtr)
+				indexes[idxFtr] = idxFtr;
+
+			// Sort index array based on feature codes.
+			comp.featureCodes = featureCodes[tkn];
+			Arrays.sort(indexes, comp);
+
+			// Sort codes and weights arrays according to the index array.
+			int[] codes = new int[numFtrs];
+			double[] weights = new double[numFtrs];
+			for (int idxFtr = 0; idxFtr < numFtrs; ++idxFtr) {
+				int idx = indexes[idxFtr].intValue();
+				codes[idxFtr] = featureCodes[tkn][idx];
+				weights[idxFtr] = featureWeights[tkn][idx];
+			}
+
+			// Exchange old arrays for the sorted ones.
+			featureCodes[tkn] = codes;
+			featureWeights[tkn] = weights;
+		}
+	}
+
+	/**
+	 * Comparator of feature codes based on an array of indexes.
+	 * 
+	 * @author eraldo
+	 * 
+	 */
+	private static class FeatureCodeComparator implements Comparator<Integer> {
+		/**
+		 * Base array of feature codes.
+		 */
+		private int[] featureCodes;
+
+		public FeatureCodeComparator(int[] featureCodes) {
+			this.featureCodes = featureCodes;
+		}
+
+		@Override
+		public int compare(Integer idx1, Integer idx2) {
+			int i1 = idx1.intValue();
+			int i2 = idx2.intValue();
+			if (featureCodes[i1] < featureCodes[i2])
+				return -1;
+			if (featureCodes[i1] > featureCodes[i2])
+				return 1;
+			return 0;
+		}
+	}
 }

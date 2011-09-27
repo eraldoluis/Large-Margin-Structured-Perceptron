@@ -1,4 +1,4 @@
-package br.pucrio.inf.learn.structlearning.discriminative.application.sequence;
+package br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data;
 
 import java.util.Arrays;
 import java.util.Collection;

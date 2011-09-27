@@ -3,6 +3,8 @@ package br.pucrio.inf.learn.structlearning.discriminative.application.sequence;
 import java.util.Set;
 import java.util.TreeSet;
 
+import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceInput;
+
 /**
  * 2nd order HMM based on dense arrays and with support for voted perceptron.
  * 
