@@ -129,7 +129,7 @@ public abstract class Hmm2ndOrder implements Model {
 	 * evaluating intermediate models during the execution of a training
 	 * algorithm).
 	 */
-	public abstract Object clone() throws CloneNotSupportedException;
+	public abstract Hmm2ndOrder clone() throws CloneNotSupportedException;
 
 	/**
 	 * Return the sum of the emission weights associated with the features in

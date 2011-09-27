@@ -581,7 +581,7 @@ public class TrainHmmMain implements Command {
 		LOG.info("Feature encoding size: " + featureEncoding.size());
 		LOG.info("Tagset size: " + stateEncoding.size());
 
-		// Parse algorithm type option.
+		// Algorithm type.
 		AlgorithmType algType = null;
 		String algTypeStr = cmdLine.getOptionValue("alg", "perc");
 		if (algTypeStr.equals("perc"))

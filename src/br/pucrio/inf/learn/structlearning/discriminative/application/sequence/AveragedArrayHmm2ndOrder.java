@@ -157,7 +157,7 @@ public class AveragedArrayHmm2ndOrder extends Hmm2ndOrder {
 	}
 
 	@Override
-	public Object clone() throws CloneNotSupportedException {
+	public AveragedArrayHmm2ndOrder clone() throws CloneNotSupportedException {
 		// Allocate an empty model.
 		AveragedArrayHmm2ndOrder copy = new AveragedArrayHmm2ndOrder(
 				getNumberOfStates(), emissions[0].length);

@@ -57,6 +57,6 @@ public interface Model {
 	 * @return
 	 * @throws CloneNotSupportedException
 	 */
-	Object clone() throws CloneNotSupportedException;
+	Model clone() throws CloneNotSupportedException;
 
 }

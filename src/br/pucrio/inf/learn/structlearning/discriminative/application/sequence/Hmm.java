@@ -133,7 +133,7 @@ public abstract class Hmm implements Model {
 	 * evaluating itermediate models during the execution of a training
 	 * algorithm).
 	 */
-	public abstract Object clone() throws CloneNotSupportedException;
+	public abstract Hmm clone() throws CloneNotSupportedException;
 
 	/**
 	 * Return the (kernelized) emission weights associated with the given token

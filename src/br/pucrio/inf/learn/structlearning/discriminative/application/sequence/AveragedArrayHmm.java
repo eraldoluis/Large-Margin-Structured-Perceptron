@@ -152,7 +152,7 @@ public class AveragedArrayHmm extends Hmm implements Cloneable {
 	}
 
 	@Override
-	public Object clone() throws CloneNotSupportedException {
+	public AveragedArrayHmm clone() throws CloneNotSupportedException {
 		// Allocate an empty model.
 		AveragedArrayHmm copy = new AveragedArrayHmm(getNumberOfStates(),
 				emissions[0].length);
