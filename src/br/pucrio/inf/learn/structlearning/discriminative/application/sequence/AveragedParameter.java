@@ -6,7 +6,7 @@ package br.pucrio.inf.learn.structlearning.discriminative.application.sequence;
  * @author eraldof
  * 
  */
-public class AveragedParameter implements Comparable<AveragedParameter>,
+public final class AveragedParameter implements Comparable<AveragedParameter>,
 		Cloneable {
 
 	/**

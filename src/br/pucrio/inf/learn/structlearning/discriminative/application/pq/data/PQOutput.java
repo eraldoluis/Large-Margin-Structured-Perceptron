@@ -3,25 +3,25 @@ package br.pucrio.inf.learn.structlearning.discriminative.application.pq.data;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 
 /**
- * Output structure for person-quotation.
+ * Output structure for person-quotation. A vector of people, one for each
+ * quotation.
  * 
  * @author eraldo
  * 
  */
 public class PQOutput implements ExampleOutput {
-
-	/**
-	 * Array with the index of the person associated with each quotation.
+	/*
+	 * Person index for each quotation.
 	 */
-	private int[] person;
+	private int[] personByQuotation;
 
 	public PQOutput(int numberOfQuotations) {
-		person = new int[numberOfQuotations];
+		personByQuotation = new int[numberOfQuotations];
 	}
 
 	@Override
-	public PQOutput createNewObject() {
-		return new PQOutput(person.length);
+	public ExampleOutput createNewObject() {
+		return new PQOutput(personByQuotation.length);
 	}
 
 	/**
@@ -31,7 +31,7 @@ public class PQOutput implements ExampleOutput {
 	 * @param indexPerson
 	 */
 	public void setPerson(int indexQuotation, int indexPerson) {
-		person[indexQuotation] = indexPerson;
+		personByQuotation[indexQuotation] = indexPerson;
 	}
 
 }

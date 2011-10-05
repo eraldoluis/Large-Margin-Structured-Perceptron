@@ -46,6 +46,11 @@ public class Dataset {
 	public static final int UNKNOWN_FEATURE_CODE = -30;
 
 	/**
+	 * Indicate whether this is a training dataset or not.
+	 */
+	protected boolean training;
+
+	/**
 	 * Map string feature values to integer values (codes).
 	 */
 	protected FeatureEncoding<String> featureEncoding;
@@ -102,6 +107,7 @@ public class Dataset {
 		this.featureEncoding = featureEncoding;
 		this.stateEncoding = stateEncoding;
 		this.skipCompletelyNonAnnotatedExamples = false;
+		this.training = false;
 	}
 
 	public Dataset(FeatureEncoding<String> featureEncoding,
@@ -110,6 +116,17 @@ public class Dataset {
 		this.stateEncoding = stateEncoding;
 		this.nonAnnotatedStateLabel = nonAnnotatedStateLabel;
 		this.skipCompletelyNonAnnotatedExamples = false;
+		this.training = false;
+	}
+
+	public Dataset(FeatureEncoding<String> featureEncoding,
+			FeatureEncoding<String> stateEncoding,
+			String nonAnnotatedStateLabel, boolean training) {
+		this.featureEncoding = featureEncoding;
+		this.stateEncoding = stateEncoding;
+		this.nonAnnotatedStateLabel = nonAnnotatedStateLabel;
+		this.skipCompletelyNonAnnotatedExamples = false;
+		this.training = training;
 	}
 
 	/**
@@ -403,9 +420,21 @@ public class Dataset {
 
 		// Store the loaded example.
 		if (!skipCompletelyNonAnnotatedExamples || someAnnotatedToken) {
-			sequenceInputs.add(new ArraySequenceInput(id, sequenceInputAsList));
-			sequenceOutputs.add(new ArraySequenceOutput(sequenceOutputAsList,
-					sequenceOutputAsList.size()));
+			if (training) {
+				/*
+				 * Training examples must store internally their indexes in the
+				 * array of training examples.
+				 */
+				sequenceInputs.add(new ArraySequenceInput(id, sequenceInputs
+						.size(), sequenceInputAsList));
+				sequenceOutputs.add(new ArraySequenceOutput(
+						sequenceOutputAsList, sequenceOutputAsList.size()));
+			} else {
+				sequenceInputs.add(new ArraySequenceInput(id,
+						sequenceInputAsList));
+				sequenceOutputs.add(new ArraySequenceOutput(
+						sequenceOutputAsList, sequenceOutputAsList.size()));
+			}
 			return true;
 		}
 

@@ -37,4 +37,9 @@ public class PQInput implements ExampleInput {
 		// TODO only to use kernel functions
 	}
 
+	@Override
+	public int getTrainingIndex() {
+		return -1;
+	}
+
 }
