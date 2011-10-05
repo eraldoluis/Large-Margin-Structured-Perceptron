@@ -145,6 +145,11 @@ public class TrainHmmMain implements Command {
 								+ "poly3 (3-degree polynomial function), "
 								+ "poly4 (4-degree polynomial function)")
 				.create());
+		options.addOption(OptionBuilder
+				.withLongOpt("kcache")
+				.withDescription(
+						"Indicate the use of the kernel function cache")
+				.create());
 		options.addOption(OptionBuilder.withLongOpt("incorpus").isRequired()
 				.withArgName("input corpus").hasArg()
 				.withDescription("Input corpus file name.").create('i'));
@@ -383,8 +388,10 @@ public class TrainHmmMain implements Command {
 		// Print the list of options along the values provided by the user.
 		CommandLineOptionsUtil.printOptionValues(cmdLine, options);
 
-		// Get the options given in the command-line or the corresponding
-		// default values.
+		/*
+		 * Get the options given in the command-line or the corresponding
+		 * default values.
+		 */
 		String[] inputCorpusFileNames = cmdLine.getOptionValues("incorpus");
 		String additionalCorpusFileName = cmdLine.getOptionValue("inadd");
 		String modelFileName = cmdLine.getOptionValue("model");
@@ -435,15 +442,19 @@ public class TrainHmmMain implements Command {
 			// Create (or load) the feature value encoding.
 			if (encodingFile != null) {
 
-				// Load a map-based encoding from the given file. Thus, the
-				// feature values present in this file will be encoded
-				// unambiguously but any unknown value will be ignored.
+				/*
+				 * Load a map-based encoding from the given file. Thus, the
+				 * feature values present in this file will be encoded
+				 * unambiguously but any unknown value will be ignored.
+				 */
 				featureEncoding = new StringMapEncoding(encodingFile);
 
 			}
 
-			// Additional feature encoding (or the only one, if a fixed encoding
-			// file is not given).
+			/*
+			 * Additional feature encoding (or the only one, if a fixed encoding
+			 * file is not given).
+			 */
 			if (murmur != null) {
 
 				// Create a feature encoding based on the Murmur3 hash function.
@@ -495,18 +506,22 @@ public class TrainHmmMain implements Command {
 			if (featureEncoding == null) {
 
 				if (additionalFeatureEncoding == null)
-					// No encoding given by the user. Create an empty and
-					// flexible feature encoding that will encode unambiguously
-					// all feature values. If the training dataset is big, this
-					// may not fit in memory.
+					/*
+					 * No encoding given by the user. Create an empty and
+					 * flexible feature encoding that will encode unambiguously
+					 * all feature values. If the training dataset is big, this
+					 * may not fit in memory.
+					 */
 					featureEncoding = new StringMapEncoding();
 				else
 					// Only one feature encoding given.
 					featureEncoding = additionalFeatureEncoding;
 
 			} else if (additionalFeatureEncoding != null)
-				// The user specified two encodings. Combine them in one hybrid
-				// encoding.
+				/*
+				 * The user specified two encodings. Combine them in one hybrid
+				 * encoding.
+				 */
 				featureEncoding = new HybridStringEncoding(featureEncoding,
 						additionalFeatureEncoding);
 
@@ -521,13 +536,15 @@ public class TrainHmmMain implements Command {
 				// State set given in a file.
 				stateEncoding = new StringMapEncoding(tagsetFileName);
 			else
-				// State set automatically retrieved from training data (codes
-				// depend on order of appereance of the labels).
+				/*
+				 * State set automatically retrieved from training data (codes
+				 * depend on order of appereance of the labels).
+				 */
 				stateEncoding = new StringMapEncoding();
 
 			// Get the list of input paths and concatenate the corpora in them.
 			inputCorpusA = new Dataset(featureEncoding, stateEncoding,
-					nonAnnotatedLabel);
+					nonAnnotatedLabel, true);
 			inputCorpusA
 					.setSkipCompletelyNonAnnotatedExamples(skipCompletelyNonAnnotatedExamples);
 
@@ -622,6 +639,15 @@ public class TrainHmmMain implements Command {
 			}
 		}
 
+		// Kernel function cache.
+		boolean kernelCache = cmdLine.hasOption("kcache");
+		if (kernelCache) {
+			if (algType != AlgorithmType.DUAL_PERCEPTRON) {
+				LOG.error("kcache requires alg=dual");
+				System.exit(1);
+			}
+		}
+
 		// Structure.
 		LOG.info("Allocating initial model...");
 		Model model = null;
@@ -637,11 +663,14 @@ public class TrainHmmMain implements Command {
 				// Ordinary HMM model.
 				model = new AveragedArrayHmm(inputCorpusA.getNumberOfStates(),
 						inputCorpusA.getNumberOfSymbols());
-			else
+			else {
 				// Dual HMM model.
 				model = new DualHmm(inputCorpusA.getInputs(),
 						inputCorpusA.getOutputs(),
 						inputCorpusA.getNumberOfStates(), polyKernelExponent);
+				// Activate or deactivate kernel function cache.
+				((DualHmm) model).setActivateKernelFunctionCache(kernelCache);
+			}
 
 		} else if (structure.equals("hmm2")) {
 
@@ -795,8 +824,10 @@ public class TrainHmmMain implements Command {
 		}
 
 		if (nonAnnotatedLabel != null) {
-			// Signal the presence of partially-labeled examples to the
-			// algorithm.
+			/*
+			 * Signal the presence of partially-labeled examples to the
+			 * algorithm.
+			 */
 			alg.setPartiallyAnnotatedExamples(true);
 		}
 
@@ -859,8 +890,10 @@ public class TrainHmmMain implements Command {
 		} else {
 			// Train on two datasets.
 			if (weightAdditionalCorpus < 0d)
-				// If no different weight was given for the B dataset, then use
-				// a weight proportional to the sizes of the datasets.
+				/*
+				 * If no different weight was given for the B dataset, then use
+				 * a weight proportional to the sizes of the datasets.
+				 */
 				weightAdditionalCorpus = ((double) inputCorpusB
 						.getNumberOfExamples())
 						/ (inputCorpusA.getNumberOfExamples() + inputCorpusB
@@ -1062,10 +1095,12 @@ public class TrainHmmMain implements Command {
 					// Clone the current model to average it, if necessary.
 					hmm = (Model) hmm.clone();
 
-					// The averaged perceptron averages the final model only in
-					// the end of the training process, hence we need to average
-					// the temporary model here in order to have a better
-					// picture of its current (intermediary) performance.
+					/*
+					 * The averaged perceptron averages the final model only in
+					 * the end of the training process, hence we need to average
+					 * the temporary model here in order to have a better
+					 * picture of its current (intermediary) performance.
+					 */
 					hmm.average(iteration);
 
 				} catch (CloneNotSupportedException e) {

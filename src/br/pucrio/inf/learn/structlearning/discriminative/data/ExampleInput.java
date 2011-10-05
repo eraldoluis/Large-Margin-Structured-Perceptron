@@ -16,6 +16,16 @@ public interface ExampleInput {
 	public String getId();
 
 	/**
+	 * If this example input structure is part of a training dataset, return the
+	 * index within the array of training examples. Otherwise, return -1. This
+	 * method is used to speedup the training procedure of dual methods that use
+	 * kernel functions.
+	 * 
+	 * @return
+	 */
+	public int getTrainingIndex();
+
+	/**
 	 * Create an output object that is compatible with this input, i.e., it can
 	 * be used to store an output to this input.
 	 * 

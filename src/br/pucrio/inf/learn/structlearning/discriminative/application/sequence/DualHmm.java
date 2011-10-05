@@ -1,8 +1,11 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.sequence;
 
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.Map;
+import java.util.PriorityQueue;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.Map.Entry;
@@ -23,11 +26,6 @@ import br.pucrio.inf.learn.util.HashCodeUtil;
  * 
  */
 public class DualHmm extends Hmm implements DualModel {
-
-	/**
-	 * Tolerance to a number be considered zero.
-	 */
-	public static final double ZERO = 1e-6;
 
 	/**
 	 * Number of possible states.
@@ -66,13 +64,19 @@ public class DualHmm extends Hmm implements DualModel {
 	 * token in the input patterns, there is an array of counters (alphas) which
 	 * include a counter for each possible state.
 	 */
-	private Map<DualEmissionKey, AveragedParameter[]> emissions;
+	private Map<DualEmissionKey, AveragedParameter[]> dualEmissionVariables;
 
 	/**
 	 * Set of parameters updated in the current iteration. It is used to speedup
 	 * the averaged (or voted) perceptron.
 	 */
 	private Set<AveragedParameter> updatedParameters;
+
+	/**
+	 * Kernel function cache that stores previous calculated kernel function
+	 * values.
+	 */
+	private Map<DualEmissionKeyPair, Double> kernelFunctionCache;
 
 	/**
 	 * Create a dual HMM for the given input/output patterns with the given
@@ -85,16 +89,20 @@ public class DualHmm extends Hmm implements DualModel {
 	 */
 	public DualHmm(final SequenceInput[] inputs,
 			final SequenceOutput[] outputs, int numberOfStates, int exponent) {
-		// Input/output patterns and number of states.
+		// Input/output patterns.
 		this.inputs = inputs;
 		this.outputs = outputs;
+
+		// Total number of states.
 		this.numberOfStates = numberOfStates;
+
+		// Polynomial kernel exponent.
 		this.exponent = exponent;
 
 		// Allocate data structures.
 		transitions = new AveragedParameter[numberOfStates][numberOfStates];
 		initialStates = new AveragedParameter[numberOfStates];
-		emissions = new HashMap<DualHmm.DualEmissionKey, AveragedParameter[]>();
+		dualEmissionVariables = new HashMap<DualHmm.DualEmissionKey, AveragedParameter[]>();
 
 		for (int state1 = 0; state1 < numberOfStates; ++state1) {
 			initialStates[state1] = new AveragedParameter();
@@ -102,6 +110,7 @@ public class DualHmm extends Hmm implements DualModel {
 				transitions[state1][state2] = new AveragedParameter();
 		}
 
+		// Updated parameters in each iteration.
 		this.updatedParameters = new TreeSet<AveragedParameter>();
 	}
 
@@ -116,7 +125,54 @@ public class DualHmm extends Hmm implements DualModel {
 		// Input/output patterns.
 		this.inputs = inputs;
 		this.outputs = outputs;
+
+		// Updated parameters in each iteration.
 		this.updatedParameters = new TreeSet<AveragedParameter>();
+	}
+
+	/**
+	 * The sub-classes must implement this to ease some use cases (e.g.,
+	 * evaluating itermediate models during the execution of a training
+	 * algorithm).
+	 */
+	@SuppressWarnings("unchecked")
+	public DualHmm clone() throws CloneNotSupportedException {
+		DualHmm copy = new DualHmm(inputs, outputs);
+		copy.numberOfStates = numberOfStates;
+		copy.exponent = exponent;
+		copy.initialStates = initialStates.clone();
+		copy.transitions = transitions.clone();
+
+		// Deep copy of the initial state and transition arrays.
+		for (int state1 = 0; state1 < numberOfStates; ++state1) {
+			copy.initialStates[state1] = initialStates[state1].clone();
+			copy.transitions[state1] = transitions[state1].clone();
+			for (int state2 = 0; state2 < numberOfStates; ++state2)
+				copy.transitions[state1][state2] = transitions[state1][state2]
+						.clone();
+		}
+
+		// Shallow copy of the dual variables map.
+		copy.dualEmissionVariables = (Map<DualEmissionKey, AveragedParameter[]>) ((HashMap<DualEmissionKey, AveragedParameter[]>) dualEmissionVariables)
+				.clone();
+
+		// Deep copy of the map *values* (the keys are not cloned).
+		for (Entry<DualEmissionKey, AveragedParameter[]> entry : copy.dualEmissionVariables
+				.entrySet()) {
+			AveragedParameter[] clonedArray = entry.getValue().clone();
+			entry.setValue(clonedArray);
+			for (int state = 0; state < numberOfStates; ++state)
+				clonedArray[state] = clonedArray[state].clone();
+		}
+
+		if (kernelFunctionCache != null)
+			/*
+			 * The copy will use kernel function cache only if this object does
+			 * so.
+			 */
+			copy.kernelFunctionCache = new HashMap<DualHmm.DualEmissionKeyPair, Double>();
+
+		return copy;
 	}
 
 	/**
@@ -126,7 +182,7 @@ public class DualHmm extends Hmm implements DualModel {
 	 * @return
 	 */
 	public int getNumberOfSupportVectors() {
-		return emissions.size();
+		return dualEmissionVariables.size();
 	}
 
 	/**
@@ -185,20 +241,65 @@ public class DualHmm extends Hmm implements DualModel {
 		transitions[fromState][toState].set(value);
 	}
 
+	/**
+	 * Activate or deactivate the kernel function cache for this model.
+	 * 
+	 * @param activate
+	 */
+	public void setActivateKernelFunctionCache(boolean activate) {
+		if (activate) {
+			if (kernelFunctionCache == null || kernelFunctionCache.size() > 0)
+				kernelFunctionCache = new HashMap<DualHmm.DualEmissionKeyPair, Double>();
+		} else
+			kernelFunctionCache = null;
+	}
+
 	@Override
 	public void getTokenEmissionWeights(SequenceInput input, int token,
 			double[] weights) {
 		// Clear weights array.
 		Arrays.fill(weights, 0d);
 
-		for (Entry<DualEmissionKey, AveragedParameter[]> alphaEntry : emissions
+		/*
+		 * Index of the given sequence within the training dataset, if it is
+		 * part of one.
+		 */
+		int trainingIndex = input.getTrainingIndex();
+
+		// Use kernel function cache?
+		boolean cache = (kernelFunctionCache != null && trainingIndex >= 0);
+
+		for (Entry<DualEmissionKey, AveragedParameter[]> alphaEntry : dualEmissionVariables
 				.entrySet()) {
 			DualEmissionKey key = alphaEntry.getKey();
+
 			/*
 			 * Evaluate the kernel function between the current support vector
 			 * and the given token.
 			 */
-			double k = kernel(inputs[key.sequenceId], key.token, input, token);
+			double k;
+			if (cache) {
+				/*
+				 * Kernel function cache is activated and the given sequence is
+				 * a training sequence. So, query the cache for the desired
+				 * value.
+				 */
+				DualEmissionKeyPair keyPair = new DualEmissionKeyPair(key,
+						new DualEmissionKey(trainingIndex, token));
+				Double kCached = kernelFunctionCache.get(keyPair);
+				if (kCached == null) {
+					/*
+					 * If the desired value is not present in the cache, we
+					 * calculate it and put it in the cache.
+					 */
+					kCached = kernel(inputs[key.sequenceId], key.token, input,
+							token);
+					kernelFunctionCache.put(keyPair, kCached);
+				}
+
+				k = kCached;
+			} else
+				k = kernel(inputs[key.sequenceId], key.token, input, token);
 
 			// Calculate the emission weight associated with each state.
 			// TODO it can be worthy to represent the list of states sparsely.
@@ -282,6 +383,58 @@ public class DualHmm extends Hmm implements DualModel {
 		updatedParameters.add(transitions[fromState][toState]);
 	}
 
+	private int maxAlphaEntries = 4000;
+	private PriorityQueue<DualEmissionComparableByAlphaEntropy> alphaPriorityQueue = new PriorityQueue<DualEmissionComparableByAlphaEntropy>(
+			maxAlphaEntries);
+
+	private static class DualEmissionComparableByAlphaEntropy implements
+			Comparable<DualEmissionComparableByAlphaEntropy> {
+
+		private final DualEmissionKey key;
+
+		private double entropy;
+
+		public DualEmissionComparableByAlphaEntropy(DualEmissionKey key) {
+			this.key = key;
+		}
+
+		public double updateEntropy(AveragedParameter[] alphas) {
+			// Normalization factor.
+			double sum = 0d;
+			for (AveragedParameter alpha : alphas)
+				sum += Math.exp(alpha.get());
+
+			// Alphas entropy.
+			entropy = 0d;
+			for (AveragedParameter alpha : alphas) {
+				double p = Math.exp(alpha.get()) / sum;
+				entropy -= p * Math.log(p);
+			}
+
+			return entropy;
+		}
+
+		@Override
+		public int compareTo(DualEmissionComparableByAlphaEntropy o) {
+			// Inverse order by entropy.
+			if (entropy > o.entropy)
+				return -1;
+			if (entropy < o.entropy)
+				return 1;
+			return 0;
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (obj == null)
+				return false;
+			if (getClass() != obj.getClass())
+				return false;
+			return key.equals(((DualEmissionComparableByAlphaEntropy) obj).key);
+		}
+
+	}
+
 	/**
 	 * Update emission dual parameters (alphas) for the sequence and token by
 	 * comparing with the given predicted output.
@@ -295,18 +448,35 @@ public class DualHmm extends Hmm implements DualModel {
 	protected void updateEmissionParameters(int sequenceId, int token,
 			int labelCorrect, int labelPredicted, double learnRate) {
 		DualEmissionKey key = new DualEmissionKey(sequenceId, token);
-		AveragedParameter[] alphas = emissions.get(key);
+		AveragedParameter[] alphas = dualEmissionVariables.get(key);
+		DualEmissionComparableByAlphaEntropy entropyKey = new DualEmissionComparableByAlphaEntropy(
+				key);
 		if (alphas == null) {
+			/*
+			 * Limit the quantity of active support vectors by removing the
+			 * oldest one.
+			 */
+			if (alphaPriorityQueue.size() == maxAlphaEntries) {
+				DualEmissionComparableByAlphaEntropy smallestKey = alphaPriorityQueue
+						.poll();
+				dualEmissionVariables.remove(smallestKey.key);
+				alphaPriorityQueue.remove(smallestKey);
+			}
+
 			alphas = new AveragedParameter[numberOfStates];
 			for (int state = 0; state < numberOfStates; ++state)
 				alphas[state] = new AveragedParameter();
-			emissions.put(key, alphas);
-		}
+			dualEmissionVariables.put(key, alphas);
+		} else
+			alphaPriorityQueue.remove(entropyKey);
 
 		alphas[labelCorrect].update(learnRate);
 		alphas[labelPredicted].update(-learnRate);
 		updatedParameters.add(alphas[labelCorrect]);
 		updatedParameters.add(alphas[labelPredicted]);
+
+		entropyKey.updateEntropy(alphas);
+		alphaPriorityQueue.add(entropyKey);
 	}
 
 	@Override
@@ -387,44 +557,6 @@ public class DualHmm extends Hmm implements DualModel {
 		return loss;
 	}
 
-	/**
-	 * The sub-classes must implement this to ease some use cases (e.g.,
-	 * evaluating itermediate models during the execution of a training
-	 * algorithm).
-	 */
-	@SuppressWarnings("unchecked")
-	public DualHmm clone() throws CloneNotSupportedException {
-		DualHmm copy = new DualHmm(inputs, outputs);
-		copy.numberOfStates = numberOfStates;
-		copy.exponent = exponent;
-		copy.initialStates = initialStates.clone();
-		copy.transitions = transitions.clone();
-
-		// Deep copy of the initial state and transition arrays.
-		for (int state1 = 0; state1 < numberOfStates; ++state1) {
-			copy.initialStates[state1] = initialStates[state1].clone();
-			copy.transitions[state1] = transitions[state1].clone();
-			for (int state2 = 0; state2 < numberOfStates; ++state2)
-				copy.transitions[state1][state2] = transitions[state1][state2]
-						.clone();
-		}
-
-		// Shallow copy of the dual variables map.
-		copy.emissions = (Map<DualEmissionKey, AveragedParameter[]>) ((HashMap<DualEmissionKey, AveragedParameter[]>) emissions)
-				.clone();
-
-		// Deep copy of the map *values* (the keys are not cloned).
-		for (Entry<DualEmissionKey, AveragedParameter[]> entry : copy.emissions
-				.entrySet()) {
-			AveragedParameter[] clonedArray = entry.getValue().clone();
-			entry.setValue(clonedArray);
-			for (int state = 0; state < numberOfStates; ++state)
-				clonedArray[state] = clonedArray[state].clone();
-		}
-
-		return copy;
-	}
-
 	@Override
 	public void sumUpdates(int iteration) {
 		for (AveragedParameter param : updatedParameters)
@@ -442,7 +574,7 @@ public class DualHmm extends Hmm implements DualModel {
 		}
 
 		// Deep copy of the map *values* (the keys are not cloned).
-		for (Entry<DualEmissionKey, AveragedParameter[]> entry : emissions
+		for (Entry<DualEmissionKey, AveragedParameter[]> entry : dualEmissionVariables
 				.entrySet()) {
 			AveragedParameter[] alphas = entry.getValue();
 			for (int state = 0; state < numberOfStates; ++state)
@@ -478,7 +610,8 @@ public class DualHmm extends Hmm implements DualModel {
 	 * @author eraldo
 	 * 
 	 */
-	private static final class DualEmissionKey {
+	private static final class DualEmissionKey implements
+			Comparable<DualEmissionKey> {
 
 		/**
 		 * The index within the array of input sequences in the
@@ -520,6 +653,74 @@ public class DualHmm extends Hmm implements DualModel {
 			return new DualEmissionKey(sequenceId, token);
 		}
 
+		@Override
+		public int compareTo(DualEmissionKey o) {
+			if (sequenceId < o.sequenceId)
+				return -1;
+			if (sequenceId > o.sequenceId)
+				return 1;
+
+			// Sequence IDs are equal.
+			if (token < o.token)
+				return -1;
+			if (token > o.token)
+				return 1;
+
+			// Pairs (sequence ID, token) are equal.
+			return 0;
+		}
 	}
 
+	/**
+	 * Pair of <code>DualEmissionKey</code>s used as the key in the cache of
+	 * kernel function values.
+	 * 
+	 * @author eraldo
+	 * 
+	 */
+	private static final class DualEmissionKeyPair {
+
+		/**
+		 * Key with smaller index.
+		 */
+		private final DualEmissionKey key1;
+
+		/**
+		 * Key with bigger index.
+		 */
+		private final DualEmissionKey key2;
+
+		/**
+		 * Create a key from the given pair.
+		 * 
+		 * @param key1
+		 * @param key2
+		 */
+		public DualEmissionKeyPair(DualEmissionKey key1, DualEmissionKey key2) {
+			this.key1 = key1;
+			this.key2 = key2;
+		}
+
+		@Override
+		public int hashCode() {
+			return HashCodeUtil.hash(key1.hashCode(), key2.hashCode());
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (obj == null)
+				return false;
+			if (getClass() != obj.getClass())
+				return false;
+
+			// Same type.
+			DualEmissionKeyPair pair = (DualEmissionKeyPair) obj;
+			return key1.equals(pair.key1) && key2.equals(pair.key2);
+		}
+
+		@Override
+		public DualEmissionKeyPair clone() throws CloneNotSupportedException {
+			return new DualEmissionKeyPair(key1, key2);
+		}
+	}
 }

@@ -27,6 +27,12 @@ public class ArraySequenceInput implements SequenceInput {
 	private String id;
 
 	/**
+	 * Index of this sequence input within the array of training examples, when
+	 * it is a training example. Otherwise, this value is -1.
+	 */
+	private int trainingIndex;
+
+	/**
 	 * Feature codes within this example. They are organized by tokens.
 	 */
 	private int[][] featureCodes;
@@ -39,10 +45,8 @@ public class ArraySequenceInput implements SequenceInput {
 
 	/**
 	 * Create a new sequence using the given ID and the given list of feature
-	 * codes.
-	 * 
-	 * The feature weights are assumed to be one for features present in the
-	 * list and zero otherwise.
+	 * codes. The feature weights are assumed to be one for features present in
+	 * the list and zero otherwise.
 	 * 
 	 * @param id
 	 * @param tokens
@@ -50,6 +54,7 @@ public class ArraySequenceInput implements SequenceInput {
 	public ArraySequenceInput(String id,
 			Collection<? extends Collection<Integer>> tokens) {
 		this.id = id;
+		this.trainingIndex = -1;
 		this.featureCodes = new int[tokens.size()][];
 		this.featureWeights = new double[tokens.size()][];
 		int tknIdx = 0;
@@ -66,6 +71,31 @@ public class ArraySequenceInput implements SequenceInput {
 
 			++tknIdx;
 		}
+	}
+
+	/**
+	 * Create a new training sequence using the given ID, the given training
+	 * index and the given list of feature codes. The feature weights are
+	 * assumed to be one for features present in the list and zero otherwise.
+	 * 
+	 * @param id
+	 * @param trainingIndex
+	 * @param tokens
+	 */
+	public ArraySequenceInput(String id, int trainingIndex,
+			Collection<? extends Collection<Integer>> tokens) {
+		this(id, tokens);
+		this.trainingIndex = trainingIndex;
+	}
+
+	@Override
+	public String getId() {
+		return id;
+	}
+
+	@Override
+	public int getTrainingIndex() {
+		return trainingIndex;
 	}
 
 	@Override
@@ -111,11 +141,6 @@ public class ArraySequenceInput implements SequenceInput {
 	@Override
 	public ExampleOutput createOutput() {
 		return new ArraySequenceOutput(featureCodes.length);
-	}
-
-	@Override
-	public String getId() {
-		return id;
 	}
 
 	/**
@@ -173,7 +198,6 @@ public class ArraySequenceInput implements SequenceInput {
 
 	@Override
 	public void sortFeatureValues() {
-		FeatureCodeComparator comp = new FeatureCodeComparator(null);
 		for (int tkn = 0; tkn < featureCodes.length; ++tkn) {
 			int numFtrs = featureCodes[tkn].length;
 
@@ -183,8 +207,7 @@ public class ArraySequenceInput implements SequenceInput {
 				indexes[idxFtr] = idxFtr;
 
 			// Sort index array based on feature codes.
-			comp.featureCodes = featureCodes[tkn];
-			Arrays.sort(indexes, comp);
+			Arrays.sort(indexes, new FeatureCodeComparator(featureCodes[tkn]));
 
 			// Sort codes and weights arrays according to the index array.
 			int[] codes = new int[numFtrs];
@@ -211,7 +234,7 @@ public class ArraySequenceInput implements SequenceInput {
 		/**
 		 * Base array of feature codes.
 		 */
-		private int[] featureCodes;
+		private final int[] featureCodes;
 
 		public FeatureCodeComparator(int[] featureCodes) {
 			this.featureCodes = featureCodes;

@@ -21,6 +21,11 @@ import java.lang.reflect.Array;
 public final class HashCodeUtil {
 
 	/**
+	 * Prime number to use as default seed.
+	 */
+	private static final int PRIME_SEED = 37;
+
+	/**
 	 * List of "good" sizes for a hash table (almost prime). The list is
 	 * generated from the number 89 and iteratively doind expansions of the form
 	 * 2n+1.
@@ -175,10 +180,8 @@ public final class HashCodeUtil {
 		return hash(SEED, aObject);
 	}
 
-	private static final int fODD_PRIME_NUMBER = 37;
-
 	private static int firstTerm(int aSeed) {
-		return fODD_PRIME_NUMBER * aSeed;
+		return PRIME_SEED * aSeed;
 	}
 
 	/**
