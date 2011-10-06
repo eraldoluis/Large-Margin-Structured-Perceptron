@@ -11,27 +11,31 @@ import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
  */
 public class PQOutput implements ExampleOutput {
 	/*
-	 * Person index for each quotation.
+	 * Person index.
 	 */
-	private int[] personByQuotation;
+	private int person;
 
-	public PQOutput(int numberOfQuotations) {
-		personByQuotation = new int[numberOfQuotations];
+	
+	public PQOutput() {
+		this.person = -1;
+	}
+	
+	public PQOutput(int indexPerson) {
+		this.person = indexPerson;
 	}
 
 	@Override
 	public ExampleOutput createNewObject() {
-		return new PQOutput(personByQuotation.length);
+		return new PQOutput();
 	}
 
-	/**
-	 * Associate the given person with the given quotation.
-	 * 
-	 * @param indexQuotation
-	 * @param indexPerson
-	 */
-	public void setPerson(int indexQuotation, int indexPerson) {
-		personByQuotation[indexQuotation] = indexPerson;
+	public void setPerson(int indexPerson) {
+		this.person = indexPerson;
 	}
+	
+	public int getPerson() {
+		return this.person;
+	}
+
 
 }
