@@ -145,10 +145,16 @@ public class TrainHmmMain implements Command {
 								+ "poly3 (3-degree polynomial function), "
 								+ "poly4 (4-degree polynomial function)")
 				.create());
+		// options.addOption(OptionBuilder
+		// .withLongOpt("kcache")
+		// .withDescription(
+		// "Indicate the use of the kernel function cache")
+		// .create());
 		options.addOption(OptionBuilder
-				.withLongOpt("kcache")
+				.withLongOpt("distill")
 				.withDescription(
-						"Indicate the use of the kernel function cache")
+						"Turn on the distillation procedure to minimize "
+								+ "the number of support vectors on dual algorithms")
 				.create());
 		options.addOption(OptionBuilder.withLongOpt("incorpus").isRequired()
 				.withArgName("input corpus").hasArg()
@@ -639,14 +645,14 @@ public class TrainHmmMain implements Command {
 			}
 		}
 
-		// Kernel function cache.
-		boolean kernelCache = cmdLine.hasOption("kcache");
-		if (kernelCache) {
-			if (algType != AlgorithmType.DUAL_PERCEPTRON) {
-				LOG.error("kcache requires alg=dual");
-				System.exit(1);
-			}
-		}
+		// // Kernel function cache.
+		// boolean kernelCache = cmdLine.hasOption("kcache");
+		// if (kernelCache) {
+		// if (algType != AlgorithmType.DUAL_PERCEPTRON) {
+		// LOG.error("kcache requires alg=dual");
+		// System.exit(1);
+		// }
+		// }
 
 		// Structure.
 		LOG.info("Allocating initial model...");
@@ -668,8 +674,9 @@ public class TrainHmmMain implements Command {
 				model = new DualHmm(inputCorpusA.getInputs(),
 						inputCorpusA.getOutputs(),
 						inputCorpusA.getNumberOfStates(), polyKernelExponent);
-				// Activate or deactivate kernel function cache.
-				((DualHmm) model).setActivateKernelFunctionCache(kernelCache);
+				// // Activate or deactivate kernel function cache.
+				// ((DualHmm)
+				// model).setActivateKernelFunctionCache(kernelCache);
 			}
 
 		} else if (structure.equals("hmm2")) {
@@ -838,6 +845,16 @@ public class TrainHmmMain implements Command {
 		if (reportProgressRate != null)
 			// Progress report rate.
 			alg.setReportProgressRate(reportProgressRate);
+
+		// Activate distillation process if required.
+		if (cmdLine.hasOption("distill")) {
+			if (algType == AlgorithmType.DUAL_PERCEPTRON) {
+				((DualLossAugmentedPerceptron) alg).setDistill(true);
+			} else {
+				System.err.println("Option distill requires alg=dual");
+				System.exit(1);
+			}
+		}
 
 		// Ignore features not seen in the training corpus.
 		inputCorpusA.getFeatureEncoding().setReadOnly(true);
@@ -1131,8 +1148,11 @@ public class TrainHmmMain implements Command {
 			if (!dual)
 				return;
 			DualHmm dualHmm = (DualHmm) curModel;
-			LOG.info(String.format("Iteration: %d | Loss: %f | # SVs: %d",
-					iteration, loss, dualHmm.getNumberOfSupportVectors()));
+			LOG.info(String.format(
+					"Iteration: %d | Loss: %f | # Exs w/ SVs: %d | # SVs: %d",
+					iteration, loss,
+					dualHmm.getNumberOfExamplesWithSupportVector(),
+					dualHmm.getNumberOfSupportVectors()));
 		}
 	}
 }

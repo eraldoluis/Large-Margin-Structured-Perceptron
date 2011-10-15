@@ -72,6 +72,11 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 	protected ExampleOutput[] outputs;
 
 	/**
+	 * Cache of predicted output structures used by the inference algorithms.
+	 */
+	protected ExampleOutput[] predicteds;
+
+	/**
 	 * Index of the training example in the current iteration, within the
 	 * examples array given for the training method.
 	 */
@@ -245,7 +250,7 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 		this.outputs = outputs;
 
 		// Allocate predicted output objects for the training example.
-		ExampleOutput[] predicteds = new ExampleOutput[outputs.length];
+		predicteds = new ExampleOutput[outputs.length];
 		for (int idx = 0; idx < inputs.length; ++idx)
 			predicteds[idx] = inputs[idx].createOutput();
 
@@ -361,9 +366,9 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 			FeatureEncoding<String> stateEncoding) {
 
 		// Allocate predicted output objects for the training examples.
-		ExampleOutput[] predictedsA = new ExampleOutput[outputsA.length];
+		predicteds = new ExampleOutput[outputsA.length];
 		for (int idx = 0; idx < inputsA.length; ++idx)
-			predictedsA[idx] = inputsA[idx].createOutput();
+			predicteds[idx] = inputsA[idx].createOutput();
 		ExampleOutput[] predictedsB = new ExampleOutput[outputsB.length];
 		for (int idx = 0; idx < inputsB.length; ++idx)
 			predictedsB[idx] = inputsB[idx].createOutput();
@@ -389,7 +394,7 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 				epochWeightA = Math.max(weightA, 1d - epoch * weightStep);
 
 			// Train one epoch and get the accumulated loss.
-			double loss = trainOneEpoch(inputsA, outputsA, predictedsA,
+			double loss = trainOneEpoch(inputsA, outputsA, predicteds,
 					epochWeightA, inputsB, outputsB, predictedsB,
 					featureEncoding, stateEncoding);
 

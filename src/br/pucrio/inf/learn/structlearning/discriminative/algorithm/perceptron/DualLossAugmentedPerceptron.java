@@ -24,6 +24,16 @@ import br.pucrio.inf.learn.util.DebugUtil;
  */
 public class DualLossAugmentedPerceptron extends LossAugmentedPerceptron {
 
+	/**
+	 * Indicate whether the distillation procedure is turned on or not.
+	 */
+	private boolean distill;
+
+	/**
+	 * Just a cast to the current model.
+	 */
+	private DualModel dualModel;
+
 	public DualLossAugmentedPerceptron(Inference inferenceImpl,
 			DualModel initialModel) {
 		super(inferenceImpl, initialModel);
@@ -37,6 +47,7 @@ public class DualLossAugmentedPerceptron extends LossAugmentedPerceptron {
 		super(inferenceImpl, initialModel, numberOfIterations, learningRate,
 				lossWeight, randomize, averageWeights,
 				learningRateUpdateStrategy);
+		dualModel = (DualModel) model;
 	}
 
 	public DualLossAugmentedPerceptron(Inference taskImpl,
@@ -49,6 +60,7 @@ public class DualLossAugmentedPerceptron extends LossAugmentedPerceptron {
 				lossAnnotatedWeight, lossNonAnnotatedWeight,
 				lossNonAnnotatedWeightInc, randomize, averageWeights,
 				learningRateUpdateStrategy);
+		dualModel = (DualModel) model;
 	}
 
 	@Override
@@ -99,8 +111,11 @@ public class DualLossAugmentedPerceptron extends LossAugmentedPerceptron {
 					lossNonAnnotatedWeight);
 
 		// Update the current model and return the loss for this example.
-		double loss = ((DualModel) model).update(indexCurrentExample,
-				referenceOutput, predictedOutput, getCurrentLearningRate());
+		double loss = dualModel.update(indexCurrentExample, referenceOutput,
+				predictedOutput, getCurrentLearningRate());
+
+		if (distill && ((iteration + 1) % 1000 == 0))
+			dualModel.distill(inferenceImpl, lossAnnotatedWeight, predicteds);
 
 		// Debug.
 		if (DebugUtil.print)
@@ -116,6 +131,25 @@ public class DualLossAugmentedPerceptron extends LossAugmentedPerceptron {
 		++iteration;
 
 		return loss;
+	}
+
+	/**
+	 * Return whether the distillation process is activated.
+	 * 
+	 * @return
+	 */
+	public boolean isDistill() {
+		return distill;
+	}
+
+	/**
+	 * Activate or deactivate the distallation processo for the next training
+	 * procedure.
+	 * 
+	 * @param distill
+	 */
+	public void setDistill(boolean distill) {
+		this.distill = distill;
 	}
 
 }
