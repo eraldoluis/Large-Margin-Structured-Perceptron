@@ -72,6 +72,11 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 	protected ExampleOutput[] outputs;
 
 	/**
+	 * Cache of predicted output structures used by the inference algorithms.
+	 */
+	protected ExampleOutput[] predicteds;
+
+	/**
 	 * Index of the training example in the current iteration, within the
 	 * examples array given for the training method.
 	 */
@@ -116,6 +121,11 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 	 * Strategy used to vary the learning rate during training.
 	 */
 	protected LearnRateUpdateStrategy learningRateUpdateStrategy;
+
+	/**
+	 * Indexes that give the examples training order.
+	 */
+	protected int[] indexTrainingOrder;
 
 	/**
 	 * Create a perceptron to train the given initial model using the default
@@ -245,9 +255,14 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 		this.outputs = outputs;
 
 		// Allocate predicted output objects for the training example.
-		ExampleOutput[] predicteds = new ExampleOutput[outputs.length];
+		predicteds = new ExampleOutput[outputs.length];
 		for (int idx = 0; idx < inputs.length; ++idx)
 			predicteds[idx] = inputs[idx].createOutput();
+
+		// Examples training order.
+		indexTrainingOrder = new int[inputs.length];
+		for (int idx = 0; idx < inputs.length; ++idx)
+			indexTrainingOrder[idx] = idx;
 
 		if (listener != null)
 			if (!listener.beforeTraining(inferenceImpl, model))
@@ -318,13 +333,21 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 		if (reportProgressInterval > 0)
 			System.out.print("Progress: ");
 
+		if (randomize) {
+			// Randomize the order to process the training examples.
+			int len = indexTrainingOrder.length;
+			for (int idx = len - 1; idx >= 0; --idx) {
+				int idxSwp = random.nextInt(len - idx);
+				int tmp = indexTrainingOrder[idxSwp];
+				indexTrainingOrder[idxSwp] = indexTrainingOrder[idx];
+				indexTrainingOrder[idx] = tmp;
+			}
+		}
+
 		// Iterate over the training examples, updating the weight vector.
 		for (int idx = 0; idx < inputs.length; ++idx) {
 
-			indexCurrentExample = idx;
-			if (randomize)
-				// Randomize the order to process the training examples.
-				indexCurrentExample = random.nextInt(inputs.length);
+			indexCurrentExample = indexTrainingOrder[idx];
 
 			/*
 			 * Update the current model weights according with the predicted
@@ -361,9 +384,9 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 			FeatureEncoding<String> stateEncoding) {
 
 		// Allocate predicted output objects for the training examples.
-		ExampleOutput[] predictedsA = new ExampleOutput[outputsA.length];
+		predicteds = new ExampleOutput[outputsA.length];
 		for (int idx = 0; idx < inputsA.length; ++idx)
-			predictedsA[idx] = inputsA[idx].createOutput();
+			predicteds[idx] = inputsA[idx].createOutput();
 		ExampleOutput[] predictedsB = new ExampleOutput[outputsB.length];
 		for (int idx = 0; idx < inputsB.length; ++idx)
 			predictedsB[idx] = inputsB[idx].createOutput();
@@ -389,7 +412,7 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 				epochWeightA = Math.max(weightA, 1d - epoch * weightStep);
 
 			// Train one epoch and get the accumulated loss.
-			double loss = trainOneEpoch(inputsA, outputsA, predictedsA,
+			double loss = trainOneEpoch(inputsA, outputsA, predicteds,
 					epochWeightA, inputsB, outputsB, predictedsB,
 					featureEncoding, stateEncoding);
 

@@ -1,20 +1,19 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.sequence;
 
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.Map;
-import java.util.PriorityQueue;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.Iterator;
 import java.util.Map.Entry;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
 
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.task.DualModel;
+import br.pucrio.inf.learn.structlearning.discriminative.task.Inference;
 import br.pucrio.inf.learn.util.HashCodeUtil;
 
 /**
@@ -64,7 +63,7 @@ public class DualHmm extends Hmm implements DualModel {
 	 * token in the input patterns, there is an array of counters (alphas) which
 	 * include a counter for each possible state.
 	 */
-	private Map<DualEmissionKey, AveragedParameter[]> dualEmissionVariables;
+	private TreeMap<Integer, TreeMap<Integer, TreeMap<Integer, AveragedParameter>>> dualEmissionVariables;
 
 	/**
 	 * Set of parameters updated in the current iteration. It is used to speedup
@@ -73,10 +72,9 @@ public class DualHmm extends Hmm implements DualModel {
 	private Set<AveragedParameter> updatedParameters;
 
 	/**
-	 * Kernel function cache that stores previous calculated kernel function
-	 * values.
+	 * Indicate when the distillation process is on going.
 	 */
-	private Map<DualEmissionKeyPair, Double> kernelFunctionCache;
+	private boolean distillationOnGoing;
 
 	/**
 	 * Create a dual HMM for the given input/output patterns with the given
@@ -102,7 +100,7 @@ public class DualHmm extends Hmm implements DualModel {
 		// Allocate data structures.
 		transitions = new AveragedParameter[numberOfStates][numberOfStates];
 		initialStates = new AveragedParameter[numberOfStates];
-		dualEmissionVariables = new HashMap<DualHmm.DualEmissionKey, AveragedParameter[]>();
+		dualEmissionVariables = new TreeMap<Integer, TreeMap<Integer, TreeMap<Integer, AveragedParameter>>>();
 
 		for (int state1 = 0; state1 < numberOfStates; ++state1) {
 			initialStates[state1] = new AveragedParameter();
@@ -136,6 +134,7 @@ public class DualHmm extends Hmm implements DualModel {
 	 * algorithm).
 	 */
 	@SuppressWarnings("unchecked")
+	@Override
 	public DualHmm clone() throws CloneNotSupportedException {
 		DualHmm copy = new DualHmm(inputs, outputs);
 		copy.numberOfStates = numberOfStates;
@@ -153,109 +152,179 @@ public class DualHmm extends Hmm implements DualModel {
 		}
 
 		// Shallow copy of the dual variables map.
-		copy.dualEmissionVariables = (Map<DualEmissionKey, AveragedParameter[]>) ((HashMap<DualEmissionKey, AveragedParameter[]>) dualEmissionVariables)
+		copy.dualEmissionVariables = (TreeMap<Integer, TreeMap<Integer, TreeMap<Integer, AveragedParameter>>>) ((TreeMap<Integer, TreeMap<Integer, TreeMap<Integer, AveragedParameter>>>) dualEmissionVariables)
 				.clone();
 
-		// Deep copy of the map *values* (the keys are not cloned).
-		for (Entry<DualEmissionKey, AveragedParameter[]> entry : copy.dualEmissionVariables
+		// Deep copy of the map *values* (the keys do not need to be cloned).
+		for (Entry<Integer, TreeMap<Integer, TreeMap<Integer, AveragedParameter>>> clonedEntrySequence : copy.dualEmissionVariables
 				.entrySet()) {
-			AveragedParameter[] clonedArray = entry.getValue().clone();
-			entry.setValue(clonedArray);
-			for (int state = 0; state < numberOfStates; ++state)
-				clonedArray[state] = clonedArray[state].clone();
-		}
+			// Original sequence.
+			TreeMap<Integer, TreeMap<Integer, AveragedParameter>> sequence = clonedEntrySequence
+					.getValue();
+			// Shallowly-cloned sequence.
+			TreeMap<Integer, TreeMap<Integer, AveragedParameter>> clonedSequence = (TreeMap<Integer, TreeMap<Integer, AveragedParameter>>) sequence
+					.clone();
+			// Set the map entry value of the cloned sequence.
+			clonedEntrySequence.setValue(clonedSequence);
 
-		if (kernelFunctionCache != null)
-			/*
-			 * The copy will use kernel function cache only if this object does
-			 * so.
-			 */
-			copy.kernelFunctionCache = new HashMap<DualHmm.DualEmissionKeyPair, Double>();
+			// Deeply clone the sequence.
+			for (Entry<Integer, TreeMap<Integer, AveragedParameter>> clonedEntryToken : clonedSequence
+					.entrySet()) {
+				// Original token.
+				TreeMap<Integer, AveragedParameter> token = clonedEntryToken
+						.getValue();
+				// Shallowly-cloned token.
+				TreeMap<Integer, AveragedParameter> clonedToken = (TreeMap<Integer, AveragedParameter>) token
+						.clone();
+				// Set the map entry value of the cloned token.
+				clonedEntryToken.setValue(clonedToken);
+
+				// Deeply clone the token.
+				for (Entry<Integer, AveragedParameter> clonedEntryVariable : clonedToken
+						.entrySet()) {
+					// Original variable.
+					AveragedParameter alpha = clonedEntryVariable.getValue();
+					// Clone the alpha variable.
+					clonedEntryVariable.setValue(alpha.clone());
+				}
+			}
+		}
 
 		return copy;
 	}
 
-	/**
-	 * Number of tokens used as support vectors. Do not consider how many states
-	 * within each token has weight great than zero though.
-	 * 
-	 * @return
-	 */
-	public int getNumberOfSupportVectors() {
+	@Override
+	public int getNumberOfExamplesWithSupportVector() {
 		return dualEmissionVariables.size();
 	}
 
-	/**
-	 * Return the number of possible states (labels) of this model.
-	 * 
-	 * @return
-	 */
+	@Override
+	public int getNumberOfSupportVectors() {
+		int count = 0;
+		for (TreeMap<Integer, TreeMap<Integer, AveragedParameter>> sequence : dualEmissionVariables
+				.values())
+			count += sequence.size();
+		return count;
+	}
+
+	@Override
 	public int getNumberOfStates() {
 		return numberOfStates;
 	}
 
-	/**
-	 * Return the weight associated with the given initial state.
-	 * 
-	 * @param state
-	 * @return
-	 */
+	@Override
 	public double getInitialStateParameter(int state) {
 		return initialStates[state].get();
 	}
 
-	/**
-	 * Return the weight associated with the transition from the two given
-	 * states.
-	 * 
-	 * @param fromState
-	 *            the origin state.
-	 * @param toState
-	 *            the end state.
-	 * @return
-	 */
+	@Override
 	public double getTransitionParameter(int fromState, int toState) {
 		return transitions[fromState][toState].get();
 	}
 
-	/**
-	 * Set the value (weight) of the initial parameter associated with the given
-	 * state.
-	 * 
-	 * @param state
-	 * @param value
-	 */
+	@Override
 	public void setInitialStateParameter(int state, double value) {
 		initialStates[state].set(value);
 	}
 
-	/**
-	 * Set the value (weight) of the transition parameter associated with the
-	 * given pair of states.
-	 * 
-	 * @param fromState
-	 * @param toState
-	 * @param value
-	 */
+	@Override
 	public void setTransitionParameter(int fromState, int toState, double value) {
 		transitions[fromState][toState].set(value);
 	}
 
+	HashMap<DualEmissionKeyPair, Double> kernelCache = new HashMap<DualHmm.DualEmissionKeyPair, Double>();
+
 	/**
-	 * Activate or deactivate the kernel function cache for this model.
+	 * Distil the current set of support vectors. For each sequence that
+	 * contains some support vector, classify it using the given margin (
+	 * <code>lossWeight</code>) and disconsidering its support vectors in the
+	 * model. Then, remove all correctly classified support vectors. If all
+	 * support vectors in a sequence are correctly classified, then remove the
+	 * whole sequence from the model.
 	 * 
-	 * @param activate
+	 * @param inference
+	 *            algorithm to perform loss-augmented inferences.
+	 * @param lossWeight
+	 *            per-token margin value.
+	 * @param outputsCache
+	 *            array with allocated output structures used to store the
+	 *            predicted structures given by the
 	 */
-	public void setActivateKernelFunctionCache(boolean activate) {
-		if (activate) {
-			if (kernelFunctionCache == null || kernelFunctionCache.size() > 0)
-				kernelFunctionCache = new HashMap<DualHmm.DualEmissionKeyPair, Double>();
-		} else
-			kernelFunctionCache = null;
+	@Override
+	public void distill(Inference inference, double lossWeight,
+			ExampleOutput[] outputsCache) {
+		// Activate ditilation.
+		distillationOnGoing = true;
+
+		// Iterator over the sequences.
+		Iterator<Entry<Integer, TreeMap<Integer, TreeMap<Integer, AveragedParameter>>>> itVars = dualEmissionVariables
+				.entrySet().iterator();
+		while (itVars.hasNext()) {
+			// Current sequence (map) entry.
+			Entry<Integer, TreeMap<Integer, TreeMap<Integer, AveragedParameter>>> entrySequence = itVars
+					.next();
+
+			/*
+			 * Index of the sequence and its corresponding input and outputs
+			 * structures.
+			 */
+			int idxSequence = entrySequence.getKey();
+			SequenceInput input = inputs[idxSequence];
+			SequenceOutput output = outputs[idxSequence];
+			SequenceOutput predicted = (SequenceOutput) outputsCache[idxSequence];
+
+			/*
+			 * Infer the current sequence tags ignoring the support vectors
+			 * associated with the current sequence.
+			 */
+			inference.lossAugmentedInference(this, input, output, predicted,
+					lossWeight);
+
+			/*
+			 * Iterate over the support vectors in the current sequence and
+			 * remove the correctly classified ones.
+			 * 
+			 * TODO maybe it needs to include the misclassified ones.
+			 */
+			Iterator<Entry<Integer, TreeMap<Integer, AveragedParameter>>> itSequence = entrySequence
+					.getValue().entrySet().iterator();
+			while (itSequence.hasNext()) {
+				Entry<Integer, TreeMap<Integer, AveragedParameter>> entryToken = itSequence
+						.next();
+				int idxToken = entryToken.getKey();
+				if (output.getLabel(idxToken) == predicted.getLabel(idxToken)) {
+					// Clean kernel function cache.
+					for (Entry<Integer, TreeMap<Integer, TreeMap<Integer, AveragedParameter>>> _entrySequence : dualEmissionVariables
+							.entrySet())
+						for (Entry<Integer, TreeMap<Integer, AveragedParameter>> _entryToken : _entrySequence
+								.getValue().entrySet())
+							kernelCache.remove(new DualEmissionKeyPair(
+									idxSequence, idxToken, _entrySequence
+											.getKey(), _entryToken.getKey()));
+
+					// Remove correctly classified token from model.
+					itSequence.remove();
+				}
+			}
+
+			if (entrySequence.getValue().size() == 0)
+				// Remove correctly classified sequences.
+				itVars.remove();
+		}
+
+		// Deactivate distilation.
+		distillationOnGoing = false;
 	}
 
+	/**
+	 * Current example temporary cache. It is used to avoid recalculating kernel
+	 * function values that have been calculated and then are added as support
+	 * vectors.
+	 */
+	double[][][] kernelCacheCurrentExample;
+
 	@Override
-	public void getTokenEmissionWeights(SequenceInput input, int token,
+	public void getTokenEmissionWeights(SequenceInput input, int idxTknTrain,
 			double[] weights) {
 		// Clear weights array.
 		Arrays.fill(weights, 0d);
@@ -264,48 +333,86 @@ public class DualHmm extends Hmm implements DualModel {
 		 * Index of the given sequence within the training dataset, if it is
 		 * part of one.
 		 */
-		int trainingIndex = input.getTrainingIndex();
+		int idxSeqTrain = input.getTrainingIndex();
 
-		// Use kernel function cache?
-		boolean cache = (kernelFunctionCache != null && trainingIndex >= 0);
+		if (!distillationOnGoing) {
+			if (idxTknTrain == 0)
+				kernelCacheCurrentExample = new double[input.size()][][];
+			kernelCacheCurrentExample[idxTknTrain] = new double[dualEmissionVariables
+					.size()][];
+		}
 
-		for (Entry<DualEmissionKey, AveragedParameter[]> alphaEntry : dualEmissionVariables
+		int _idxSeqSV = 0;
+		// For each sequence.
+		for (Entry<Integer, TreeMap<Integer, TreeMap<Integer, AveragedParameter>>> entrySequence : dualEmissionVariables
 				.entrySet()) {
-			DualEmissionKey key = alphaEntry.getKey();
 
-			/*
-			 * Evaluate the kernel function between the current support vector
-			 * and the given token.
-			 */
-			double k;
-			if (cache) {
-				/*
-				 * Kernel function cache is activated and the given sequence is
-				 * a training sequence. So, query the cache for the desired
-				 * value.
-				 */
-				DualEmissionKeyPair keyPair = new DualEmissionKeyPair(key,
-						new DualEmissionKey(trainingIndex, token));
-				Double kCached = kernelFunctionCache.get(keyPair);
-				if (kCached == null) {
+			// Current sequence index.
+			int idxSeqSV = entrySequence.getKey();
+
+			TreeMap<Integer, TreeMap<Integer, AveragedParameter>> sequence = entrySequence
+					.getValue();
+
+			int _idxTknSV = 0;
+			if (!distillationOnGoing)
+				kernelCacheCurrentExample[idxTknTrain][_idxSeqSV] = new double[sequence
+						.size()];
+
+			// For each token within the current sequence.
+			for (Entry<Integer, TreeMap<Integer, AveragedParameter>> entryToken : sequence
+					.entrySet()) {
+
+				// Currect token index.
+				int idxTknSV = entryToken.getKey();
+
+				// Calculate the kernel function value.
+				double k;
+				if (distillationOnGoing) {
+					if (idxSeqTrain == idxSeqSV && idxTknTrain == idxTknSV) {
+						/*
+						 * Do not use the kernel function value between a
+						 * support vector and itself, in order to calculate the
+						 * prediction when removing this support vector.
+						 */
+						++_idxTknSV;
+						continue;
+					} else {
+						/*
+						 * Kernel function values between two support vectors
+						 * are cached.
+						 */
+						k = kernelCache.get(new DualEmissionKeyPair(idxSeqSV,
+								idxTknSV, idxSeqTrain, idxTknTrain));
+					}
+				} else {
 					/*
-					 * If the desired value is not present in the cache, we
-					 * calculate it and put it in the cache.
+					 * Evaluate the kernel function between the training example
+					 * token and the current support vector.
 					 */
-					kCached = kernel(inputs[key.sequenceId], key.token, input,
-							token);
-					kernelFunctionCache.put(keyPair, kCached);
+					k = kernel(inputs[idxSeqSV], idxTknSV, input, idxTknTrain);
+
+					/*
+					 * Store the kernel function value in the current example
+					 * temporary cache.
+					 */
+					kernelCacheCurrentExample[idxTknTrain][_idxSeqSV][_idxTknSV] = k;
 				}
 
-				k = kCached;
-			} else
-				k = kernel(inputs[key.sequenceId], key.token, input, token);
+				/*
+				 * Sum the kernel function values weighted by the alpha
+				 * counters.
+				 */
+				for (Entry<Integer, AveragedParameter> entryAlpha : entryToken
+						.getValue().entrySet()) {
+					int state = entryAlpha.getKey();
+					double alpha = entryAlpha.getValue().get();
+					weights[state] += alpha * k;
+				}
 
-			// Calculate the emission weight associated with each state.
-			// TODO it can be worthy to represent the list of states sparsely.
-			AveragedParameter[] alphas = alphaEntry.getValue();
-			for (int state = 0; state < numberOfStates; ++state)
-				weights[state] += alphas[state].get() * k;
+				++_idxTknSV;
+			}
+
+			++_idxSeqSV;
 		}
 	}
 
@@ -358,81 +465,17 @@ public class DualHmm extends Hmm implements DualModel {
 		return 0d;
 	}
 
-	/**
-	 * Add the given value to the initial-state parameter of the mobel.
-	 * 
-	 * @param state
-	 * @param value
-	 */
+	@Override
 	protected void updateInitialStateParameter(int state, double value) {
 		initialStates[state].update(value);
 		updatedParameters.add(initialStates[state]);
 	}
 
-	/**
-	 * Update the specified transition (fromToken, toToken) feature using the
-	 * given learning rate.
-	 * 
-	 * @param fromState
-	 * @param toState
-	 * @param value
-	 */
+	@Override
 	protected void updateTransitionParameter(int fromState, int toState,
 			double value) {
 		transitions[fromState][toState].update(value);
 		updatedParameters.add(transitions[fromState][toState]);
-	}
-
-	private int maxAlphaEntries = 4000;
-	private PriorityQueue<DualEmissionComparableByAlphaEntropy> alphaPriorityQueue = new PriorityQueue<DualEmissionComparableByAlphaEntropy>(
-			maxAlphaEntries);
-
-	private static class DualEmissionComparableByAlphaEntropy implements
-			Comparable<DualEmissionComparableByAlphaEntropy> {
-
-		private final DualEmissionKey key;
-
-		private double entropy;
-
-		public DualEmissionComparableByAlphaEntropy(DualEmissionKey key) {
-			this.key = key;
-		}
-
-		public double updateEntropy(AveragedParameter[] alphas) {
-			// Normalization factor.
-			double sum = 0d;
-			for (AveragedParameter alpha : alphas)
-				sum += Math.exp(alpha.get());
-
-			// Alphas entropy.
-			entropy = 0d;
-			for (AveragedParameter alpha : alphas) {
-				double p = Math.exp(alpha.get()) / sum;
-				entropy -= p * Math.log(p);
-			}
-
-			return entropy;
-		}
-
-		@Override
-		public int compareTo(DualEmissionComparableByAlphaEntropy o) {
-			// Inverse order by entropy.
-			if (entropy > o.entropy)
-				return -1;
-			if (entropy < o.entropy)
-				return 1;
-			return 0;
-		}
-
-		@Override
-		public boolean equals(Object obj) {
-			if (obj == null)
-				return false;
-			if (getClass() != obj.getClass())
-				return false;
-			return key.equals(((DualEmissionComparableByAlphaEntropy) obj).key);
-		}
-
 	}
 
 	/**
@@ -440,43 +483,104 @@ public class DualHmm extends Hmm implements DualModel {
 	 * comparing with the given predicted output.
 	 * 
 	 * @param sequenceId
-	 * @param token
+	 * @param idxToken
 	 * @param labelCorrect
 	 * @param labelPredicted
 	 * @param learnRate
 	 */
-	protected void updateEmissionParameters(int sequenceId, int token,
+	protected void updateEmissionParameters(int sequenceId, int idxToken,
 			int labelCorrect, int labelPredicted, double learnRate) {
-		DualEmissionKey key = new DualEmissionKey(sequenceId, token);
-		AveragedParameter[] alphas = dualEmissionVariables.get(key);
-		DualEmissionComparableByAlphaEntropy entropyKey = new DualEmissionComparableByAlphaEntropy(
-				key);
-		if (alphas == null) {
-			/*
-			 * Limit the quantity of active support vectors by removing the
-			 * oldest one.
-			 */
-			if (alphaPriorityQueue.size() == maxAlphaEntries) {
-				DualEmissionComparableByAlphaEntropy smallestKey = alphaPriorityQueue
-						.poll();
-				dualEmissionVariables.remove(smallestKey.key);
-				alphaPriorityQueue.remove(smallestKey);
+
+		/*
+		 * Store kernel function values in the cache. These values have been
+		 * stored along previous getTokenEmissinoWeights calls.
+		 * 
+		 * TODO if (sequenceId, idxToken) is already an SV, it does not need to
+		 * be included. On the other hand, the new SVs are added here one by
+		 * one. Once the first one is added, the order within the
+		 * <code>dualEmissionVariables</code> mapping is modified and does not
+		 * respect the order within the kernel function temporary cache
+		 * <code>kernelCacheCurrentExample</code>. This should not happen.
+		 */
+
+		// Index of SV sequence in the current example temporary cache.
+		int _idxSeqSV = 0;
+
+		// For each sequence.
+		TreeMap<Integer, TreeMap<Integer, AveragedParameter>> sequence;
+		for (Entry<Integer, TreeMap<Integer, TreeMap<Integer, AveragedParameter>>> entrySequence : dualEmissionVariables
+				.entrySet()) {
+
+			// Current sequence index.
+			int idxSeqSV = entrySequence.getKey();
+
+			sequence = entrySequence.getValue();
+
+			// For each token within the current sequence SV.
+			int _idxTknSV = 0;
+			for (Entry<Integer, TreeMap<Integer, AveragedParameter>> entryToken : sequence
+					.entrySet()) {
+
+				// Currect token index.
+				int idxTknSV = entryToken.getKey();
+
+				// Store kernel function value.
+				kernelCache
+						.put(new DualEmissionKeyPair(idxSeqSV, idxTknSV,
+								sequenceId, idxToken),
+								kernelCacheCurrentExample[idxToken][_idxSeqSV][_idxTknSV]);
+
+				++_idxTknSV;
 			}
 
-			alphas = new AveragedParameter[numberOfStates];
-			for (int state = 0; state < numberOfStates; ++state)
-				alphas[state] = new AveragedParameter();
-			dualEmissionVariables.put(key, alphas);
-		} else
-			alphaPriorityQueue.remove(entropyKey);
+			++_idxSeqSV;
+		}
 
-		alphas[labelCorrect].update(learnRate);
-		alphas[labelPredicted].update(-learnRate);
-		updatedParameters.add(alphas[labelCorrect]);
-		updatedParameters.add(alphas[labelPredicted]);
+		/*
+		 * Store kernel function value between the new support vector and
+		 * itself.
+		 */
+		kernelCache.put(
+				new DualEmissionKeyPair(sequenceId, idxToken, sequenceId,
+						idxToken),
+				kernel(inputs[sequenceId], idxToken, inputs[sequenceId],
+						idxToken));
 
-		entropyKey.updateEntropy(alphas);
-		alphaPriorityQueue.add(entropyKey);
+		// Sequence variables.
+		sequence = dualEmissionVariables.get(sequenceId);
+		if (sequence == null) {
+			sequence = new TreeMap<Integer, TreeMap<Integer, AveragedParameter>>();
+			dualEmissionVariables.put(sequenceId, sequence);
+		}
+
+		// Token variables.
+		TreeMap<Integer, AveragedParameter> token = sequence.get(idxToken);
+		if (token == null) {
+			token = new TreeMap<Integer, AveragedParameter>();
+			sequence.put(idxToken, token);
+		}
+
+		// Correct label parameter.
+		AveragedParameter parmLabelCorrect = token.get(labelCorrect);
+		if (parmLabelCorrect == null) {
+			parmLabelCorrect = new AveragedParameter();
+			token.put(labelCorrect, parmLabelCorrect);
+		}
+
+		// Predicted label parameter.
+		AveragedParameter parmLabelPredicted = token.get(labelPredicted);
+		if (parmLabelPredicted == null) {
+			parmLabelPredicted = new AveragedParameter();
+			token.put(labelPredicted, parmLabelPredicted);
+		}
+
+		// Update parameters.
+		parmLabelCorrect.update(learnRate);
+		parmLabelPredicted.update(-learnRate);
+
+		// Keep track of the updated parameters.
+		updatedParameters.add(parmLabelCorrect);
+		updatedParameters.add(parmLabelPredicted);
 	}
 
 	@Override
@@ -566,19 +670,24 @@ public class DualHmm extends Hmm implements DualModel {
 
 	@Override
 	public void average(int numberOfIterations) {
-		// Deep copy of the initial state and transition arrays.
+		// Average all transition and initial state parameters of this model.
 		for (int state1 = 0; state1 < numberOfStates; ++state1) {
 			initialStates[state1].average(numberOfIterations);
 			for (int state2 = 0; state2 < numberOfStates; ++state2)
 				transitions[state1][state2].average(numberOfIterations);
 		}
 
-		// Deep copy of the map *values* (the keys are not cloned).
-		for (Entry<DualEmissionKey, AveragedParameter[]> entry : dualEmissionVariables
+		// Average all emission parameters within this model.
+		for (Entry<Integer, TreeMap<Integer, TreeMap<Integer, AveragedParameter>>> entrySequence : dualEmissionVariables
 				.entrySet()) {
-			AveragedParameter[] alphas = entry.getValue();
-			for (int state = 0; state < numberOfStates; ++state)
-				alphas[state].average(numberOfIterations);
+			for (Entry<Integer, TreeMap<Integer, AveragedParameter>> entryToken : entrySequence
+					.getValue().entrySet()) {
+				for (Entry<Integer, AveragedParameter> entryAlpha : entryToken
+						.getValue().entrySet()) {
+					AveragedParameter alpha = entryAlpha.getValue();
+					alpha.average(numberOfIterations);
+				}
+			}
 		}
 	}
 
@@ -691,14 +800,34 @@ public class DualHmm extends Hmm implements DualModel {
 		private final DualEmissionKey key2;
 
 		/**
-		 * Create a key from the given pair.
+		 * Create a key pair from the given pair of keys.
 		 * 
 		 * @param key1
 		 * @param key2
 		 */
 		public DualEmissionKeyPair(DualEmissionKey key1, DualEmissionKey key2) {
-			this.key1 = key1;
-			this.key2 = key2;
+			// The first key must always be the smallest one.
+			if (key1.compareTo(key2) <= 0) {
+				this.key1 = key1;
+				this.key2 = key2;
+			} else {
+				this.key1 = key2;
+				this.key2 = key1;
+			}
+		}
+
+		/**
+		 * Create a key pair from the given integers.
+		 * 
+		 * @param idxSeq1
+		 * @param idxTkn1
+		 * @param idxSeq2
+		 * @param idxTkn2
+		 */
+		public DualEmissionKeyPair(int idxSeq1, int idxTkn1, int idxSeq2,
+				int idxTkn2) {
+			this(new DualEmissionKey(idxSeq1, idxTkn1), new DualEmissionKey(
+					idxSeq2, idxTkn2));
 		}
 
 		@Override
