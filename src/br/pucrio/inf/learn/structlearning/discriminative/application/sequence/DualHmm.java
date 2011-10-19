@@ -1,6 +1,7 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.sequence;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -13,6 +14,7 @@ import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.da
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.task.DualModel;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Inference;
+import br.pucrio.inf.learn.util.HashCodeUtil;
 
 /**
  * Represent HMM emission parameters through a dual representation, i.e., store
@@ -230,6 +232,8 @@ public class DualHmm extends Hmm implements DualModel {
 		transitions[fromState][toState].set(value);
 	}
 
+	HashMap<DualEmissionKeyPair, Double> kernelCache = new HashMap<DualHmm.DualEmissionKeyPair, Double>();
+
 	/**
 	 * Distil the current set of support vectors. For each sequence that
 	 * contains some support vector, classify it using the given margin (
@@ -288,9 +292,19 @@ public class DualHmm extends Hmm implements DualModel {
 				Entry<Integer, TreeMap<Integer, AveragedParameter>> entryToken = itSequence
 						.next();
 				int idxToken = entryToken.getKey();
-				if (output.getLabel(idxToken) == predicted.getLabel(idxToken))
-					// Remove correctly classified tokens.
+				if (output.getLabel(idxToken) == predicted.getLabel(idxToken)) {
+					// Clean kernel function cache.
+					for (Entry<Integer, TreeMap<Integer, TreeMap<Integer, AveragedParameter>>> _entrySequence : dualEmissionVariables
+							.entrySet())
+						for (Entry<Integer, TreeMap<Integer, AveragedParameter>> _entryToken : _entrySequence
+								.getValue().entrySet())
+							kernelCache.remove(new DualEmissionKeyPair(
+									idxSequence, idxToken, _entrySequence
+											.getKey(), _entryToken.getKey()));
+
+					// Remove correctly classified token from model.
 					itSequence.remove();
+				}
 			}
 
 			if (entrySequence.getValue().size() == 0)
@@ -302,8 +316,15 @@ public class DualHmm extends Hmm implements DualModel {
 		distillationOnGoing = false;
 	}
 
+	/**
+	 * Current example temporary cache. It is used to avoid recalculating kernel
+	 * function values that have been calculated and then are added as support
+	 * vectors.
+	 */
+	double[][][] kernelCacheCurrentExample;
+
 	@Override
-	public void getTokenEmissionWeights(SequenceInput input, int token,
+	public void getTokenEmissionWeights(SequenceInput input, int idxTknTrain,
 			double[] weights) {
 		// Clear weights array.
 		Arrays.fill(weights, 0d);
@@ -312,41 +333,86 @@ public class DualHmm extends Hmm implements DualModel {
 		 * Index of the given sequence within the training dataset, if it is
 		 * part of one.
 		 */
-		int idxTraining = input.getTrainingIndex();
+		int idxSeqTrain = input.getTrainingIndex();
 
+		if (!distillationOnGoing) {
+			if (idxTknTrain == 0)
+				kernelCacheCurrentExample = new double[input.size()][][];
+			kernelCacheCurrentExample[idxTknTrain] = new double[dualEmissionVariables
+					.size()][];
+		}
+
+		int _idxSeqSV = 0;
 		// For each sequence.
 		for (Entry<Integer, TreeMap<Integer, TreeMap<Integer, AveragedParameter>>> entrySequence : dualEmissionVariables
 				.entrySet()) {
 
 			// Current sequence index.
-			int idxSequence = entrySequence.getKey();
+			int idxSeqSV = entrySequence.getKey();
+
+			TreeMap<Integer, TreeMap<Integer, AveragedParameter>> sequence = entrySequence
+					.getValue();
+
+			int _idxTknSV = 0;
+			if (!distillationOnGoing)
+				kernelCacheCurrentExample[idxTknTrain][_idxSeqSV] = new double[sequence
+						.size()];
 
 			// For each token within the current sequence.
-			for (Entry<Integer, TreeMap<Integer, AveragedParameter>> entryToken : entrySequence
-					.getValue().entrySet()) {
+			for (Entry<Integer, TreeMap<Integer, AveragedParameter>> entryToken : sequence
+					.entrySet()) {
 
 				// Currect token index.
-				int idxToken = entryToken.getKey();
+				int idxTknSV = entryToken.getKey();
 
-				// Skip training sequence when distiling.
-				if (distillationOnGoing && idxTraining == idxSequence
-						&& token == idxToken)
-					continue;
+				// Calculate the kernel function value.
+				double k;
+				if (distillationOnGoing) {
+					if (idxSeqTrain == idxSeqSV && idxTknTrain == idxTknSV) {
+						/*
+						 * Do not use the kernel function value between a
+						 * support vector and itself, in order to calculate the
+						 * prediction when removing this support vector.
+						 */
+						++_idxTknSV;
+						continue;
+					} else {
+						/*
+						 * Kernel function values between two support vectors
+						 * are cached.
+						 */
+						k = kernelCache.get(new DualEmissionKeyPair(idxSeqSV,
+								idxTknSV, idxSeqTrain, idxTknTrain));
+					}
+				} else {
+					/*
+					 * Evaluate the kernel function between the training example
+					 * token and the current support vector.
+					 */
+					k = kernel(inputs[idxSeqSV], idxTknSV, input, idxTknTrain);
+
+					/*
+					 * Store the kernel function value in the current example
+					 * temporary cache.
+					 */
+					kernelCacheCurrentExample[idxTknTrain][_idxSeqSV][_idxTknSV] = k;
+				}
 
 				/*
-				 * Evaluate the kernel function between the current support
-				 * vector and the given token.
+				 * Sum the kernel function values weighted by the alpha
+				 * counters.
 				 */
-				double k = kernel(inputs[idxSequence], idxToken, input, token);
-
-				// Sum the kernel function value weighted by the alpha counters.
 				for (Entry<Integer, AveragedParameter> entryAlpha : entryToken
 						.getValue().entrySet()) {
 					int state = entryAlpha.getKey();
 					double alpha = entryAlpha.getValue().get();
 					weights[state] += alpha * k;
 				}
+
+				++_idxTknSV;
 			}
+
+			++_idxSeqSV;
 		}
 	}
 
@@ -424,9 +490,64 @@ public class DualHmm extends Hmm implements DualModel {
 	 */
 	protected void updateEmissionParameters(int sequenceId, int idxToken,
 			int labelCorrect, int labelPredicted, double learnRate) {
+
+		/*
+		 * Store kernel function values in the cache. These values have been
+		 * stored along previous getTokenEmissinoWeights calls.
+		 * 
+		 * TODO if (sequenceId, idxToken) is already an SV, it does not need to
+		 * be included. On the other hand, the new SVs are added here one by
+		 * one. Once the first one is added, the order within the
+		 * <code>dualEmissionVariables</code> mapping is modified and does not
+		 * respect the order within the kernel function temporary cache
+		 * <code>kernelCacheCurrentExample</code>. This should not happen.
+		 */
+
+		// Index of SV sequence in the current example temporary cache.
+		int _idxSeqSV = 0;
+
+		// For each sequence.
+		TreeMap<Integer, TreeMap<Integer, AveragedParameter>> sequence;
+		for (Entry<Integer, TreeMap<Integer, TreeMap<Integer, AveragedParameter>>> entrySequence : dualEmissionVariables
+				.entrySet()) {
+
+			// Current sequence index.
+			int idxSeqSV = entrySequence.getKey();
+
+			sequence = entrySequence.getValue();
+
+			// For each token within the current sequence SV.
+			int _idxTknSV = 0;
+			for (Entry<Integer, TreeMap<Integer, AveragedParameter>> entryToken : sequence
+					.entrySet()) {
+
+				// Currect token index.
+				int idxTknSV = entryToken.getKey();
+
+				// Store kernel function value.
+				kernelCache
+						.put(new DualEmissionKeyPair(idxSeqSV, idxTknSV,
+								sequenceId, idxToken),
+								kernelCacheCurrentExample[idxToken][_idxSeqSV][_idxTknSV]);
+
+				++_idxTknSV;
+			}
+
+			++_idxSeqSV;
+		}
+
+		/*
+		 * Store kernel function value between the new support vector and
+		 * itself.
+		 */
+		kernelCache.put(
+				new DualEmissionKeyPair(sequenceId, idxToken, sequenceId,
+						idxToken),
+				kernel(inputs[sequenceId], idxToken, inputs[sequenceId],
+						idxToken));
+
 		// Sequence variables.
-		TreeMap<Integer, TreeMap<Integer, AveragedParameter>> sequence = dualEmissionVariables
-				.get(sequenceId);
+		sequence = dualEmissionVariables.get(sequenceId);
 		if (sequence == null) {
 			sequence = new TreeMap<Integer, TreeMap<Integer, AveragedParameter>>();
 			dualEmissionVariables.put(sequenceId, sequence);
@@ -591,124 +712,144 @@ public class DualHmm extends Hmm implements DualModel {
 		throw new NotImplementedException();
 	}
 
-	// /**
-	// * Key used to store the alpha values within a sparse data structure (hash
-	// * table). The key represents a token within a specific example.
-	// *
-	// * @author eraldo
-	// *
-	// */
-	// private static final class DualEmissionKey implements
-	// Comparable<DualEmissionKey> {
-	//
-	// /**
-	// * The index within the array of input sequences in the
-	// * <code>DualHmm</code> object.
-	// */
-	// private final int sequenceId;
-	//
-	// /**
-	// * The token index within the sequence.
-	// */
-	// private final int token;
-	//
-	// /**
-	// * Create a new key representing the given values.
-	// *
-	// * @param sequenceId
-	// * @param token
-	// */
-	// public DualEmissionKey(int sequenceId, int token) {
-	// this.sequenceId = sequenceId;
-	// this.token = token;
-	// }
-	//
-	// @Override
-	// public int hashCode() {
-	// return HashCodeUtil.hash(HashCodeUtil.hash(sequenceId), token);
-	// }
-	//
-	// @Override
-	// public boolean equals(Object obj) {
-	// if (obj.getClass() != getClass())
-	// return false;
-	// DualEmissionKey other = (DualEmissionKey) obj;
-	// return sequenceId == other.sequenceId && token == other.token;
-	// }
-	//
-	// @Override
-	// public DualEmissionKey clone() throws CloneNotSupportedException {
-	// return new DualEmissionKey(sequenceId, token);
-	// }
-	//
-	// @Override
-	// public int compareTo(DualEmissionKey o) {
-	// if (sequenceId < o.sequenceId)
-	// return -1;
-	// if (sequenceId > o.sequenceId)
-	// return 1;
-	//
-	// // Sequence IDs are equal.
-	// if (token < o.token)
-	// return -1;
-	// if (token > o.token)
-	// return 1;
-	//
-	// // Pairs (sequence ID, token) are equal.
-	// return 0;
-	// }
-	// }
+	/**
+	 * Key used to store the alpha values within a sparse data structure (hash
+	 * table). The key represents a token within a specific example.
+	 * 
+	 * @author eraldo
+	 * 
+	 */
+	private static final class DualEmissionKey implements
+			Comparable<DualEmissionKey> {
 
-	// /**
-	// * Pair of <code>DualEmissionKey</code>s used as the key in the cache of
-	// * kernel function values.
-	// *
-	// * @author eraldo
-	// *
-	// */
-	// private static final class DualEmissionKeyPair {
-	//
-	// /**
-	// * Key with smaller index.
-	// */
-	// private final DualEmissionKey key1;
-	//
-	// /**
-	// * Key with bigger index.
-	// */
-	// private final DualEmissionKey key2;
-	//
-	// /**
-	// * Create a key from the given pair.
-	// *
-	// * @param key1
-	// * @param key2
-	// */
-	// public DualEmissionKeyPair(DualEmissionKey key1, DualEmissionKey key2) {
-	// this.key1 = key1;
-	// this.key2 = key2;
-	// }
-	//
-	// @Override
-	// public int hashCode() {
-	// return HashCodeUtil.hash(key1.hashCode(), key2.hashCode());
-	// }
-	//
-	// @Override
-	// public boolean equals(Object obj) {
-	// if (obj == null)
-	// return false;
-	// if (getClass() != obj.getClass())
-	// return false;
-	//
-	// // Same type.
-	// DualEmissionKeyPair pair = (DualEmissionKeyPair) obj;
-	// return key1.equals(pair.key1) && key2.equals(pair.key2);
-	// }
-	//
-	// @Override
-	// public DualEmissionKeyPair clone() throws CloneNotSupportedException {
-	// return new DualEmissionKeyPair(key1, key2);
-	// }
-	// }
+		/**
+		 * The index within the array of input sequences in the
+		 * <code>DualHmm</code> object.
+		 */
+		private final int sequenceId;
+
+		/**
+		 * The token index within the sequence.
+		 */
+		private final int token;
+
+		/**
+		 * Create a new key representing the given values.
+		 * 
+		 * @param sequenceId
+		 * @param token
+		 */
+		public DualEmissionKey(int sequenceId, int token) {
+			this.sequenceId = sequenceId;
+			this.token = token;
+		}
+
+		@Override
+		public int hashCode() {
+			return HashCodeUtil.hash(HashCodeUtil.hash(sequenceId), token);
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (obj.getClass() != getClass())
+				return false;
+			DualEmissionKey other = (DualEmissionKey) obj;
+			return sequenceId == other.sequenceId && token == other.token;
+		}
+
+		@Override
+		public DualEmissionKey clone() throws CloneNotSupportedException {
+			return new DualEmissionKey(sequenceId, token);
+		}
+
+		@Override
+		public int compareTo(DualEmissionKey o) {
+			if (sequenceId < o.sequenceId)
+				return -1;
+			if (sequenceId > o.sequenceId)
+				return 1;
+
+			// Sequence IDs are equal.
+			if (token < o.token)
+				return -1;
+			if (token > o.token)
+				return 1;
+
+			// Pairs (sequence ID, token) are equal.
+			return 0;
+		}
+	}
+
+	/**
+	 * Pair of <code>DualEmissionKey</code>s used as the key in the cache of
+	 * kernel function values.
+	 * 
+	 * @author eraldo
+	 * 
+	 */
+	private static final class DualEmissionKeyPair {
+
+		/**
+		 * Key with smaller index.
+		 */
+		private final DualEmissionKey key1;
+
+		/**
+		 * Key with bigger index.
+		 */
+		private final DualEmissionKey key2;
+
+		/**
+		 * Create a key pair from the given pair of keys.
+		 * 
+		 * @param key1
+		 * @param key2
+		 */
+		public DualEmissionKeyPair(DualEmissionKey key1, DualEmissionKey key2) {
+			// The first key must always be the smallest one.
+			if (key1.compareTo(key2) <= 0) {
+				this.key1 = key1;
+				this.key2 = key2;
+			} else {
+				this.key1 = key2;
+				this.key2 = key1;
+			}
+		}
+
+		/**
+		 * Create a key pair from the given integers.
+		 * 
+		 * @param idxSeq1
+		 * @param idxTkn1
+		 * @param idxSeq2
+		 * @param idxTkn2
+		 */
+		public DualEmissionKeyPair(int idxSeq1, int idxTkn1, int idxSeq2,
+				int idxTkn2) {
+			this(new DualEmissionKey(idxSeq1, idxTkn1), new DualEmissionKey(
+					idxSeq2, idxTkn2));
+		}
+
+		@Override
+		public int hashCode() {
+			return HashCodeUtil.hash(key1.hashCode(), key2.hashCode());
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (obj == null)
+				return false;
+			if (getClass() != obj.getClass())
+				return false;
+
+			// Same type.
+			DualEmissionKeyPair pair = (DualEmissionKeyPair) obj;
+			return key1.equals(pair.key1) && key2.equals(pair.key2);
+		}
+
+		@Override
+		public DualEmissionKeyPair clone() throws CloneNotSupportedException {
+			return new DualEmissionKeyPair(key1, key2);
+		}
+	}
 }

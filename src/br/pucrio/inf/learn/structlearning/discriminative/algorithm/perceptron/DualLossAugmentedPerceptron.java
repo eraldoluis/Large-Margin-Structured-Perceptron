@@ -114,7 +114,7 @@ public class DualLossAugmentedPerceptron extends LossAugmentedPerceptron {
 		double loss = dualModel.update(indexCurrentExample, referenceOutput,
 				predictedOutput, getCurrentLearningRate());
 
-		if (distill && ((iteration + 1) % 1000 == 0))
+		if (distill && loss > 0) //((iteration + 1) % 10 == 0))
 			dualModel.distill(inferenceImpl, lossAnnotatedWeight, predicteds);
 
 		// Debug.

@@ -889,6 +889,9 @@ public class TrainHmmMain implements Command {
 				LOG.error("Loading testset " + testCorpusFileName, e);
 				System.exit(1);
 			}
+		} else {
+			alg.setListener(new EvaluateModelListener(eval, null, null, null,
+					null, false, algType == AlgorithmType.DUAL_PERCEPTRON));
 		}
 
 		// Debug information.
@@ -1078,13 +1081,16 @@ public class TrainHmmMain implements Command {
 				boolean averageWeights, boolean dual) {
 			this.inputs = inputs;
 			this.outputs = outputs;
-			this.predicteds = new SequenceOutput[inputs.length];
-			// Allocate output sequences for predictions.
-			for (int idx = 0; idx < inputs.length; ++idx)
-				predicteds[idx] = (SequenceOutput) inputs[idx].createOutput();
 			this.eval = eval;
 			this.averageWeights = averageWeights;
 			this.dual = dual;
+			if (inputs != null) {
+				this.predicteds = new SequenceOutput[inputs.length];
+				// Allocate output sequences for predictions.
+				for (int idx = 0; idx < inputs.length; ++idx)
+					predicteds[idx] = (SequenceOutput) inputs[idx]
+							.createOutput();
+			}
 		}
 
 		@Override
@@ -1105,6 +1111,9 @@ public class TrainHmmMain implements Command {
 		@Override
 		public boolean afterEpoch(Inference inferenceImpl, Model hmm,
 				int epoch, double loss, int iteration) {
+
+			if (inputs == null)
+				return true;
 
 			if (averageWeights) {
 				try {

@@ -3,7 +3,10 @@ package br.pucrio.inf.learn.structlearning.discriminative.task;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 
 /**
- * Dual model for structured problems.
+ * Dual model for structured problems. It comprises a subset of the training
+ * examples that are called support vectors (SV). In structured learning, a SV
+ * usually is an example part, the fundamental part that forms examples. For
+ * instance, in sentence labeling in text, the part is usually a token.
  * 
  * @author eraldo
  * 

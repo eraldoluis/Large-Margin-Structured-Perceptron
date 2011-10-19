@@ -123,6 +123,11 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 	protected LearnRateUpdateStrategy learningRateUpdateStrategy;
 
 	/**
+	 * Indexes that give the examples training order.
+	 */
+	protected int[] indexTrainingOrder;
+
+	/**
 	 * Create a perceptron to train the given initial model using the default
 	 * Collins' learning rate (1) and the default number of iterations (10).
 	 * 
@@ -254,6 +259,11 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 		for (int idx = 0; idx < inputs.length; ++idx)
 			predicteds[idx] = inputs[idx].createOutput();
 
+		// Examples training order.
+		indexTrainingOrder = new int[inputs.length];
+		for (int idx = 0; idx < inputs.length; ++idx)
+			indexTrainingOrder[idx] = idx;
+
 		if (listener != null)
 			if (!listener.beforeTraining(inferenceImpl, model))
 				return;
@@ -323,13 +333,21 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 		if (reportProgressInterval > 0)
 			System.out.print("Progress: ");
 
+		if (randomize) {
+			// Randomize the order to process the training examples.
+			int len = indexTrainingOrder.length;
+			for (int idx = len - 1; idx >= 0; --idx) {
+				int idxSwp = random.nextInt(len - idx);
+				int tmp = indexTrainingOrder[idxSwp];
+				indexTrainingOrder[idxSwp] = indexTrainingOrder[idx];
+				indexTrainingOrder[idx] = tmp;
+			}
+		}
+
 		// Iterate over the training examples, updating the weight vector.
 		for (int idx = 0; idx < inputs.length; ++idx) {
 
-			indexCurrentExample = idx;
-			if (randomize)
-				// Randomize the order to process the training examples.
-				indexCurrentExample = random.nextInt(inputs.length);
+			indexCurrentExample = indexTrainingOrder[idx];
 
 			/*
 			 * Update the current model weights according with the predicted
