@@ -96,9 +96,13 @@ public class PQInput implements ExampleInput {
 	public int getTrainingIndex() {
 		return -1;
 	}
-
+	
 	public int size() {
 		return features.length;
+	}
+	
+	public int[] getPersonFeatures(int personIndex) {
+		return this.features[personIndex];
 	}
 
 	public Iterable<Integer> getFeatureCodes(int token) {

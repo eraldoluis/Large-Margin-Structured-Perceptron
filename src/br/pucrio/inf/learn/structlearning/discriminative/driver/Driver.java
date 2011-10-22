@@ -25,12 +25,8 @@ public class Driver {
 		descriptions = new LinkedList<CommandDescription>();
 
 		// Trainer for the Structural Perceptron.
-		descriptions.add(new CommandDescription(new TrainHmmMain(), "TrainHmm",
-				"Train an HMM using the Structural Perceptron algorithm."));
-
-		// Test JNI.
-		descriptions.add(new CommandDescription(new TrainNativeSvm(), "JNITest",
-				"Test JNI."));
+		descriptions.add(new CommandDescription(new TrainPQ(), "TrainPQ",
+				"Train using the Structural Perceptron algorithm."));
 
 		if (args.length < 1) {
 			usage();

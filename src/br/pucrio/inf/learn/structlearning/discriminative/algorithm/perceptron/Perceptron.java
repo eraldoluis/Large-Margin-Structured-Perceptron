@@ -529,10 +529,10 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 		// Predict the best output with the current mobel.
 		inferenceImpl.inference(model, input, predictedOutput);
 
-		for (int tkn = 0; tkn < ((SequenceOutput) predictedOutput).size(); ++tkn)
-			if (((SequenceOutput) predictedOutput).getLabel(tkn) < 0)
-				LOG.error("Token " + tkn + " of example " + input.getId()
-						+ " is less than zero.");
+		//for (int tkn = 0; tkn < ((SequenceOutput) predictedOutput).size(); ++tkn)
+		//	if (((SequenceOutput) predictedOutput).getLabel(tkn) < 0)
+		//		LOG.error("Token " + tkn + " of example " + input.getId()
+		//				+ " is less than zero.");
 
 		// Update the current model and return the loss for this example.
 		double loss = model.update(input, referenceOutput, predictedOutput,
