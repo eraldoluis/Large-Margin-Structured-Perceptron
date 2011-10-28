@@ -1,5 +1,11 @@
-package br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data;
+package br.pucrio.inf.learn.structlearning.discriminative.data;
 
+/**
+ * Exception within dataset code.
+ * 
+ * @author eraldo
+ * 
+ */
 public class DatasetException extends Exception {
 	/**
 	 * Automatically-generated serial version ID.

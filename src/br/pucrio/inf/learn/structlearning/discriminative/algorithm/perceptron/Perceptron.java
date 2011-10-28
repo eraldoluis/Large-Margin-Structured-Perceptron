@@ -11,7 +11,6 @@ import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.da
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
-import br.pucrio.inf.learn.structlearning.discriminative.data.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Inference;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Model;
 import br.pucrio.inf.learn.util.DebugUtil;
@@ -246,9 +245,7 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 	}
 
 	@Override
-	public void train(ExampleInput[] inputs, ExampleOutput[] outputs,
-			FeatureEncoding<String> featureEncoding,
-			FeatureEncoding<String> stateEncoding) {
+	public void train(ExampleInput[] inputs, ExampleOutput[] outputs) {
 
 		// Training examples.
 		this.inputs = inputs;
@@ -280,8 +277,7 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 					break;
 
 			// Train one epoch and get the accumulated loss.
-			double loss = trainOneEpoch(inputs, outputs, predicteds,
-					featureEncoding, stateEncoding);
+			double loss = trainOneEpoch(inputs, outputs, predicteds);
 
 			LOG.info("Training loss: " + loss);
 
@@ -314,16 +310,10 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 	 *            list of correct output sequences
 	 * @param predicteds
 	 *            list of output sequences used to store the predicted values
-	 * @param featureEncoding
-	 *            encoding of feature values
-	 * @param stateEncoding
-	 *            encoding of state labels
 	 * @return the sum of the losses over all examples through this epoch
 	 */
 	public double trainOneEpoch(ExampleInput[] inputs, ExampleOutput[] outputs,
-			ExampleOutput[] predicteds,
-			FeatureEncoding<String> featureEncoding,
-			FeatureEncoding<String> stateEncoding) {
+			ExampleOutput[] predicteds) {
 
 		// Accumulate the loss over all examples in this epoch.
 		double loss = 0d;
@@ -380,8 +370,7 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 	@Override
 	public void train(ExampleInput[] inputsA, ExampleOutput[] outputsA,
 			double weightA, double weightStep, ExampleInput[] inputsB,
-			ExampleOutput[] outputsB, FeatureEncoding<String> featureEncoding,
-			FeatureEncoding<String> stateEncoding) {
+			ExampleOutput[] outputsB) {
 
 		// Allocate predicted output objects for the training examples.
 		predicteds = new ExampleOutput[outputsA.length];
@@ -413,8 +402,7 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 
 			// Train one epoch and get the accumulated loss.
 			double loss = trainOneEpoch(inputsA, outputsA, predicteds,
-					epochWeightA, inputsB, outputsB, predictedsB,
-					featureEncoding, stateEncoding);
+					epochWeightA, inputsB, outputsB, predictedsB);
 
 			LOG.info("Training loss: " + loss);
 
@@ -448,16 +436,12 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 	 * @param inputsB
 	 * @param outputsB
 	 * @param predictedsB
-	 * @param featureEncoding
-	 * @param stateEncoding
 	 * @return
 	 */
 	public double trainOneEpoch(ExampleInput[] inputsA,
 			ExampleOutput[] outputsA, ExampleOutput[] predictedsA,
 			double weightA, ExampleInput[] inputsB, ExampleOutput[] outputsB,
-			ExampleOutput[] predictedsB,
-			FeatureEncoding<String> featureEncoding,
-			FeatureEncoding<String> stateEncoding) {
+			ExampleOutput[] predictedsB) {
 
 		LOG.info("Weight of first dataset in this epoch: " + weightA);
 
@@ -551,11 +535,6 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 
 		// Predict the best output with the current mobel.
 		inferenceImpl.inference(model, input, predictedOutput);
-
-		for (int tkn = 0; tkn < ((SequenceOutput) predictedOutput).size(); ++tkn)
-			if (((SequenceOutput) predictedOutput).getLabel(tkn) < 0)
-				LOG.error("Token " + tkn + " of example " + input.getId()
-						+ " is less than zero.");
 
 		// Update the current model and return the loss for this example.
 		double loss = model.update(input, referenceOutput, predictedOutput,

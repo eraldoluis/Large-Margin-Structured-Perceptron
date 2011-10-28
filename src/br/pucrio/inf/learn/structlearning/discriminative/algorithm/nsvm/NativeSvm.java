@@ -6,7 +6,6 @@ import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.da
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
-import br.pucrio.inf.learn.structlearning.discriminative.data.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Model;
 
 /**
@@ -37,16 +36,13 @@ public class NativeSvm implements StructuredAlgorithm {
 	}
 
 	@Override
-	public void train(ExampleInput[] inputs, ExampleOutput[] outputs,
-			FeatureEncoding<String> featureEncoding,
-			FeatureEncoding<String> stateEncoding) {
+	public void train(ExampleInput[] inputs, ExampleOutput[] outputs) {
 	}
 
 	@Override
 	public void train(ExampleInput[] inputsA, ExampleOutput[] outputsA,
 			double weightA, double weightStep, ExampleInput[] inputsB,
-			ExampleOutput[] outputsB, FeatureEncoding<String> featureEncoding,
-			FeatureEncoding<String> stateEncoding) {
+			ExampleOutput[] outputsB) {
 	}
 
 	/**

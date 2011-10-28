@@ -34,4 +34,8 @@ public final class CompleteGraph {
 	public void setEdgeWeight(int from, int to, double weight) {
 		weights[from][to] = weight;
 	}
+
+	public double incEdgeWeight(int from, int to, double value) {
+		return (weights[from][to] += value);
+	}
 }

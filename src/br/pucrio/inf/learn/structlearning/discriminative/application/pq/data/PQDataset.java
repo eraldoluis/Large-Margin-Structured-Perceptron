@@ -12,9 +12,9 @@ import java.util.LinkedList;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import br.pucrio.inf.learn.structlearning.discriminative.data.FeatureEncoding;
-import br.pucrio.inf.learn.structlearning.discriminative.data.StringMapEncoding;
-import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.DatasetException;
+import br.pucrio.inf.learn.structlearning.discriminative.data.DatasetException;
+import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
+import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.StringMapEncoding;
 
 
 /**
@@ -419,7 +419,7 @@ public class PQDataset {
 	 */
 	public void sortFeatureValues() {
 		for (PQInput seq : inputExamples)
-			seq.sortFeatureValues();
+			seq.sortFeatures();
 	}
 
 }

@@ -2,7 +2,6 @@ package br.pucrio.inf.learn.structlearning.discriminative.algorithm;
 
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
-import br.pucrio.inf.learn.structlearning.discriminative.data.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Model;
 
 /**
@@ -20,9 +19,7 @@ public interface StructuredAlgorithm {
 	 * @param inputs
 	 * @param outputs
 	 */
-	public void train(ExampleInput[] inputs, ExampleOutput[] outputs,
-			FeatureEncoding<String> featureEncoding,
-			FeatureEncoding<String> stateEncoding);
+	public void train(ExampleInput[] inputs, ExampleOutput[] outputs);
 
 	/**
 	 * Train a model on two datasets. The first dataset (A) has a different
@@ -40,13 +37,10 @@ public interface StructuredAlgorithm {
 	 *            weight by this step value.
 	 * @param inputsB
 	 * @param outputsB
-	 * @param featureEncoding
-	 * @param stateEncoding
 	 */
 	public void train(ExampleInput[] inputsA, ExampleOutput[] outputsA,
 			double weightA, double weightStep, ExampleInput[] inputsB,
-			ExampleOutput[] outputsB, FeatureEncoding<String> featureEncoding,
-			FeatureEncoding<String> stateEncoding);
+			ExampleOutput[] outputsB);
 
 	/**
 	 * Return the learned model. This method can only be called after a

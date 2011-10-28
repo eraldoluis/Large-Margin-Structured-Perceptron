@@ -1,4 +1,4 @@
-package br.pucrio.inf.learn.structlearning.discriminative.data;
+package br.pucrio.inf.learn.structlearning.discriminative.data.encoding;
 
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
@@ -10,7 +10,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Random;
 
-import br.pucrio.inf.learn.util.Murmur2Hash;
+import br.pucrio.inf.learn.util.Murmur3Hash;
 
 /**
  * A string feature encoding based on the Murmur3 hashing function.
@@ -22,7 +22,7 @@ import br.pucrio.inf.learn.util.Murmur2Hash;
  * @author eraldof
  * 
  */
-public class Murmur2Encoding implements FeatureEncoding<String> {
+public class Murmur3Encoding implements FeatureEncoding<String> {
 
 	/**
 	 * This is the only parameter of the Murmur3 hashing function.
@@ -43,7 +43,7 @@ public class Murmur2Encoding implements FeatureEncoding<String> {
 	 * @param size
 	 * @param seed
 	 */
-	public Murmur2Encoding(int size, int seed) {
+	public Murmur3Encoding(int size, int seed) {
 		this.size = size;
 		this.seed = seed;
 	}
@@ -54,7 +54,7 @@ public class Murmur2Encoding implements FeatureEncoding<String> {
 	 * 
 	 * @param size
 	 */
-	public Murmur2Encoding(int size) {
+	public Murmur3Encoding(int size) {
 		this(size, new Random().nextInt());
 	}
 
@@ -65,7 +65,7 @@ public class Murmur2Encoding implements FeatureEncoding<String> {
 
 	@Override
 	public int put(String value) {
-		return Math.abs(Murmur2Hash.hash32(value.getBytes(), seed)) % size;
+		return Math.abs(Murmur3Hash.hash32(value.getBytes(), seed)) % size;
 	}
 
 	@Override

@@ -88,7 +88,7 @@ public class PQInput implements ExampleInput {
 	}
 
 	@Override
-	public void sortFeatureValues() {
+	public void sortFeatures() {
 		// TODO only to use kernel functions
 	}
 

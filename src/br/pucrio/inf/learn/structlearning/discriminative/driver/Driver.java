@@ -24,13 +24,15 @@ public class Driver {
 	public static void main(String[] args) {
 		descriptions = new LinkedList<CommandDescription>();
 
-		// Trainer for the Structural Perceptron.
-		descriptions.add(new CommandDescription(new TrainHmmMain(), "TrainHmm",
-				"Train an HMM using the Structural Perceptron algorithm."));
+		// Trainer for hidden Markov models.
+		descriptions.add(new CommandDescription(new TrainHmm(), "TrainHmm",
+				"Train a model isomorphic to a hidden Markov model "
+						+ "using a structural perceptron algorithm."));
 
-		// Test JNI.
-		descriptions.add(new CommandDescription(new TrainNativeSvm(), "JNITest",
-				"Test JNI."));
+		// Trainer for dependency parsers.
+		descriptions.add(new CommandDescription(new TrainDP(), "TrainDP",
+				"Train a dependency parser using "
+						+ "a structural perceptron algorithm."));
 
 		if (args.length < 1) {
 			usage();

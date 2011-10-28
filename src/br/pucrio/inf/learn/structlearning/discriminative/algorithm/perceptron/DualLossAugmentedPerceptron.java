@@ -5,7 +5,6 @@ import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.da
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
-import br.pucrio.inf.learn.structlearning.discriminative.data.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.task.DualModel;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Inference;
 import br.pucrio.inf.learn.util.DebugUtil;
@@ -66,8 +65,7 @@ public class DualLossAugmentedPerceptron extends LossAugmentedPerceptron {
 	@Override
 	public void train(ExampleInput[] inputsA, ExampleOutput[] outputsA,
 			double weightA, double weightStep, ExampleInput[] inputsB,
-			ExampleOutput[] outputsB, FeatureEncoding<String> featureEncoding,
-			FeatureEncoding<String> stateEncoding) {
+			ExampleOutput[] outputsB) {
 		/*
 		 * Need to adequate the algorithm to store a unique array of all
 		 * examples or modify the <code>DualHmm</code> class to deal with more
@@ -114,7 +112,7 @@ public class DualLossAugmentedPerceptron extends LossAugmentedPerceptron {
 		double loss = dualModel.update(indexCurrentExample, referenceOutput,
 				predictedOutput, getCurrentLearningRate());
 
-		if (distill && loss > 0) //((iteration + 1) % 10 == 0))
+		if (distill && loss > 0) // ((iteration + 1) % 10 == 0))
 			dualModel.distill(inferenceImpl, lossAnnotatedWeight, predicteds);
 
 		// Debug.

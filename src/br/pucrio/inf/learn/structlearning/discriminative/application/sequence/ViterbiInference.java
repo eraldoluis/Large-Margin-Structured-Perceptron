@@ -1,6 +1,6 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.sequence;
 
-import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.Dataset;
+import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceDataset;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
@@ -260,7 +260,7 @@ public class ViterbiInference implements Inference {
 		// Emission weights at each token.
 		double[] emissionWeights = new double[numberOfStates];
 
-		if (curState == Dataset.NON_ANNOTATED_STATE_CODE) {
+		if (curState == SequenceDataset.NON_ANNOTATED_STATE_CODE) {
 			// Non-annotated token.
 			hmm.getTokenEmissionWeights(input, 0, emissionWeights);
 			for (int state = 0; state < numberOfStates; ++state)
@@ -278,7 +278,7 @@ public class ViterbiInference implements Inference {
 		for (int tkn = 1; tkn < lenExample; ++tkn) {
 			int prevState = curState;
 			curState = partiallyLabeledOutput.getLabel(tkn);
-			if (curState == Dataset.NON_ANNOTATED_STATE_CODE) {
+			if (curState == SequenceDataset.NON_ANNOTATED_STATE_CODE) {
 				// Get emission weights for each state.
 				hmm.getTokenEmissionWeights(input, tkn, emissionWeights);
 				/*
@@ -302,7 +302,7 @@ public class ViterbiInference implements Inference {
 
 		// Find the best state for the last token.
 		int lastState = partiallyLabeledOutput.getLabel(lenExample - 1);
-		if (lastState == Dataset.NON_ANNOTATED_STATE_CODE) {
+		if (lastState == SequenceDataset.NON_ANNOTATED_STATE_CODE) {
 
 			// The default state is always the fisrt option.
 			int bestState = defaultState;
@@ -354,7 +354,7 @@ public class ViterbiInference implements Inference {
 	protected void partialViterbi(Hmm hmm, int previousState, double[][] delta,
 			int[][] psi, int token, int toState, double emissionWeight,
 			int defaultState) {
-		if (previousState == Dataset.NON_ANNOTATED_STATE_CODE) {
+		if (previousState == SequenceDataset.NON_ANNOTATED_STATE_CODE) {
 			// If the previous token is non-annotated, we must choose the
 			// previous best state using the original procedure.
 			viterbi(hmm, delta, psi, token, toState, emissionWeight,
@@ -390,7 +390,7 @@ public class ViterbiInference implements Inference {
 			return;
 
 		if (lossPartiallyLabeledOutput == null
-				|| lossPartiallyLabeledOutput.getLabel(token) != Dataset.NON_ANNOTATED_STATE_CODE) {
+				|| lossPartiallyLabeledOutput.getLabel(token) != SequenceDataset.NON_ANNOTATED_STATE_CODE) {
 			/*
 			 * If the current token is annotated.
 			 */

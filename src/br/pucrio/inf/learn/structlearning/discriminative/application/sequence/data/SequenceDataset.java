@@ -1,10 +1,12 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.Collection;
 import java.util.LinkedList;
@@ -12,23 +14,29 @@ import java.util.LinkedList;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import br.pucrio.inf.learn.structlearning.discriminative.data.FeatureEncoding;
-import br.pucrio.inf.learn.structlearning.discriminative.data.StringMapEncoding;
+import br.pucrio.inf.learn.structlearning.discriminative.data.Dataset;
+import br.pucrio.inf.learn.structlearning.discriminative.data.DatasetException;
+import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
+import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.StringMapEncoding;
 
 /**
- * Represent a text dataset.
+ * Represent a textual dataset whose examples are sequence of tokens.
  * 
- * Provide methods for manipulating a text dataset. Some operations are: create
- * new features, remove features, get feature values, get a complete example,
- * change feature values.
- * 
- * The feature values are stored as integer. We use a feature-value mapping to
- * encode the string values.
+ * The feature values are stored as integers and are also called feature codes.
+ * Different schema can be used to encode textual feature values to integer
+ * codes by specializing the class <code>FeatureEncoding</code>. The default
+ * feature encoding scheme is <code>StringMapEncoding</code>. It stores an array
+ * of strings and use the index in this array as feature code. A
+ * <code>HashMap</code> stores the inverted index, i.e., efficiently provides
+ * the code of a feature value given its textual representation.
  * 
  */
-public class Dataset {
+public class SequenceDataset implements Dataset {
 
-	private static final Log LOG = LogFactory.getLog(Dataset.class);
+	/**
+	 * Loging object.
+	 */
+	private static final Log LOG = LogFactory.getLog(SequenceDataset.class);
 
 	/**
 	 * Special code used to indicate non-annotated tokens.
@@ -90,7 +98,7 @@ public class Dataset {
 	/**
 	 * Default constructor.
 	 */
-	public Dataset() {
+	public SequenceDataset() {
 		this(new StringMapEncoding(), new StringMapEncoding());
 	}
 
@@ -102,7 +110,7 @@ public class Dataset {
 	 * @param featureEncoding
 	 * @param stateEncoding
 	 */
-	public Dataset(FeatureEncoding<String> featureEncoding,
+	public SequenceDataset(FeatureEncoding<String> featureEncoding,
 			FeatureEncoding<String> stateEncoding) {
 		this.featureEncoding = featureEncoding;
 		this.stateEncoding = stateEncoding;
@@ -110,7 +118,7 @@ public class Dataset {
 		this.training = false;
 	}
 
-	public Dataset(FeatureEncoding<String> featureEncoding,
+	public SequenceDataset(FeatureEncoding<String> featureEncoding,
 			FeatureEncoding<String> stateEncoding, String nonAnnotatedStateLabel) {
 		this.featureEncoding = featureEncoding;
 		this.stateEncoding = stateEncoding;
@@ -119,7 +127,7 @@ public class Dataset {
 		this.training = false;
 	}
 
-	public Dataset(FeatureEncoding<String> featureEncoding,
+	public SequenceDataset(FeatureEncoding<String> featureEncoding,
 			FeatureEncoding<String> stateEncoding,
 			String nonAnnotatedStateLabel, boolean training) {
 		this.featureEncoding = featureEncoding;
@@ -138,12 +146,13 @@ public class Dataset {
 	 * @throws DatasetException
 	 * @throws IOException
 	 */
-	public Dataset(String fileName) throws IOException, DatasetException {
+	public SequenceDataset(String fileName) throws IOException,
+			DatasetException {
 		this(new StringMapEncoding(), new StringMapEncoding());
 		load(fileName);
 	}
 
-	public Dataset(String fileName, String nonAnnotatedStateLabel)
+	public SequenceDataset(String fileName, String nonAnnotatedStateLabel)
 			throws IOException, DatasetException {
 		this(new StringMapEncoding(), new StringMapEncoding());
 		this.nonAnnotatedStateLabel = nonAnnotatedStateLabel;
@@ -157,7 +166,7 @@ public class Dataset {
 	 * @throws IOException
 	 * @throws DatasetException
 	 */
-	public Dataset(InputStream is) throws IOException, DatasetException {
+	public SequenceDataset(InputStream is) throws IOException, DatasetException {
 		this(new StringMapEncoding(), new StringMapEncoding());
 		load(is);
 	}
@@ -179,14 +188,16 @@ public class Dataset {
 	 * @throws DatasetException
 	 *             if the file contains invalid data.
 	 */
-	public Dataset(String fileName, FeatureEncoding<String> featureEncoding,
+	public SequenceDataset(String fileName,
+			FeatureEncoding<String> featureEncoding,
 			FeatureEncoding<String> stateEncoding) throws IOException,
 			DatasetException {
 		this(featureEncoding, stateEncoding);
 		load(fileName);
 	}
 
-	public Dataset(String fileName, FeatureEncoding<String> featureEncoding,
+	public SequenceDataset(String fileName,
+			FeatureEncoding<String> featureEncoding,
 			FeatureEncoding<String> stateEncoding, String nonAnnotatedStateLabel)
 			throws IOException, DatasetException {
 		this(featureEncoding, stateEncoding);
@@ -194,7 +205,8 @@ public class Dataset {
 		load(fileName);
 	}
 
-	public Dataset(String fileName, FeatureEncoding<String> featureEncoding,
+	public SequenceDataset(String fileName,
+			FeatureEncoding<String> featureEncoding,
 			FeatureEncoding<String> stateEncoding,
 			String nonAnnotatedStateLabel,
 			boolean skipCompletelyNonAnnotatedExamples) throws IOException,
@@ -205,33 +217,52 @@ public class Dataset {
 		load(fileName);
 	}
 
-	public SequenceInput getSequenceInput(int index) {
-		return inputSequences[index];
+	@Override
+	public boolean isTraining() {
+		return training;
 	}
 
-	/**
-	 * Return the number of examples within this dataset.
-	 * 
-	 * @return the number of examples within this dataset
-	 */
+	@Override
 	public int getNumberOfExamples() {
 		return inputSequences.length;
 	}
 
-	public FeatureEncoding<String> getFeatureEncoding() {
-		return featureEncoding;
-	}
-
-	public FeatureEncoding<String> getStateEncoding() {
-		return stateEncoding;
-	}
-
+	@Override
 	public SequenceInput[] getInputs() {
 		return inputSequences;
 	}
 
+	@Override
 	public SequenceOutput[] getOutputs() {
 		return outputSequences;
+	}
+
+	@Override
+	public SequenceInput getInput(int index) {
+		return inputSequences[index];
+	}
+
+	@Override
+	public SequenceOutput getOutput(int index) {
+		return outputSequences[index];
+	}
+
+	/**
+	 * Return the encoding scheme for feature values.
+	 * 
+	 * @return
+	 */
+	public FeatureEncoding<String> getFeatureEncoding() {
+		return featureEncoding;
+	}
+
+	/**
+	 * Return the encoding scheme for state labels.
+	 * 
+	 * @return
+	 */
+	public FeatureEncoding<String> getStateEncoding() {
+		return stateEncoding;
 	}
 
 	/**
@@ -297,7 +328,7 @@ public class Dataset {
 	 * 
 	 * @param other
 	 */
-	public void add(Dataset other) throws DatasetException {
+	public void add(SequenceDataset other) throws DatasetException {
 		if (!featureEncoding.equals(other.featureEncoding)
 				|| !stateEncoding.equals(other.stateEncoding))
 			throw new DatasetException("Different encodings");
@@ -560,7 +591,20 @@ public class Dataset {
 	 */
 	public void sortFeatureValues() {
 		for (SequenceInput seq : inputSequences)
-			seq.sortFeatureValues();
+			seq.sortFeatures();
+	}
+
+	@Override
+	public void save(BufferedWriter writer) throws IOException,
+			DatasetException {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void save(OutputStream os) throws IOException, DatasetException {
+		// TODO Auto-generated method stub
+		
 	}
 
 }

@@ -4,7 +4,7 @@ import java.io.PrintStream;
 
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
-import br.pucrio.inf.learn.structlearning.discriminative.data.FeatureEncoding;
+import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Model;
 
 /**

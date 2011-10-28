@@ -25,18 +25,18 @@ import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.Av
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.DualHmm;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.Viterbi2ndOrderInference;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.ViterbiInference;
-import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.Dataset;
+import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceDataset;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.evaluation.IobChunkEvaluation;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.evaluation.LabeledTokenEvaluation;
-import br.pucrio.inf.learn.structlearning.discriminative.data.FeatureEncoding;
-import br.pucrio.inf.learn.structlearning.discriminative.data.HybridStringEncoding;
-import br.pucrio.inf.learn.structlearning.discriminative.data.JavaHashCodeEncoding;
-import br.pucrio.inf.learn.structlearning.discriminative.data.Lookup3Encoding;
-import br.pucrio.inf.learn.structlearning.discriminative.data.Murmur2Encoding;
-import br.pucrio.inf.learn.structlearning.discriminative.data.Murmur3Encoding;
-import br.pucrio.inf.learn.structlearning.discriminative.data.StringMapEncoding;
+import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
+import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.HybridStringEncoding;
+import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.JavaHashCodeEncoding;
+import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.Lookup3Encoding;
+import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.Murmur2Encoding;
+import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.Murmur3Encoding;
+import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.StringMapEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.driver.Driver.Command;
 import br.pucrio.inf.learn.structlearning.discriminative.evaluation.EntityF1Evaluation;
 import br.pucrio.inf.learn.structlearning.discriminative.evaluation.F1Measure;
@@ -53,12 +53,12 @@ import br.pucrio.inf.learn.util.DebugUtil;
  * @author eraldo
  * 
  */
-public class TrainHmmMain implements Command {
+public class TrainHmm implements Command {
 
 	/**
 	 * Logging object.
 	 */
-	private static final Log LOG = LogFactory.getLog(TrainHmmMain.class);
+	private static final Log LOG = LogFactory.getLog(TrainHmm.class);
 
 	/**
 	 * Type of task to be performed.
@@ -436,8 +436,8 @@ public class TrainHmmMain implements Command {
 		boolean normalizeInput = cmdLine.hasOption("norm");
 
 		LOG.info("Loading input corpus...");
-		Dataset inputCorpusA = null;
-		Dataset inputCorpusB = null;
+		SequenceDataset inputCorpusA = null;
+		SequenceDataset inputCorpusB = null;
 		double weightAdditionalCorpus = -1d;
 		double weightStep = -1d;
 		FeatureEncoding<String> featureEncoding = null;
@@ -549,7 +549,7 @@ public class TrainHmmMain implements Command {
 				stateEncoding = new StringMapEncoding();
 
 			// Get the list of input paths and concatenate the corpora in them.
-			inputCorpusA = new Dataset(featureEncoding, stateEncoding,
+			inputCorpusA = new SequenceDataset(featureEncoding, stateEncoding,
 					nonAnnotatedLabel, true);
 			inputCorpusA
 					.setSkipCompletelyNonAnnotatedExamples(skipCompletelyNonAnnotatedExamples);
@@ -562,8 +562,9 @@ public class TrainHmmMain implements Command {
 
 			// Load other data files.
 			for (int idxFile = 1; idxFile < inputCorpusFileNames.length; ++idxFile) {
-				Dataset other = new Dataset(inputCorpusFileNames[idxFile],
-						featureEncoding, stateEncoding, nonAnnotatedLabel,
+				SequenceDataset other = new SequenceDataset(
+						inputCorpusFileNames[idxFile], featureEncoding,
+						stateEncoding, nonAnnotatedLabel,
 						skipCompletelyNonAnnotatedExamples);
 				inputCorpusA.add(other);
 			}
@@ -586,7 +587,7 @@ public class TrainHmmMain implements Command {
 						weightStep = Double.parseDouble(fileNameAndWeight[2]);
 				}
 
-				inputCorpusB = new Dataset(additionalCorpusFileName,
+				inputCorpusB = new SequenceDataset(additionalCorpusFileName,
 						featureEncoding, stateEncoding, nonAnnotatedLabel,
 						skipCompletelyNonAnnotatedExamples);
 
@@ -865,8 +866,8 @@ public class TrainHmmMain implements Command {
 			try {
 
 				LOG.info("Loading and preparing test data...");
-				Dataset testset = new Dataset(testCorpusFileName,
-						inputCorpusA.getFeatureEncoding(),
+				SequenceDataset testset = new SequenceDataset(
+						testCorpusFileName, inputCorpusA.getFeatureEncoding(),
 						inputCorpusA.getStateEncoding());
 
 				if (algType == AlgorithmType.DUAL_PERCEPTRON) {
@@ -904,9 +905,7 @@ public class TrainHmmMain implements Command {
 		LOG.info("Training model...");
 		if (inputCorpusB == null) {
 			// Train on only one dataset.
-			alg.train(inputCorpusA.getInputs(), inputCorpusA.getOutputs(),
-					inputCorpusA.getFeatureEncoding(),
-					inputCorpusA.getStateEncoding());
+			alg.train(inputCorpusA.getInputs(), inputCorpusA.getOutputs());
 		} else {
 			// Train on two datasets.
 			if (weightAdditionalCorpus < 0d)
@@ -920,9 +919,7 @@ public class TrainHmmMain implements Command {
 								.getNumberOfExamples());
 			alg.train(inputCorpusA.getInputs(), inputCorpusA.getOutputs(),
 					1d - weightAdditionalCorpus, weightStep,
-					inputCorpusB.getInputs(), inputCorpusB.getOutputs(),
-					inputCorpusA.getFeatureEncoding(),
-					inputCorpusA.getStateEncoding());
+					inputCorpusB.getInputs(), inputCorpusB.getOutputs());
 		}
 
 		// Evaluation only for the final model.
@@ -930,8 +927,8 @@ public class TrainHmmMain implements Command {
 			try {
 
 				LOG.info("Loading and preparing test data...");
-				Dataset testset = new Dataset(testCorpusFileName,
-						inputCorpusA.getFeatureEncoding(),
+				SequenceDataset testset = new SequenceDataset(
+						testCorpusFileName, inputCorpusA.getFeatureEncoding(),
 						inputCorpusA.getStateEncoding());
 
 				if (algType == AlgorithmType.DUAL_PERCEPTRON) {

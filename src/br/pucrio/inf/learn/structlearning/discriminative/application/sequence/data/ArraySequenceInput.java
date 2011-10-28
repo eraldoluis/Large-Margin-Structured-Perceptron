@@ -197,7 +197,7 @@ public class ArraySequenceInput implements SequenceInput {
 	}
 
 	@Override
-	public void sortFeatureValues() {
+	public void sortFeatures() {
 		for (int tkn = 0; tkn < featureCodes.length; ++tkn) {
 			int numFtrs = featureCodes[tkn].length;
 

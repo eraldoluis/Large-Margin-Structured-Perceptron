@@ -21,6 +21,7 @@ public class CommandLineOptionsUtil {
 	 */
 	public static void usage(String syntaxLine, Options ops) {
 		HelpFormatter hf = new HelpFormatter();
+		hf.setWidth(Integer.MAX_VALUE);
 		hf.setOptionComparator(null);
 		hf.printHelp(syntaxLine, ops, true);
 		System.exit(1);

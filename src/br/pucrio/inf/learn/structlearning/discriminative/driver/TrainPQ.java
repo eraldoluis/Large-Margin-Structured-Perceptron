@@ -9,8 +9,8 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import br.pucrio.inf.learn.structlearning.discriminative.application.pq.data.PQDataset;
-import br.pucrio.inf.learn.structlearning.discriminative.data.FeatureEncoding;
-import br.pucrio.inf.learn.structlearning.discriminative.data.StringMapEncoding;
+import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
+import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.StringMapEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.driver.Driver.Command;
 import br.pucrio.inf.learn.util.CommandLineOptionsUtil;
 
@@ -19,7 +19,7 @@ public class TrainPQ implements Command {
 	/**
 	 * Logging object.
 	 */
-	private static final Log LOG = LogFactory.getLog(TrainHmmMain.class);
+	private static final Log LOG = LogFactory.getLog(TrainHmm.class);
 
 	@SuppressWarnings("static-access")
 	@Override

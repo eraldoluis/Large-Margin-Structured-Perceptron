@@ -4,7 +4,6 @@ import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.da
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
-import br.pucrio.inf.learn.structlearning.discriminative.data.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Inference;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Model;
 import br.pucrio.inf.learn.util.DebugUtil;
@@ -70,11 +69,8 @@ public class LossAugmentedPerceptron extends Perceptron {
 
 	@Override
 	public double trainOneEpoch(ExampleInput[] inputs, ExampleOutput[] outputs,
-			ExampleOutput[] predicteds,
-			FeatureEncoding<String> featureEncoding,
-			FeatureEncoding<String> stateEncoding) {
-		double loss = super.trainOneEpoch(inputs, outputs, predicteds,
-				featureEncoding, stateEncoding);
+			ExampleOutput[] predicteds) {
+		double loss = super.trainOneEpoch(inputs, outputs, predicteds);
 		if (lossNonAnnotatedWeight >= 0d && lossNonAnnotatedWeightInc != 0d)
 			// Increment the loss weight for non-annotated elements.
 			lossNonAnnotatedWeight = Math.min(lossAnnotatedWeight,
@@ -86,12 +82,9 @@ public class LossAugmentedPerceptron extends Perceptron {
 	public double trainOneEpoch(ExampleInput[] inputsA,
 			ExampleOutput[] outputsA, ExampleOutput[] predictedsA,
 			double weightA, ExampleInput[] inputsB, ExampleOutput[] outputsB,
-			ExampleOutput[] predictedsB,
-			FeatureEncoding<String> featureEncoding,
-			FeatureEncoding<String> stateEncoding) {
+			ExampleOutput[] predictedsB) {
 		double loss = super.trainOneEpoch(inputsA, outputsA, predictedsA,
-				weightA, inputsB, outputsB, predictedsB, featureEncoding,
-				stateEncoding);
+				weightA, inputsB, outputsB, predictedsB);
 		if (lossNonAnnotatedWeight >= 0d && lossNonAnnotatedWeightInc != 0d)
 			// Increment the loss weight for non-annotated elements.
 			lossNonAnnotatedWeight = Math.min(lossAnnotatedWeight,
@@ -128,9 +121,10 @@ public class LossAugmentedPerceptron extends Perceptron {
 			 * using a loss-augmented objective function that uses different
 			 * weights for annotated and non-annotated tokens.
 			 */
-			inferenceImpl.lossAugmentedInferenceWithPartiallyLabeledReference(model, input,
-					correctOutput, referenceOutput, predictedOutput,
-					lossAnnotatedWeight, lossNonAnnotatedWeight);
+			inferenceImpl.lossAugmentedInferenceWithPartiallyLabeledReference(
+					model, input, correctOutput, referenceOutput,
+					predictedOutput, lossAnnotatedWeight,
+					lossNonAnnotatedWeight);
 
 		// Update the current model and return the loss for this example.
 		double loss = model.update(input, referenceOutput, predictedOutput,

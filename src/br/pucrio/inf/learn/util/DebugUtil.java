@@ -2,7 +2,7 @@ package br.pucrio.inf.learn.util;
 
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceOutput;
-import br.pucrio.inf.learn.structlearning.discriminative.data.FeatureEncoding;
+import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
 
 /**
  * Utilitary methods to print debug information.

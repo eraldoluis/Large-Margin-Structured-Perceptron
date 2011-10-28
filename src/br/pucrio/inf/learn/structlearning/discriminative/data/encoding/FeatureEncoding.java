@@ -1,4 +1,4 @@
-package br.pucrio.inf.learn.structlearning.discriminative.data;
+package br.pucrio.inf.learn.structlearning.discriminative.data.encoding;
 
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
