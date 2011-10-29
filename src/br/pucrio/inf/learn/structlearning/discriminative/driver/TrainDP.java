@@ -513,7 +513,7 @@ public class TrainDP implements Command {
 		featureEncoding.setReadOnly(true);
 
 		// Evaluation method.
-		DPEvaluation eval = new DPEvaluation();
+		DPEvaluation eval = new DPEvaluation(false);
 
 		// Evaluation after each training epoch.
 		if (testCorpusFileName != null && evalPerEpoch) {
@@ -634,11 +634,11 @@ public class TrainDP implements Command {
 
 		// Per-class results.
 		System.out.println("|-");
-		System.out.println(String.format("| %s || %.2f ", "Average accuracy",
-				results.get("average")));
+		System.out.println(String.format("| %s || %.4f ", "Average accuracy",
+				100*results.get("average")));
 		System.out.println("|-");
-		System.out.println(String.format("| %s || %.2f ",
-				"Per-example accuracy", results.get("example")));
+		System.out.println(String.format("| %s || %.4f ",
+				"Per-example accuracy", 100*results.get("example")));
 
 		// Footer.
 		System.out.println();

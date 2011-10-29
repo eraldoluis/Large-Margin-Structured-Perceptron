@@ -28,17 +28,17 @@ public abstract class MapEncoding<ValueType> implements
 	/**
 	 * Map from values to codes.
 	 */
-	private Map<ValueType, Integer> mapFromValueToCode;
+	protected Map<ValueType, Integer> mapFromValueToCode;
 
 	/**
 	 * Map from codes to values.
 	 */
-	private Vector<ValueType> mapFromCodeToValue;
+	protected Vector<ValueType> mapFromCodeToValue;
 
 	/**
 	 * If <code>true</code>, the user cannot add more values to this encoding.
 	 */
-	private boolean readOnly;
+	protected boolean readOnly;
 
 	/**
 	 * Default constructor. Create an empty encoding.

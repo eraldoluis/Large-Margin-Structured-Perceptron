@@ -22,6 +22,11 @@ public class DPInput implements ExampleInput {
 	private int[][][] features;
 
 	/**
+	 * Indicate which tokens are tagged as punctuation.
+	 */
+	private boolean[] punctuation;
+
+	/**
 	 * Identification of the example.
 	 */
 	private String id;
@@ -71,6 +76,25 @@ public class DPInput implements ExampleInput {
 	 */
 	public int getNumberOfTokens() {
 		return features.length;
+	}
+
+	/**
+	 * Set the flags of punctuation for each token.
+	 * 
+	 * @param vals
+	 */
+	public void setPunctuation(boolean[] vals) {
+		punctuation = vals;
+	}
+
+	/**
+	 * Return <code>true</code> if the given token is tagged as punctuation.
+	 * 
+	 * @param token
+	 * @return
+	 */
+	public boolean isPunctuation(int token) {
+		return punctuation[token];
 	}
 
 	/**

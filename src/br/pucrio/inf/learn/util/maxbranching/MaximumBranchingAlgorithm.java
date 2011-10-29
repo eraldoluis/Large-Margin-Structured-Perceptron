@@ -63,13 +63,10 @@ public class MaximumBranchingAlgorithm {
 
 		for (int node = 0; node < numNodes; ++node) {
 
-			// Every SCC is a root component.
+			// Initially, every SCC (node) is a root component.
 			rootComponents.add(node);
 
-			/*
-			 * The head of its root component is its only node. This array is
-			 * called min in Tarjan's paper.
-			 */
+			// The head of its root component is its only node.
 			min[node] = node;
 
 			// Create a priority queue for each SCC.
@@ -94,7 +91,7 @@ public class MaximumBranchingAlgorithm {
 			}
 		}
 
-		// Root component with no available incoming edges.
+		// Root components with no available incoming edges.
 		LinkedList<Integer> doneRootComponents = new LinkedList<Integer>();
 
 		while (!rootComponents.isEmpty()) {
@@ -104,16 +101,16 @@ public class MaximumBranchingAlgorithm {
 			SimpleWeightedEdge maxInEdge = incomingEdges.get(sccTo).poll();
 
 			if (maxInEdge == null) {
-				// No edge left to consider in this component.
+				// No edge left to consider in this component. It is done.
 				doneRootComponents.add(sccTo);
 				continue;
 			}
 
-			// SCC component of edge 'e' from node: e = (from, to).
+			// SCC component of edge 'maxInEdge' origin node.
 			int sccFrom = sPartition.find(maxInEdge.from);
 
 			if (sccFrom == sccTo) {
-				// Skip, for now, this component.
+				// Intern edge. Skip this component, for now.
 				rootComponents.add(sccTo);
 				continue;
 			}
@@ -121,9 +118,9 @@ public class MaximumBranchingAlgorithm {
 			// Include the selected edge in the current branching.
 			maxBranching.addEdge(maxInEdge.from, maxInEdge.to);
 
-			// SCC component of edge 'e' from node, where e = (from, to).
+			// WCC component of edge 'maxInEdge' origin node.
 			int wssFrom = wPartition.find(maxInEdge.from);
-			// SCC component of edge 'e' to node, where e = (from, to).
+			// WCC component of edge 'maxInEdge' destin node.
 			int wssTo = wPartition.find(maxInEdge.to);
 
 			// Edge connects two weakly connected components.
@@ -135,8 +132,8 @@ public class MaximumBranchingAlgorithm {
 
 			/*
 			 * Edge is within the same WCC, thus it inclusion will create a new
-			 * SCC by uniting some old SCCs (the ones on the path from e.to to
-			 * e.from).
+			 * SCC by uniting some old SCCs (the ones on the path from
+			 * maxInEdge.to to maxInEdge.from).
 			 */
 			double minEdgeWeight = Double.POSITIVE_INFINITY;
 			int minScc = -1;
@@ -223,18 +220,14 @@ public class MaximumBranchingAlgorithm {
 		// list.addEdge(n1, n3, 400);
 		// list.addEdge(n1, n2, 100);
 		// list.addEdge(n2, n3, 100);
-		// list.addEdge(n3, n2,  25);
-		// list.addEdge(n3, n4,  75);
+		// list.addEdge(n3, n2, 25);
+		// list.addEdge(n3, n4, 75);
 		// list.addEdge(n4, n3, 300);
 
 		double ifn = Double.NEGATIVE_INFINITY;
 
-		double[][] weights = { 
-				{ ifn, 100, 400, 100 },
-				{ ifn, ifn, 100, ifn },
-				{ ifn,  25, ifn,  75 },
-				{ ifn, ifn, 300, ifn },
-				};
+		double[][] weights = { { ifn, 100, 400, 100 }, { ifn, ifn, 100, ifn },
+				{ ifn, 25, ifn, 75 }, { ifn, ifn, 300, ifn }, };
 		CompleteGraph graph = new CompleteGraph(weights);
 		MaximumBranchingAlgorithm eds = new MaximumBranchingAlgorithm();
 		int[] maxBranching = new int[weights.length];

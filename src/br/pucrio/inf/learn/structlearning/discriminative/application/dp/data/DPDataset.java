@@ -11,6 +11,7 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.regex.Pattern;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -34,6 +35,16 @@ public class DPDataset implements Dataset {
 	 * Logging object.
 	 */
 	private static Log LOG = LogFactory.getLog(DPDataset.class);
+
+	/**
+	 * Regular expression pattern to parse spaces.
+	 */
+	private final Pattern REGEX_SPACE = Pattern.compile("[ ]");
+
+	/**
+	 * Regular expression pattern to parse TAB characters.
+	 */
+	private final Pattern REGEX_TAB = Pattern.compile("\\t");
 
 	/**
 	 * Textual features encoding scheme.
@@ -119,9 +130,17 @@ public class DPDataset implements Dataset {
 			DatasetException {
 		List<DPInput> inputList = new LinkedList<DPInput>();
 		List<DPOutput> outputList = new LinkedList<DPOutput>();
+		int numExs = 0;
 		String line;
-		while ((line = skipBlanksAndComments(reader)) != null)
+		while ((line = skipBlanksAndComments(reader)) != null) {
 			parseExample(line, inputList, outputList);
+			++numExs;
+			if (numExs % 100 == 0) {
+				System.out.print(".");
+				System.out.flush();
+			}
+		}
+		System.out.println();
 		inputs = inputList.toArray(new DPInput[0]);
 		outputs = outputList.toArray(new DPOutput[0]);
 
@@ -152,7 +171,8 @@ public class DPDataset implements Dataset {
 	 * Each line is a sequence of information chunks separated by TAB
 	 * characters. The first chunk is a textual ID of the example. The second
 	 * chunk contains only an integer number with the number of tokens in the
-	 * sequence, including the root token. From the third chunk on, each chunk
+	 * sequence, including the root token. The third chunk contains the list of
+	 * POS tags of all sequence tokens. From the fourth chunk on, each chunk
 	 * comprises list of feature values, separated by space, representing an
 	 * edge of the sentence graph.
 	 * 
@@ -180,16 +200,27 @@ public class DPDataset implements Dataset {
 	public boolean parseExample(String line, List<DPInput> inputList,
 			List<DPOutput> outputList) throws IOException, DatasetException {
 		// Split line in chunks (separated by TAB chars).
-		String[] chunks = line.split("\\t");
+		String[] chunks = REGEX_TAB.split(line);
 
 		// First chunk is the example ID.
 		String id = chunks[0];
 
 		// Second chunk contains only the number of tokens.
 		int numTokens = Integer.parseInt(chunks[1]);
-		if ((chunks.length - 2) != ((numTokens * numTokens) - numTokens))
+		if ((chunks.length - 3) != ((numTokens * numTokens) - numTokens))
 			throw new DatasetException(
 					"Incorrect number of dependent-head feature lists (separated by TAB)");
+
+		/*
+		 * Parse the pos tags of each token (third chunk) and keep which ones
+		 * are tagged as punctuation.
+		 */
+		boolean[] punctuation = new boolean[numTokens];
+		String[] posTags = REGEX_SPACE.split(chunks[2]);
+		for (int idxTkn = 0; idxTkn < numTokens; ++idxTkn)
+			if (posTags[idxTkn].equals("punc")
+					|| posTags[idxTkn].equals("##ROOT##"))
+				punctuation[idxTkn] = true;
 
 		/*
 		 * List of dependent token edges. Each dependent token is a list of
@@ -201,7 +232,7 @@ public class DPDataset implements Dataset {
 		DPOutput output = new DPOutput(numTokens);
 
 		// Start at the third chunk.
-		int idxChunk = 2;
+		int idxChunk = 3;
 
 		for (int dependent = 1; dependent < numTokens; ++dependent) {
 			// List of edges for the current dependent token.
@@ -220,7 +251,7 @@ public class DPDataset implements Dataset {
 				}
 
 				// Split edge in feature values.
-				String[] ftrValues = chunks[idxChunk].split("[ ]");
+				String[] ftrValues = REGEX_SPACE.split(chunks[idxChunk]);
 
 				// First feature is, in fact, the flag of correct edge.
 				int isCorrectEdge = Integer.parseInt(ftrValues[1]);
@@ -251,7 +282,13 @@ public class DPDataset implements Dataset {
 				// Encode the edge features.
 				LinkedList<Integer> ftrCodes = new LinkedList<Integer>();
 				for (int idxFtr = 2; idxFtr < ftrValues.length; ++idxFtr) {
-					int code = encoding.put(ftrValues[idxFtr]);
+					/*
+					 * Create a new string before including the feature value in
+					 * the encoding, since the ftrValues[idxFtr] string keeps a
+					 * reference to the line string.
+					 */
+					int code = encoding.put(new String(ftrValues[idxFtr]));
+
 					if (code >= 0)
 						ftrCodes.add(code);
 				}
@@ -265,7 +302,13 @@ public class DPDataset implements Dataset {
 		}
 
 		try {
-			DPInput input = new DPInput(id, features);
+			/*
+			 * Create a new string to store the input id to avoid memory leaks,
+			 * since the id string keeps a reference to the line string.
+			 */
+			DPInput input = new DPInput(new String(id), features);
+			input.setPunctuation(punctuation);
+
 			inputList.add(input);
 			outputList.add(output);
 			return true;

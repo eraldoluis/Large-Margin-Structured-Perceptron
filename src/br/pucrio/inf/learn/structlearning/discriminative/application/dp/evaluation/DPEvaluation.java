@@ -14,6 +14,22 @@ import br.pucrio.inf.learn.structlearning.discriminative.evaluation.AccuracyEval
  */
 public class DPEvaluation extends AccuracyEvaluation {
 
+	/**
+	 * Indicate whether punctuation tokens is considered or not.
+	 */
+	private boolean includePunctuation;
+
+	/**
+	 * Create a dependency parsing evaluation. If
+	 * <code>includePunctuation</code> is <code>false</code>, tokens tagged as
+	 * punctuation are not accounted in the accuraracy.
+	 * 
+	 * @param includePunctuation
+	 */
+	public DPEvaluation(boolean includePunctuation) {
+		this.includePunctuation = includePunctuation;
+	}
+
 	@Override
 	protected int[] evaluateExample(ExampleInput input, ExampleOutput correct,
 			ExampleOutput predicted) {
@@ -33,13 +49,18 @@ public class DPEvaluation extends AccuracyEvaluation {
 	 */
 	protected int[] evaluateExample(DPInput input, DPOutput correct,
 			DPOutput predicted) {
-		// Number of tokens disconsidering the root token.
-		int numTokens = input.getNumberOfTokens() - 1;
+		int numTokens = input.getNumberOfTokens();
 		int numCorrectTokens = 0;
-		for (int idxTkn = 1; idxTkn < numTokens; ++idxTkn)
+		int numConsideredTokens = 0;
+		for (int idxTkn = 1; idxTkn < numTokens; ++idxTkn) {
+			if (!includePunctuation && input.isPunctuation(idxTkn))
+				// Skip punctuations if required.
+				continue;
+			++numConsideredTokens;
 			if (correct.getHead(idxTkn) == predicted.getHead(idxTkn))
 				++numCorrectTokens;
-		return new int[] { numCorrectTokens, numTokens };
+		}
+		return new int[] { numCorrectTokens, numConsideredTokens };
 	}
 
 }
