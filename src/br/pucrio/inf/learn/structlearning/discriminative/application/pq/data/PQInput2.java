@@ -25,78 +25,84 @@ public class PQInput2 implements ExampleInput {
 	private int trainingIndex;
 
 	/**
-	 * Quotation start and end indexes from the feed (example). 
+	 * Quotation index information. Each quotation has a list of coreference
+	 * indexes, which are the candidates to be the quotation author.
 	 */
-	private int[][] quotationIndexes;
-	
-	/**
-	 * Coreference start and end indexes from the feed (example).
-	 */
-	private int[][] corefIndexes;
-	
+	private Quotation[] quotationIndexes;
+
 	/**
 	 * Sparse representation of binary features. This is an array of quotations.
-	 * Each quotation is an array of coreferences. Each coreference is a list 
-	 * of features describing the pair (quotation, coreference).
+	 * Each quotation is an array of coreferences. Each coreference is a list of
+	 * features describing the pair (quotation, coreference).
 	 */
 	private int[][][] features;
 
 	/**
-	 * Create a new PQ input using the given docID and the given list of
-	 * feature codes.
+	 * Create a new PQ input using the given docID and the given list of feature
+	 * codes.
 	 * 
 	 * @param docId
 	 * @param quotations
 	 * @param quotationIndexes
-	 * @param corefIndexes
 	 */
-	public PQInput2(String docId,
+	public PQInput2(
+			String docId,
 			Collection<? extends Collection<? extends Collection<Integer>>> quotations,
-			int[][] quotationIndexes,
-			int[][] corefIndexes) {
-		this.docId            = docId;
-		this.quotationIndexes = quotationIndexes;
-		this.corefIndexes     = corefIndexes;
-		this.trainingIndex    = -1;
+			Collection<Quotation> quotationIndexes) {
+		this.docId = docId;
+		this.trainingIndex = -1;
+
+		// Array of quotation indexes.
+		this.quotationIndexes = new Quotation[quotationIndexes.size()];
+
+		int quotationIdx = 0;
+		for (Quotation quotation : quotationIndexes) {
+			Quotation newQuotation = new Quotation(quotation);
+			this.quotationIndexes[quotationIdx] = newQuotation;
+
+			++quotationIdx;
+		}
 
 		// Array of features.
 		this.features = new int[quotations.size()][][];
-		
-		int quotationIdx = 0;
-		for (Collection<Collection<Integer>> quotation : quotations) {
+
+		quotationIdx = 0;
+		for (Collection<? extends Collection<Integer>> quotation : quotations) {
 			this.features[quotationIdx] = new int[quotation.size()][];
 
 			int corefIdx = 0;
 			for (Collection<Integer> coreference : quotation) {
-				this.features[quotationIdx][corefIdx] = new int[coreference.size()];
-				
+				this.features[quotationIdx][corefIdx] = new int[coreference
+						.size()];
+
 				int ftrIdx = 0;
 				for (int ftr : coreference) {
 					this.features[quotationIdx][corefIdx][ftrIdx] = ftr;
-	
+
 					++ftrIdx;
 				}
-				
+
 				++corefIdx;
 			}
 
 			++quotationIdx;
 		}
 	}
-	
+
 	/**
-	 * Create a new PQ input using the given docID and the given list of
-	 * feature codes.
+	 * Create a new PQ input using the given docID and the given list of feature
+	 * codes.
 	 * 
 	 * @param docId
 	 * @param trainingIndex
 	 * @param tokens
 	 */
-	public PQInput2(String docId, int trainingIndex,
+	public PQInput2(
+			String docId,
+			int trainingIndex,
 			Collection<? extends Collection<? extends Collection<Integer>>> quotations,
-			int[][] quotationIndexes,
-			int[][] corefIndexes) {
-		this(docId, quotations, quotationIndexes, corefIndexes);
+			Collection<Quotation> quotationIndexes) {
+		this(docId, quotations, quotationIndexes);
 		this.trainingIndex = trainingIndex;
 	}
 
@@ -106,8 +112,8 @@ public class PQInput2 implements ExampleInput {
 	}
 
 	@Override
-	public PQOutput createOutput() {
-		return new PQOutput();
+	public PQOutput2 createOutput() {
+		return new PQOutput2();
 	}
 
 	@Override
@@ -124,22 +130,38 @@ public class PQInput2 implements ExampleInput {
 	public int getTrainingIndex() {
 		return -1;
 	}
-	
-	public int size() {
+
+	public int getNumberOfQuotations() {
 		return features.length;
 	}
-
-	public Iterable<Integer> getFeatureCodes(int token) {
-		return new FeatureCodeIterator(token);
+	
+	public int getNumberOfCoreferences(int quotationIndex) {
+		return features[quotationIndex].length;
+	}
+	
+	public Iterable<Integer> getFeatureCodes(int quotationIndex, int coreferenceIndex) {
+		return new FeatureCodeIterator(quotationIndex, coreferenceIndex);
 	}
 
+	
+	/**
+	 * Iterate over the features of a token.
+	 * 
+	 * @author eraldo
+	 * 
+	 */
 	private class FeatureCodeIterator implements Iterator<Integer>,
 			Iterable<Integer> {
 
 		/**
-		 * Token index whose features this iterator iterates over.
+		 * Quotation index whose features this iterator iterates over.
 		 */
-		private int token;
+		private int quotationIndex;
+		
+		/**
+		 * Coreference index whose features this iterator iterates over.
+		 */
+		private int coreferenceIndex;
 
 		/**
 		 * Current index within the feature array.
@@ -151,20 +173,21 @@ public class PQInput2 implements ExampleInput {
 		 * 
 		 * @param token
 		 */
-		public FeatureCodeIterator(int token) {
-			this.token = token;
+		public FeatureCodeIterator(int quotationIndex, int coreferenceIndex) {
+			this.quotationIndex = quotationIndex;
+			this.coreferenceIndex = coreferenceIndex;
 			this.curIndex = -1;
 		}
 
 		@Override
 		public boolean hasNext() {
-			return curIndex < features[token].length - 1;
+			return curIndex < features[quotationIndex][coreferenceIndex].length - 1;
 		}
 
 		@Override
 		public Integer next() {
 			++curIndex;
-			return features[token][curIndex];
+			return features[quotationIndex][coreferenceIndex][curIndex];
 		}
 
 		@Override
@@ -179,5 +202,5 @@ public class PQInput2 implements ExampleInput {
 		}
 
 	}
-
+	
 }

@@ -3,8 +3,8 @@ package br.pucrio.inf.learn.structlearning.discriminative.application.pq;
 import java.io.PrintStream;
 import java.util.Iterator;
 
-import br.pucrio.inf.learn.structlearning.discriminative.application.pq.data.PQInput;
-import br.pucrio.inf.learn.structlearning.discriminative.application.pq.data.PQOutput;
+import br.pucrio.inf.learn.structlearning.discriminative.application.pq.data.PQInput2;
+import br.pucrio.inf.learn.structlearning.discriminative.application.pq.data.PQOutput2;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.FeatureEncoding;
@@ -37,36 +37,44 @@ public class PQModel2 implements Model {
 	 * @param learningRate
 	 * @return the loss between the correct and the predicted output.
 	 */
-	public double update(PQInput input, PQOutput outputCorrect,
-			PQOutput outputPredicted, double learningRate) {
-		int labelCorrect = outputCorrect.getPerson();
-		int labelPredicted = outputPredicted.getPerson();
+	public double update(PQInput2 input, PQOutput2 outputCorrect,
+						PQOutput2 outputPredicted, double learningRate) {
+		boolean isDifferent = false;
+		int outputCorrectSize = outputCorrect.size();
 		
-		if (labelCorrect != labelPredicted) {
-			Iterator<Integer> i = input.getFeatureCodes(labelCorrect).iterator();
-			int featureIndex;
+		for (int i = 0; i < outputCorrectSize; ++i) {
+			int labelCorrect   = outputCorrect.getAuthor(i);
+			int labelPredicted = outputPredicted.getAuthor(i);
 			
-			while(i.hasNext()) {
-				featureIndex = i.next();
-				this.featureWeights[featureIndex] += learningRate;
+			if (labelCorrect != labelPredicted) {
+				isDifferent = true;
+				
+				Iterator<Integer> it = input.getFeatureCodes(i, labelCorrect).iterator();
+				int featureIndex;
+				
+				while(it.hasNext()) {
+					featureIndex = it.next();
+					this.featureWeights[featureIndex] += learningRate;
+				}
+				
+				it = input.getFeatureCodes(i, labelPredicted).iterator();
+				while(it.hasNext()) {
+					featureIndex = it.next();
+					this.featureWeights[featureIndex] -= learningRate;
+				}
 			}
-			
-			i = input.getFeatureCodes(labelPredicted).iterator();
-			while(i.hasNext()) {
-				featureIndex = i.next();
-				this.featureWeights[featureIndex] -= learningRate;
-			}
-			
-			return 1;
 		}
 		
-		return 0;
+		if (isDifferent)
+			return 1d;
+		else
+			return 0d;
 	}
 	
 	public double update(ExampleInput input, ExampleOutput outputCorrect,
 			ExampleOutput outputPredicted, double learningRate) {
-		return update((PQInput) input, (PQOutput) outputCorrect,
-				(PQOutput) outputPredicted, learningRate);
+		return update((PQInput2) input, (PQOutput2) outputCorrect,
+				(PQOutput2) outputPredicted, learningRate);
 	}
 
 	@Override

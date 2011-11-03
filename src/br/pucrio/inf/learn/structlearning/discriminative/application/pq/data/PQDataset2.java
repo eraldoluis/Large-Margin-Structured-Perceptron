@@ -8,6 +8,7 @@ import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.util.Collection;
 import java.util.LinkedList;
+import java.util.List;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -45,12 +46,12 @@ public class PQDataset2 {
 	/**
 	 * Vector of the input-part of the examples.
 	 */
-	protected PQInput[] inputExamples;
+	protected PQInput2[] inputExamples;
 
 	/**
 	 * Vector of the output-part of the examples (correct predictions).
 	 */
-	protected PQOutput[] outputExamples;
+	protected PQOutput2[] outputExamples;
 
 	/**
 	 * Default constructor.
@@ -124,7 +125,7 @@ public class PQDataset2 {
 		load(fileName);
 	}
 
-	public PQInput getPQInput(int index) {
+	public PQInput2 getPQInput2(int index) {
 		return inputExamples[index];
 	}
 
@@ -141,11 +142,11 @@ public class PQDataset2 {
 		return featureEncoding;
 	}
 
-	public PQInput[] getInputs() {
+	public PQInput2[] getInputs() {
 		return inputExamples;
 	}
 
-	public PQOutput[] getOutputs() {
+	public PQOutput2[] getOutputs() {
 		return outputExamples;
 	}
 
@@ -186,8 +187,8 @@ public class PQDataset2 {
 	 */
 	public void load(BufferedReader reader) throws IOException,
 			DatasetException {
-		LinkedList<PQInput> inputExamples = new LinkedList<PQInput>();
-		LinkedList<PQOutput> outputExamples = new LinkedList<PQOutput>();
+		LinkedList<PQInput2> inputExamples = new LinkedList<PQInput2>();
+		LinkedList<PQOutput2> outputExamples = new LinkedList<PQOutput2>();
 
 		// Parse each example.
 		int numTotal = 0;
@@ -203,8 +204,8 @@ public class PQDataset2 {
 				+ numTotal + " (" + (numTotal - numAdded) * 100d / numTotal
 				+ "%)");
 
-		this.inputExamples = inputExamples.toArray(new PQInput[0]);
-		this.outputExamples = outputExamples.toArray(new PQOutput[0]);
+		this.inputExamples = inputExamples.toArray(new PQInput2[0]);
+		this.outputExamples = outputExamples.toArray(new PQOutput2[0]);
 	}
 
 	/**
@@ -217,9 +218,9 @@ public class PQDataset2 {
 			throw new DatasetException("Different encodings");
 
 		// Alloc room to store both datasets (this one and the given one).
-		PQInput[] newInputExamples = new PQInput[inputExamples.length
+		PQInput2[] newInputExamples = new PQInput2[inputExamples.length
 				+ other.inputExamples.length];
-		PQOutput[] newOutputExamples = new PQOutput[outputExamples.length
+		PQOutput2[] newOutputExamples = new PQOutput2[outputExamples.length
 				+ other.outputExamples.length];
 
 		// Copy (only reference) the examples in this dataset to the new arrays.
@@ -278,74 +279,72 @@ public class PQDataset2 {
 			Collection<PQOutput2> exampleOutputs, String buff)
 			throws DatasetException {
 		// Split quotations.
-		String quotations[] = buff.split("§");
-		if (quotations.length == 0)
+		String quotationsInput[] = buff.split("§");
+		if (quotationsInput.length == 0)
 			return false;
 		
-		// The first field is the segment id.
-		if (quotations[0].trim().length() == 0)
+		// First field: document ID.
+		if (quotationsInput[0].trim().length() == 0)
 			return false;
-		String docId = quotations[0];
-		
-		
-		int[][] quotationIndexes = new int[quotations.length - 2][2];
-		int[][] coreferenceIndexes;
+		String docId = quotationsInput[0];
 		
 		LinkedList<LinkedList<LinkedList<Integer>>> exampleInputAsList = new LinkedList<LinkedList<LinkedList<Integer>>>();
 		LinkedList<Integer> exampleOutputAsList = new LinkedList<Integer>();
+		LinkedList<Quotation> quotationsAsList = new LinkedList<Quotation>();
 		
-		for (int idxQuote = 1; idxQuote < quotations.length - 1; idxQuote++) {
-			// Split tokens.
-			String coreferences[] = quotations[idxQuote].split("\\t");
+		// Walk into the document quotations.
+		for (int idxQuote = 1; idxQuote < quotationsInput.length; idxQuote++) {
+			// Split candidate coreferences of the given quotation.
+			String coreferences[] = quotationsInput[idxQuote].split("\\t");
+			
 			if (coreferences.length == 0)
 				return false;
 	
-			// The first field has the quotation start and end indexes, the segment id,
-			// and the right coreference index.
+			// First field: quotation start index, quotation end index,
+			// right coreference index.
 			String firstField[] = coreferences[0].split("[ ]");
-			if (firstField.length != 4)
+			if (firstField.length != 3)
 				return false;
 			
-			// The first and second subfields are the quotation start and end indexes.
+			// Quotation start index, quotation end index.
 			if ((firstField[0].trim().length() == 0) ||
 				(firstField[1].trim().length() == 0))
 				return false;
 			
-			quotationIndexes[idxQuote - 1][0] = Integer.parseInt(firstField[0]);
-			quotationIndexes[idxQuote - 1][1] = Integer.parseInt(firstField[1]);
+			Quotation quotation = new Quotation(coreferences.length - 1);
+			quotation.setQuotationIndex(Integer.parseInt(firstField[0]),
+										Integer.parseInt(firstField[1]));
 			
-			// The fourth subfield is the right coreference.
-			if (firstField[3].trim().length() == 0)
+			// Right coreference index.
+			if (firstField[2].trim().length() == 0)
 				return false;
-			int rightCoref = Integer.parseInt(firstField[3]);
-	
-			// Coreference indexes allocation.
-			coreferenceIndexes = new int[coreferences.length - 2][2];
+			int rightCoref = Integer.parseInt(firstField[2]);
 			
+			// Walk into the coreference feature list.
 			LinkedList<LinkedList<Integer>> corefFeatureList = new LinkedList<LinkedList<Integer>>();
-			for (int idxCoref = 1; idxCoref < coreferences.length - 1; ++idxCoref) {
-				String token = coreferences[idxCoref];
+			for (int idxCoref = 1; idxCoref < coreferences.length; ++idxCoref) {
+				String coreference = coreferences[idxCoref];
 	
-				// Parse the token features.
-				String[] features = token.split("[ ]");
+				// Parse the given coreference features.
+				String[] features = coreference.split("[ ]");
 				if (firstField.length < 2)
 					return false;
 				
-				// The first and second subfields are the coreference start and end indexes.
+				// First field: coreference start index, coreference end index.
 				if ((features[0].trim().length() == 0) ||
 					(features[1].trim().length() == 0))
 					return false;
 				
-				coreferenceIndexes[idxCoref - 1][0] = Integer.parseInt(features[0]);
-				coreferenceIndexes[idxCoref - 1][1] = Integer.parseInt(features[1]);
+				quotation.setCoreferenceIndex(idxCoref - 1, Integer.parseInt(features[0]), 
+															Integer.parseInt(features[1]));
 				
+				// Encode the features.
 				LinkedList<Integer> featureList = new LinkedList<Integer>();
-				for (int idxFtr = 2; idxFtr < features.length - 1; ++idxFtr) {
+				for (int idxFtr = 2; idxFtr < features.length; ++idxFtr) {
 					int code = featureEncoding.put(features[idxFtr]);
 					if (code >= 0)
 						featureList.add(code);
 				}
-				
 				corefFeatureList.add(featureList);
 			}
 			
@@ -354,6 +353,9 @@ public class PQDataset2 {
 			
 			// Example output.
 			exampleOutputAsList.add(rightCoref);
+			
+			// Quotation index information.
+			quotationsAsList.add(quotation);
 		}
 
 		// Store the loaded example.
@@ -363,12 +365,11 @@ public class PQDataset2 {
 			 * array of training examples.
 			 */
 			exampleInputs.add(new PQInput2(docId, exampleInputs.size(),
-									exampleInputAsList, quotationIndexes,
-									coreferenceIndexes));
+									exampleInputAsList, quotationsAsList));
 			exampleOutputs.add(new PQOutput2(exampleOutputAsList));
 		} else {
 			exampleInputs.add(new PQInput2(docId, exampleInputAsList, 
-					quotationIndexes, coreferenceIndexes));
+					quotationsAsList));
 			exampleOutputs.add(new PQOutput2(exampleOutputAsList));
 		}
 		return true;
@@ -397,40 +398,34 @@ public class PQDataset2 {
 	 */
 	public void save(PrintStream ps) {
 		for (int idxExample = 0; idxExample < getNumberOfExamples(); ++idxExample) {
-			PQInput input = inputExamples[idxExample];
-			PQOutput output = outputExamples[idxExample];
+			PQInput2 input = inputExamples[idxExample];
+			PQOutput2 output = outputExamples[idxExample];
 
 			// The sentence identifier string.
 			ps.print(input.getId());
-
-			for (int token = 0; token < input.size(); ++token) {
-				// Tokens as separated.
-				ps.print("\t");
-
-				// Token features.
-				for (int ftr : input.getFeatureCodes(token))
-					ps.print(featureEncoding.getValueByCode(ftr) + " ");
-
-				// Label of this token.
-				ps.println(featureEncoding.getValueByCode(output
-						.getPerson()));
+			
+			int numberOfQuotations = input.getNumberOfQuotations();
+			for (int quotationIdx = 0; quotationIdx < numberOfQuotations; ++quotationIdx) {
+				// Quotation separator.
+				ps.print("§");
+				
+				int numberOfCoreferences = input.getNumberOfCoreferences(quotationIdx);
+				for (int coreferenceIdx = 0; coreferenceIdx < numberOfCoreferences; ++coreferenceIdx) {
+					// Coreference features.
+					for (int ftr : input.getFeatureCodes(quotationIdx, coreferenceIdx))
+						ps.print(featureEncoding.getValueByCode(ftr) + " ");
+					
+					// Coreference separator.
+					ps.print("\t");
+				}
+				
+				// Quotation author.
+				ps.println(featureEncoding.getValueByCode(output.getAuthor(quotationIdx)));
 			}
 
-			// Next line for the next sequence.
+			// Next line for the next example.
 			ps.println();
 		}
-	}
-
-	/**
-	 * Return the number of tokens within the given example index.
-	 * 
-	 * @param idxExample
-	 *            index of an example.
-	 * 
-	 * @return the number of tokens within the given example index.
-	 */
-	public int getNumberOfTokens(int idxExample) {
-		return inputExamples[idxExample].size();
 	}
 
 	/**
@@ -452,7 +447,7 @@ public class PQDataset2 {
 	 * @param norm
 	 */
 	public void normalizeInputStructures(double norm) {
-		for (PQInput in : inputExamples)
+		for (PQInput2 in : inputExamples)
 			in.normalize(norm);
 	}
 
@@ -461,7 +456,7 @@ public class PQDataset2 {
 	 * computations.
 	 */
 	public void sortFeatureValues() {
-		for (PQInput seq : inputExamples)
+		for (PQInput2 seq : inputExamples)
 			seq.sortFeatureValues();
 	}
 
