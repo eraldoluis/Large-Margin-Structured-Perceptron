@@ -139,6 +139,10 @@ public class PQInput2 implements ExampleInput {
 		return features[quotationIndex].length;
 	}
 	
+	public Quotation[] getQuotationIndexes() {
+		return quotationIndexes;
+	}
+	
 	public Iterable<Integer> getFeatureCodes(int quotationIndex, int coreferenceIndex) {
 		return new FeatureCodeIterator(quotationIndex, coreferenceIndex);
 	}

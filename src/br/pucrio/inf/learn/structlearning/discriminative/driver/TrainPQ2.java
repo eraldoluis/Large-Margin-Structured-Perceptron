@@ -95,10 +95,8 @@ public class TrainPQ2 implements Command {
 		String lrUpdateStrategy = cmdLine.getOptionValue("lrupdate");
 		String testCorpusFileName = cmdLine.getOptionValue("testcorpus");
 
-		/*
-		 * Get the options given in the command-line or the corresponding
-		 * default values.
-		 */
+		// Get the options given in the command-line or the corresponding
+		// default values.
 		String[] inputCorpusFileNames = cmdLine.getOptionValues("incorpus");
 		
 		LOG.info("Loading input corpus...");
@@ -107,12 +105,10 @@ public class TrainPQ2 implements Command {
 		FeatureEncoding<String> featureEncoding = null;
 		
 		try {
-			/*
-			 * No encoding given by the user. Create an empty and
-			 * flexible feature encoding that will encode unambiguously
-			 * all feature values. If the training dataset is big, this
-			 * may not fit in memory.
-			 */
+			 // No encoding given by the user. Create an empty and
+			 // flexible feature encoding that will encode unambiguously
+			 // all feature values. If the training dataset is big, this
+			 // may not fit in memory.
 			featureEncoding = new StringMapEncoding();
 			
 			LOG.info("Feature encoding: "
@@ -152,6 +148,10 @@ public class TrainPQ2 implements Command {
 			System.exit(1);
 		}
 		
+		Model model = new PQModel2(inputCorpusA.getNumberOfSymbols());
+		Inference inference = new PQInference2();
+		inference.inference(model, inputCorpusA.getInputs()[0], inputCorpusA.getOutputs()[0]);
+		/*
 		// Structure.
 		LOG.info("Allocating initial model...");
 		Inference inference = new PQInference2();
@@ -204,6 +204,7 @@ public class TrainPQ2 implements Command {
 			LOG.error("Loading testset " + testCorpusFileName, e);
 			System.exit(1);
 		}
+		*/
 	}
 
 
