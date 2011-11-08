@@ -39,36 +39,35 @@ public class PQModel2 implements Model {
 	 */
 	public double update(PQInput2 input, PQOutput2 outputCorrect,
 						PQOutput2 outputPredicted, double learningRate) {
-		boolean isDifferent = false;
-		int outputCorrectSize = outputCorrect.size();
-		
+		int outputCorrectSize   = outputCorrect.size();
+		int numberOfErrors = 0;
 		for (int i = 0; i < outputCorrectSize; ++i) {
 			int labelCorrect   = outputCorrect.getAuthor(i);
 			int labelPredicted = outputPredicted.getAuthor(i);
 			
 			if (labelCorrect != labelPredicted) {
-				isDifferent = true;
-				
-				Iterator<Integer> it = input.getFeatureCodes(i, labelCorrect).iterator();
+				++numberOfErrors;
 				int featureIndex;
 				
-				while(it.hasNext()) {
-					featureIndex = it.next();
-					this.featureWeights[featureIndex] += learningRate;
+				if(labelCorrect >= 0) {
+					Iterator<Integer> it = input.getFeatureCodes(i, labelCorrect).iterator();
+					while(it.hasNext()) {
+						featureIndex = it.next();
+						this.featureWeights[featureIndex] += learningRate;
+					}
 				}
 				
-				it = input.getFeatureCodes(i, labelPredicted).iterator();
-				while(it.hasNext()) {
-					featureIndex = it.next();
-					this.featureWeights[featureIndex] -= learningRate;
+				if(labelPredicted >= 0) {
+					Iterator<Integer> it = input.getFeatureCodes(i, labelPredicted).iterator();
+					while(it.hasNext()) {
+						featureIndex = it.next();
+						this.featureWeights[featureIndex] -= learningRate;
+					}
 				}
 			}
 		}
 		
-		if (isDifferent)
-			return 1d;
-		else
-			return 0d;
+		return numberOfErrors;
 	}
 	
 	public double update(ExampleInput input, ExampleOutput outputCorrect,

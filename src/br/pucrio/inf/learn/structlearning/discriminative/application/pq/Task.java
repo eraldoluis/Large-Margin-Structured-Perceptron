@@ -5,13 +5,18 @@ public class Task {
 	private int end;
 	private double prize;
 	private int predecessorIndex;
+	private int quotationPosition;
+	private int coreferencePosition;
 	private int[] quotationIndex;
 	private int[] coreferenceIndex;
 	
-	public Task(int start, int end, double prize, int[] quotationIndex, int[] coreferenceIndex) {
+	public Task(int start, int end, double prize, int quotationPosition, int coreferencePosition, int[] quotationIndex, int[] coreferenceIndex) {
 		this.start = start;
 		this.end   = end;
 		this.prize = prize;
+		
+		this.quotationPosition   = quotationPosition;
+		this.coreferencePosition = coreferencePosition;
 		
 		this.quotationIndex    = new int[2];
 		this.quotationIndex[0] = quotationIndex[0];
@@ -25,10 +30,10 @@ public class Task {
 	}
 	
 	public Task(Task t) {
-		this(t.getStart(), t.getEnd(), t.getPrize(), t.getQuotationIndex(), t.getCoreferenceIndex());
+		this(t.getStart(), t.getEnd(), t.getPrize(), t.getQuotationPosition(), t.getCoreferencePosition(), t.getQuotationIndex(), t.getCoreferenceIndex());
 		this.predecessorIndex = t.getPredecessorIndex();
 	}
-	
+
 	public int getStart() {
 		return start;
 	}
@@ -51,6 +56,22 @@ public class Task {
 
 	public void setPrize(double prize) {
 		this.prize = prize;
+	}
+	
+	public int getQuotationPosition() {
+		return quotationPosition;
+	}
+
+	public void setQuotationPosition(int quotationPosition) {
+		this.quotationPosition = quotationPosition;
+	}
+	
+	public int getCoreferencePosition() {
+		return coreferencePosition;
+	}
+
+	public void setCoreferencePosition(int coreferencePosition) {
+		this.coreferencePosition = coreferencePosition;
 	}
 
 	public int getPredecessorIndex() {

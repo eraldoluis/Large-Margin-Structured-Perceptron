@@ -113,7 +113,7 @@ public class PQInput2 implements ExampleInput {
 
 	@Override
 	public PQOutput2 createOutput() {
-		return new PQOutput2();
+		return new PQOutput2(features.length);
 	}
 
 	@Override

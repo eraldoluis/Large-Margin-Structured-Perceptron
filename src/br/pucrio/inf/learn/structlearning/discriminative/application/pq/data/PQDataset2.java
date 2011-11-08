@@ -149,6 +149,14 @@ public class PQDataset2 {
 	public PQOutput2[] getOutputs() {
 		return outputExamples;
 	}
+	
+	public PQInput2 getInput(int index) {
+		return inputExamples[index];
+	}
+	
+	public PQOutput2 getOutput(int index) {
+		return outputExamples[index];
+	}
 
 	/**
 	 * Load a dataset from the given stream.

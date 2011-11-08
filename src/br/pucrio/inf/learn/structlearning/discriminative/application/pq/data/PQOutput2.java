@@ -19,8 +19,6 @@ public class PQOutput2 implements ExampleOutput {
 	private int[] authors;
 
 	
-	protected PQOutput2() {
-	}
 	
 	public PQOutput2(int size) {
 		this.authors = new int[size];

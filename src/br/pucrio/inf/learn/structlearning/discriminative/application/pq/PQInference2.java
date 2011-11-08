@@ -30,8 +30,13 @@ public class PQInference2 implements Inference {
 		// Run WIS, which returns the indexes of the selected tasks.
 		int[] solutionIndexes = wis(tasks);
 
-		for (int i = 0; i < solutionIndexes.length; ++i)
-			System.out.println(solutionIndexes[i]);
+		// Initialize the output vector with -1, indicating the quotations
+		// are invalid. Then we assign the solution of WIS to the output.
+		int outputSize = output.size();
+		for(int i = 0; i < outputSize; ++i)
+			output.setAuthor(i, -1);
+		for(int i = 0; i < solutionIndexes.length; ++i)
+			output.setAuthor(tasks[solutionIndexes[i]].getQuotationPosition(), tasks[solutionIndexes[i]].getCoreferencePosition());
 	}
 
 	public Task[] generateCandidates(PQModel2 model, PQInput2 input) {
@@ -82,7 +87,7 @@ public class PQInference2 implements Inference {
 					prize += model.getFeatureWeight(featureIndex);
 				}
 
-				Task task = new Task(start, end, prize, quotationIndex,
+				Task task = new Task(start, end, prize, i, j, quotationIndex,
 						coreferenceIndex);
 
 				// We search for a position to insert the new task in
