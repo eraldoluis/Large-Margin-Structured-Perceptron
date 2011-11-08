@@ -104,19 +104,24 @@ public class TrainDP implements Command {
 				.withArgName("filename").hasArg()
 				.withDescription("Training dataset file name.").create());
 		options.addOption(OptionBuilder
+				.withLongOpt("serial")
+				.withDescription(
+						"Load the training dataset from a "
+								+ "serialized (binary) file.").create());
+		options.addOption(OptionBuilder
 				.withLongOpt("model")
 				.hasArg()
 				.withArgName("filename")
 				.withDescription(
 						"Name of the file to save the resulting model.")
-				.create('o'));
+				.create());
 		options.addOption(OptionBuilder
 				.withLongOpt("numepochs")
 				.withArgName("integer")
 				.hasArg()
 				.withDescription(
 						"Number of epochs: how many iterations over the"
-								+ " training set.").create('T'));
+								+ " training set.").create());
 		options.addOption(OptionBuilder.withLongOpt("learnrate")
 				.withArgName("[0:1]").hasArg()
 				.withDescription("Learning rate used in the updates.").create());
@@ -128,6 +133,14 @@ public class TrainDP implements Command {
 						"Filename that contains a list of considered feature"
 								+ " values. Any feature value not present in"
 								+ " this file is ignored.").create());
+		options.addOption(OptionBuilder
+				.withLongOpt("minfreq")
+				.withArgName("integer")
+				.hasArg()
+				.withDescription(
+						"Minimum frequency of feature values in the encoding "
+								+ "file used to cutoff low frequent values.")
+				.create());
 		options.addOption(OptionBuilder
 				.withLongOpt("murmur")
 				.withArgName("size,seed")
@@ -225,6 +238,13 @@ public class TrainDP implements Command {
 						"Weight of the loss term in the inference objective"
 								+ " function.").create());
 		options.addOption(OptionBuilder
+				.withLongOpt("lossweightinc")
+				.withArgName("double")
+				.hasArg()
+				.withDescription(
+						"Increment in the loss weight after each epoch.")
+				.create());
+		options.addOption(OptionBuilder
 				.withLongOpt("noavg")
 				.withDescription(
 						"Turn off the weight vector averaging, i.e.,"
@@ -274,6 +294,7 @@ public class TrainDP implements Command {
 		String testCorpusFileName = cmdLine.getOptionValue("test");
 		boolean evalPerEpoch = cmdLine.hasOption("perepoch");
 		String encodingFile = cmdLine.getOptionValue("encoding");
+		String minFreqStr = cmdLine.getOptionValue("minfreq");
 		String hashSeed = cmdLine.getOptionValue("hashseed");
 		String murmur = cmdLine.getOptionValue("murmur");
 		String murmur3 = cmdLine.getOptionValue("murmur3");
@@ -285,117 +306,159 @@ public class TrainDP implements Command {
 		String seedStr = cmdLine.getOptionValue("seed");
 		double lossWeight = Double.parseDouble(cmdLine.getOptionValue(
 				"lossweight", "0d"));
+		double lossWeightInc = Double.parseDouble(cmdLine.getOptionValue(
+				"lossweightinc", "0"));
 		boolean averageWeights = !cmdLine.hasOption("noavg");
 		String lrUpdateStrategy = cmdLine.getOptionValue("lrupdate");
 		boolean debug = cmdLine.hasOption("debug");
+		boolean serialDatasets = cmdLine.hasOption("serial");
 
 		DPDataset inDataset = null;
+		int sizeEncoding = -1;
 		FeatureEncoding<String> featureEncoding = null;
 		FeatureEncoding<String> additionalFeatureEncoding = null;
 		try {
 
-			// Create (or load) the feature value encoding.
-			if (encodingFile != null) {
+			if (serialDatasets && encodingFile != null) {
+				// Only load the size of the encoding.
+				LOG.info("Loading encoding size (serialized datasets)...");
+				sizeEncoding = new StringMapEncoding().loadSize(encodingFile);
+			} else {
+				// Create (or load) the feature value encoding.
+				if (encodingFile != null) {
+
+					if (minFreqStr == null) {
+						/*
+						 * Load a map-based encoding from the given file. Thus,
+						 * the feature values present in this file will be
+						 * encoded unambiguously but any unknown value will be
+						 * ignored.
+						 */
+						LOG.info("Loading encoding file...");
+						featureEncoding = new StringMapEncoding(encodingFile);
+					} else {
+						/*
+						 * Load map-based encoding from the given file and
+						 * filter out low frequent feature values according to
+						 * feature frequencies given in the file.
+						 */
+						LOG.info("Loading encoding file...");
+						int minFreq = Integer.parseInt(minFreqStr);
+						featureEncoding = new StringMapEncoding(encodingFile,
+								minFreq);
+					}
+
+				} else if (minFreqStr != null) {
+					LOG.error("minfreq=? only works together with option encoding");
+					System.exit(1);
+				}
 
 				/*
-				 * Load a map-based encoding from the given file. Thus, the
-				 * feature values present in this file will be encoded
-				 * unambiguously but any unknown value will be ignored.
+				 * Additional feature encoding (or the only one, if a fixed
+				 * encoding file is not given).
 				 */
-				featureEncoding = new StringMapEncoding(encodingFile);
+				if (murmur != null) {
 
-			}
+					// Create a feature encoding based on the Murmur3 hash
+					// function.
+					int size = parseValueDirectOrBits(murmur);
+					if (hashSeed == null)
+						additionalFeatureEncoding = new Murmur3Encoding(size);
+					else
+						additionalFeatureEncoding = new Murmur3Encoding(size,
+								Integer.parseInt(hashSeed));
 
-			/*
-			 * Additional feature encoding (or the only one, if a fixed encoding
-			 * file is not given).
-			 */
-			if (murmur != null) {
+				} else if (murmur3 != null) {
 
-				// Create a feature encoding based on the Murmur3 hash function.
-				int size = parseValueDirectOrBits(murmur);
-				if (hashSeed == null)
-					additionalFeatureEncoding = new Murmur3Encoding(size);
-				else
-					additionalFeatureEncoding = new Murmur3Encoding(size,
-							Integer.parseInt(hashSeed));
+					// Create a feature encoding based on the Murmur3 hash
+					// function.
+					int size = parseValueDirectOrBits(murmur3);
+					if (hashSeed == null)
+						additionalFeatureEncoding = new Murmur3Encoding(size);
+					else
+						additionalFeatureEncoding = new Murmur3Encoding(size,
+								Integer.parseInt(hashSeed));
 
-			} else if (murmur3 != null) {
+				} else if (murmur2 != null) {
 
-				// Create a feature encoding based on the Murmur3 hash function.
-				int size = parseValueDirectOrBits(murmur3);
-				if (hashSeed == null)
-					additionalFeatureEncoding = new Murmur3Encoding(size);
-				else
-					additionalFeatureEncoding = new Murmur3Encoding(size,
-							Integer.parseInt(hashSeed));
+					// Create a feature encoding based on the Murmur2 hash
+					// function.
+					int size = parseValueDirectOrBits(murmur2);
+					if (hashSeed == null)
+						additionalFeatureEncoding = new Murmur2Encoding(size);
+					else
+						additionalFeatureEncoding = new Murmur2Encoding(size,
+								Integer.parseInt(hashSeed));
 
-			} else if (murmur2 != null) {
+				} else if (lookup3 != null) {
 
-				// Create a feature encoding based on the Murmur2 hash function.
-				int size = parseValueDirectOrBits(murmur2);
-				if (hashSeed == null)
-					additionalFeatureEncoding = new Murmur2Encoding(size);
-				else
-					additionalFeatureEncoding = new Murmur2Encoding(size,
-							Integer.parseInt(hashSeed));
+					// Create a feature encoding based on the Lookup3 hash
+					// function.
+					int size = parseValueDirectOrBits(lookup3);
+					if (hashSeed == null)
+						additionalFeatureEncoding = new Lookup3Encoding(size);
+					else
+						additionalFeatureEncoding = new Lookup3Encoding(size,
+								Integer.parseInt(hashSeed));
 
-			} else if (lookup3 != null) {
+				} else if (javaHashSizeStr != null) {
 
-				// Create a feature encoding based on the Lookup3 hash function.
-				int size = parseValueDirectOrBits(lookup3);
-				if (hashSeed == null)
-					additionalFeatureEncoding = new Lookup3Encoding(size);
-				else
-					additionalFeatureEncoding = new Lookup3Encoding(size,
-							Integer.parseInt(hashSeed));
+					// Create a feature encoding based on the Java hash
+					// function.
+					additionalFeatureEncoding = new JavaHashCodeEncoding(
+							parseValueDirectOrBits(javaHashSizeStr));
 
-			} else if (javaHashSizeStr != null) {
+				}
 
-				// Create a feature encoding based on the Java hash function.
-				additionalFeatureEncoding = new JavaHashCodeEncoding(
-						parseValueDirectOrBits(javaHashSizeStr));
+				if (featureEncoding == null) {
 
-			}
+					if (additionalFeatureEncoding == null)
+						/*
+						 * No encoding given by the user. Create an empty and
+						 * flexible feature encoding that will encode
+						 * unambiguously all feature values. If the training
+						 * dataset is big, this may not fit in memory.
+						 */
+						featureEncoding = new StringMapEncoding();
+					else
+						// Only one feature encoding given.
+						featureEncoding = additionalFeatureEncoding;
 
-			if (featureEncoding == null) {
-
-				if (additionalFeatureEncoding == null)
+				} else if (additionalFeatureEncoding != null)
 					/*
-					 * No encoding given by the user. Create an empty and
-					 * flexible feature encoding that will encode unambiguously
-					 * all feature values. If the training dataset is big, this
-					 * may not fit in memory.
+					 * The user specified two encodings. Combine them in one
+					 * hybrid encoding.
 					 */
-					featureEncoding = new StringMapEncoding();
-				else
-					// Only one feature encoding given.
-					featureEncoding = additionalFeatureEncoding;
+					featureEncoding = new HybridStringEncoding(featureEncoding,
+							additionalFeatureEncoding);
 
-			} else if (additionalFeatureEncoding != null)
-				/*
-				 * The user specified two encodings. Combine them in one hybrid
-				 * encoding.
-				 */
-				featureEncoding = new HybridStringEncoding(featureEncoding,
-						additionalFeatureEncoding);
+				LOG.info("Feature encoding: "
+						+ featureEncoding.getClass().getSimpleName());
+			}
 
-			LOG.info("Feature encoding: "
-					+ featureEncoding.getClass().getSimpleName());
-
-			LOG.info("Loading input corpus...");
 			inDataset = new DPDataset(featureEncoding);
-			if (inDataset.equals("stdin"))
-				inDataset.load(System.in);
-			else
-				inDataset.load(inputCorpusFileNames[0]);
+			if (serialDatasets) {
+				// Load a serialized dataset.
+				LOG.info("Loading input corpus from a serialized file...");
+				inDataset.deserialize(inputCorpusFileNames[0]);
+			} else {
+				// Load from a textual file.
+				LOG.info("Loading input corpus...");
+				if (inDataset.equals("stdin"))
+					inDataset.load(System.in);
+				else
+					inDataset.load(inputCorpusFileNames[0]);
+			}
 
 		} catch (Exception e) {
 			LOG.error("Parsing command-line options", e);
 			System.exit(1);
 		}
 
-		LOG.info("Feature encoding size: " + featureEncoding.size());
+		if (sizeEncoding == -1)
+			LOG.info("Feature encoding size: " + featureEncoding.size());
+		else
+			LOG.info("Feature encoding size: " + sizeEncoding);
 
 		// Algorithm type.
 		AlgorithmType algType = null;
@@ -416,8 +479,12 @@ public class TrainDP implements Command {
 		}
 
 		LOG.info("Allocating initial model...");
-		Model model = new DPModel(featureEncoding.size());
-		Inference inference = new MaximumBranchingInference();
+		if (sizeEncoding == -1)
+			// Serialized datasets.
+			sizeEncoding = featureEncoding.size();
+		Model model = new DPModel(sizeEncoding);
+		Inference inference = new MaximumBranchingInference(
+				inDataset.getMaxNumberOfTokens());
 
 		// Learning rate update strategy.
 		LearnRateUpdateStrategy learningRateUpdateStrategy = LearnRateUpdateStrategy.NONE;
@@ -448,6 +515,10 @@ public class TrainDP implements Command {
 		case PERCEPTRON:
 			alg = new Perceptron(inference, model, numEpochs, learningRate,
 					true, averageWeights, learningRateUpdateStrategy);
+			if (lossWeightInc != 0d) {
+				LOG.error("lossweightinc is not compatible with --alg=perc");
+				System.exit(1);
+			}
 			break;
 
 		/*
@@ -458,6 +529,9 @@ public class TrainDP implements Command {
 			alg = new LossAugmentedPerceptron(inference, model, numEpochs,
 					learningRate, lossWeight, true, averageWeights,
 					learningRateUpdateStrategy);
+			if (lossWeightInc != 0d)
+				((LossAugmentedPerceptron) alg)
+						.setLossWeightIncrement(lossWeightInc);
 			break;
 
 		/*
@@ -467,6 +541,9 @@ public class TrainDP implements Command {
 			alg = new AwayFromWorsePerceptron(inference, model, numEpochs,
 					learningRate, lossWeight, true, averageWeights,
 					learningRateUpdateStrategy);
+			if (lossWeightInc != 0d)
+				((LossAugmentedPerceptron) alg)
+						.setLossWeightIncrement(lossWeightInc);
 			break;
 
 		/*
@@ -476,6 +553,9 @@ public class TrainDP implements Command {
 			alg = new TowardBetterPerceptron(inference, model, numEpochs,
 					learningRate, lossWeight, true, averageWeights,
 					learningRateUpdateStrategy);
+			if (lossWeightInc != 0d)
+				((LossAugmentedPerceptron) alg)
+						.setLossWeightIncrement(lossWeightInc);
 			break;
 
 		/*
@@ -510,7 +590,8 @@ public class TrainDP implements Command {
 		}
 
 		// Ignore features not seen in the training corpus.
-		featureEncoding.setReadOnly(true);
+		if (featureEncoding != null)
+			featureEncoding.setReadOnly(true);
 
 		// Evaluation method.
 		DPEvaluation eval = new DPEvaluation(false);
@@ -522,7 +603,11 @@ public class TrainDP implements Command {
 				LOG.info("Loading and preparing test data...");
 				DPDataset testset = new DPDataset(
 						inDataset.getFeatureEncoding());
-				testset.load(testCorpusFileName);
+
+				if (serialDatasets)
+					testset.deserialize(testCorpusFileName);
+				else
+					testset.load(testCorpusFileName);
 
 				alg.setListener(new EvaluateModelListener(eval, testset
 						.getInputs(), testset.getOutputs(), averageWeights));
@@ -552,7 +637,10 @@ public class TrainDP implements Command {
 				LOG.info("Loading and preparing test data...");
 				DPDataset testset = new DPDataset(
 						inDataset.getFeatureEncoding());
-				testset.load(testCorpusFileName);
+				if (serialDatasets)
+					testset.deserialize(testCorpusFileName);
+				else
+					testset.load(testCorpusFileName);
 
 				// Allocate output sequences for predictions.
 				DPInput[] inputs = testset.getInputs();
@@ -635,10 +723,10 @@ public class TrainDP implements Command {
 		// Per-class results.
 		System.out.println("|-");
 		System.out.println(String.format("| %s || %.4f ", "Average accuracy",
-				100*results.get("average")));
+				100 * results.get("average")));
 		System.out.println("|-");
 		System.out.println(String.format("| %s || %.4f ",
-				"Per-example accuracy", 100*results.get("example")));
+				"Per-example accuracy", 100 * results.get("example")));
 
 		// Footer.
 		System.out.println();

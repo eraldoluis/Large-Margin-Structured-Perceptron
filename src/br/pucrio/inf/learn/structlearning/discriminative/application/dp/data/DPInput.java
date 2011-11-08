@@ -1,5 +1,6 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.dp.data;
 
+import java.io.Serializable;
 import java.util.Collection;
 
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
@@ -13,7 +14,12 @@ import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
  * @author eraldo
  * 
  */
-public class DPInput implements ExampleInput {
+public class DPInput implements ExampleInput, Serializable {
+
+	/**
+	 * Automatically generated serial version id.
+	 */
+	private static final long serialVersionUID = -2050169475499863867L;
 
 	/**
 	 * List of features for each pair of tokens (edge). The diagonal

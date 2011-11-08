@@ -21,6 +21,10 @@ import br.pucrio.inf.learn.structlearning.discriminative.task.Model;
  */
 public class DPModel implements Model {
 
+	// TODO debug
+	public static double maxAbsParam;
+	public static double maxAbsParamSum;
+
 	/**
 	 * Weight for each feature code.
 	 */
@@ -106,8 +110,12 @@ public class DPModel implements Model {
 
 	@Override
 	public void average(int numberOfIterations) {
-		for (AveragedParameter parm : featureWeights)
+		for (AveragedParameter parm : featureWeights) {
 			parm.average(numberOfIterations);
+			// TODO debug
+			if (parm.get() > maxAbsParam)
+				maxAbsParam = parm.get();
+		}
 	}
 
 	/**

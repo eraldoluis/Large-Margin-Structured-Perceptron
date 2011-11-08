@@ -1,5 +1,7 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.sequence;
 
+import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPModel;
+
 /**
  * Model parameter that supports a voted perceptron implementation.
  * 
@@ -86,6 +88,9 @@ public final class AveragedParameter implements Comparable<AveragedParameter>,
 	public void average(int numberOfIterations) {
 		// Account any residual value.
 		sum(numberOfIterations - 1);
+		// TODO debug
+		if (sum > DPModel.maxAbsParamSum)
+			DPModel.maxAbsParamSum = sum;
 		// Average.
 		weight = sum / numberOfIterations;
 		// Keep track that this weight was already averaged.

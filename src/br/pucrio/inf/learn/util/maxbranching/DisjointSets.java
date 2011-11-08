@@ -52,4 +52,16 @@ public class DisjointSets {
 	public void union(int set1, int set2) {
 		trees[set2] = set1;
 	}
+
+	/**
+	 * Clear this partition so that it represents isolated elements. The given
+	 * <code>numberOfElements</code> is useful to use only a fraction of the
+	 * elements.
+	 * 
+	 * @param numberOfElements
+	 */
+	public void clear(int numberOfElements) {
+		for (int i = 0; i < numberOfElements; ++i)
+			trees[i] = i;
+	}
 }

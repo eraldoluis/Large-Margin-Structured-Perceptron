@@ -96,7 +96,7 @@ public class DualLossAugmentedPerceptron extends LossAugmentedPerceptron {
 			 * using a loss-augmented objective function.
 			 */
 			inferenceImpl.lossAugmentedInference(model, input, referenceOutput,
-					predictedOutput, lossAnnotatedWeight);
+					predictedOutput, lossWeight);
 		else
 			/*
 			 * Predict the best output structure to the current input structure
@@ -105,7 +105,7 @@ public class DualLossAugmentedPerceptron extends LossAugmentedPerceptron {
 			 */
 			inferenceImpl.lossAugmentedInferenceWithPartiallyLabeledReference(
 					model, input, correctOutput, referenceOutput,
-					predictedOutput, lossAnnotatedWeight,
+					predictedOutput, lossWeight,
 					lossNonAnnotatedWeight);
 
 		// Update the current model and return the loss for this example.
@@ -113,7 +113,7 @@ public class DualLossAugmentedPerceptron extends LossAugmentedPerceptron {
 				predictedOutput, getCurrentLearningRate());
 
 		if (distill && loss > 0) // ((iteration + 1) % 10 == 0))
-			dualModel.distill(inferenceImpl, lossAnnotatedWeight, predicteds);
+			dualModel.distill(inferenceImpl, lossWeight, predicteds);
 
 		// Debug.
 		if (DebugUtil.print)

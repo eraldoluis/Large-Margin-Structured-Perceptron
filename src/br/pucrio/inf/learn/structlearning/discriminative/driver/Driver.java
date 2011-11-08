@@ -34,6 +34,10 @@ public class Driver {
 				"Train a dependency parser using "
 						+ "a structural perceptron algorithm."));
 
+		// Trainer for dependency parsers.
+		descriptions.add(new CommandDescription(new SerializeDPDataset(),
+				"SerializeDPDataset", "Serialize a DP dataset."));
+
 		if (args.length < 1) {
 			usage();
 			System.exit(1);

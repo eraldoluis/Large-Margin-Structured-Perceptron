@@ -1,12 +1,9 @@
 package br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron;
 
-import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceInput;
-import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Inference;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Model;
-import br.pucrio.inf.learn.util.DebugUtil;
 
 /**
  * Perceptron implementation that uses a loss-augmented objective function to
@@ -18,9 +15,14 @@ import br.pucrio.inf.learn.util.DebugUtil;
 public class LossAugmentedPerceptron extends Perceptron {
 
 	/**
-	 * This is the loss weight in the objective function for annotated elements.
+	 * This is the loss weight in the objective function.
 	 */
-	protected double lossAnnotatedWeight;
+	protected double lossWeight;
+
+	/**
+	 * Increment in the loss weight after each epoch.
+	 */
+	protected double lossWeightInc;
 
 	/**
 	 * This is the loss weight in the objective function for NON-annotated
@@ -32,13 +34,13 @@ public class LossAugmentedPerceptron extends Perceptron {
 	protected double lossNonAnnotatedWeight;
 
 	/**
-	 * Increment (per epoch) to the non-annotated elements loss weight
+	 * Increment (per epoch) to the non-annotated loss weight
 	 */
 	protected double lossNonAnnotatedWeightInc;
 
 	public LossAugmentedPerceptron(Inference inferenceImpl, Model initialModel) {
 		super(inferenceImpl, initialModel);
-		this.lossAnnotatedWeight = 1d;
+		this.lossWeight = 1d;
 		this.lossNonAnnotatedWeight = -1d;
 		this.lossNonAnnotatedWeightInc = 0d;
 	}
@@ -49,7 +51,7 @@ public class LossAugmentedPerceptron extends Perceptron {
 			LearnRateUpdateStrategy learningRateUpdateStrategy) {
 		super(inferenceImpl, initialModel, numberOfIterations, learningRate,
 				randomize, averageWeights, learningRateUpdateStrategy);
-		this.lossAnnotatedWeight = lossWeight;
+		this.lossWeight = lossWeight;
 		this.lossNonAnnotatedWeight = -1d;
 		this.lossNonAnnotatedWeightInc = 0d;
 	}
@@ -62,7 +64,7 @@ public class LossAugmentedPerceptron extends Perceptron {
 			LearnRateUpdateStrategy learningRateUpdateStrategy) {
 		super(taskImpl, initialModel, numberOfIterations, learningRate,
 				randomize, averageWeights, learningRateUpdateStrategy);
-		this.lossAnnotatedWeight = lossAnnotatedWeight;
+		this.lossWeight = lossAnnotatedWeight;
 		this.lossNonAnnotatedWeight = lossNonAnnotatedWeight;
 		this.lossNonAnnotatedWeightInc = lossNonAnnotatedWeightInc;
 	}
@@ -73,7 +75,7 @@ public class LossAugmentedPerceptron extends Perceptron {
 		double loss = super.trainOneEpoch(inputs, outputs, predicteds);
 		if (lossNonAnnotatedWeight >= 0d && lossNonAnnotatedWeightInc != 0d)
 			// Increment the loss weight for non-annotated elements.
-			lossNonAnnotatedWeight = Math.min(lossAnnotatedWeight,
+			lossNonAnnotatedWeight = Math.min(lossWeight,
 					lossNonAnnotatedWeight + lossNonAnnotatedWeightInc);
 		return loss;
 	}
@@ -85,9 +87,15 @@ public class LossAugmentedPerceptron extends Perceptron {
 			ExampleOutput[] predictedsB) {
 		double loss = super.trainOneEpoch(inputsA, outputsA, predictedsA,
 				weightA, inputsB, outputsB, predictedsB);
+		// Increment the loss weight.
+		if (lossWeightInc != 0d) {
+			lossWeight += lossWeightInc;
+			if (lossWeight < 0d)
+				lossWeight = 0d;
+		}
+		// Increment the loss weight for non-annotated elements.
 		if (lossNonAnnotatedWeight >= 0d && lossNonAnnotatedWeightInc != 0d)
-			// Increment the loss weight for non-annotated elements.
-			lossNonAnnotatedWeight = Math.min(lossAnnotatedWeight,
+			lossNonAnnotatedWeight = Math.min(lossWeight,
 					lossNonAnnotatedWeight + lossNonAnnotatedWeightInc);
 		return loss;
 	}
@@ -95,14 +103,15 @@ public class LossAugmentedPerceptron extends Perceptron {
 	@Override
 	public double train(ExampleInput input, ExampleOutput correctOutput,
 			ExampleOutput predictedOutput) {
-
+		/*
+		 * If the user asked to consider partially-labeled examples, then infer
+		 * the missing values within the given correct output structure before
+		 * updating the current model. Otherwise, the reference (for
+		 * loss-function and update) will be the given output structure that
+		 * must be completely labeled.
+		 */
 		ExampleOutput referenceOutput = correctOutput;
 		if (partiallyAnnotatedExamples) {
-			/*
-			 * If the user asked to consider partially-labeled examples then
-			 * infer the missing values within the given correct output
-			 * structure before updating the current model.
-			 */
 			referenceOutput = correctOutput.createNewObject();
 			inferenceImpl.partialInference(model, input, correctOutput,
 					referenceOutput);
@@ -114,7 +123,7 @@ public class LossAugmentedPerceptron extends Perceptron {
 			 * using a loss-augmented objective function.
 			 */
 			inferenceImpl.lossAugmentedInference(model, input, referenceOutput,
-					predictedOutput, lossAnnotatedWeight);
+					predictedOutput, lossWeight);
 		else
 			/*
 			 * Predict the best output structure to the current input structure
@@ -123,27 +132,26 @@ public class LossAugmentedPerceptron extends Perceptron {
 			 */
 			inferenceImpl.lossAugmentedInferenceWithPartiallyLabeledReference(
 					model, input, correctOutput, referenceOutput,
-					predictedOutput, lossAnnotatedWeight,
-					lossNonAnnotatedWeight);
+					predictedOutput, lossWeight, lossNonAnnotatedWeight);
 
 		// Update the current model and return the loss for this example.
 		double loss = model.update(input, referenceOutput, predictedOutput,
 				getCurrentLearningRate());
 
-		// Debug.
-		if (DebugUtil.print)
-			DebugUtil.printSequence((SequenceInput) input,
-					(SequenceOutput) referenceOutput,
-					(SequenceOutput) predictedOutput, loss);
-
-		/*
-		 * Averaged-Perceptron: account the updates into the averaged weights.
-		 */
+		// Averaged perceptron: account the updates into the averaged weights.
 		model.sumUpdates(iteration);
 
 		++iteration;
 
 		return loss;
+	}
 
+	/**
+	 * Set the value to be incremented in the loss weight after each epoch.
+	 * 
+	 * @param increment
+	 */
+	public void setLossWeightIncrement(double increment) {
+		lossWeightInc = increment;
 	}
 }

@@ -1,5 +1,8 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.dp;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPOutput;
@@ -7,7 +10,6 @@ import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Inference;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Model;
-import br.pucrio.inf.learn.util.maxbranching.CompleteGraph;
 import br.pucrio.inf.learn.util.maxbranching.MaximumBranchingAlgorithm;
 
 /**
@@ -21,42 +23,88 @@ import br.pucrio.inf.learn.util.maxbranching.MaximumBranchingAlgorithm;
  */
 public class MaximumBranchingInference implements Inference {
 
+	// TODO debug
+	public static double maxAbsEdgeWeight;
+
+	/**
+	 * Logging object.
+	 */
+	private static final Log LOG = LogFactory
+			.getLog(MaximumBranchingInference.class);
+
+	/**
+	 * Algorithm and its data structures for finding maximum branching.
+	 */
+	private MaximumBranchingAlgorithm maxBranchingAlgorithm;
+
+	/**
+	 * Input graph used to predict the maximum branching.
+	 */
+	private double[][] graph;
+
+	/**
+	 * Create an inference implementation to deal with sentences that have the
+	 * given maximum number of tokens.
+	 * 
+	 * @param maxNumberOfTokens
+	 */
+	public MaximumBranchingInference(int maxNumberOfTokens) {
+		maxBranchingAlgorithm = new MaximumBranchingAlgorithm(maxNumberOfTokens);
+		graph = new double[maxNumberOfTokens][maxNumberOfTokens];
+	}
+
 	@Override
 	public void inference(Model model, ExampleInput input, ExampleOutput output) {
 		inference((DPModel) model, (DPInput) input, (DPOutput) output);
 	}
 
 	private void inference(DPModel model, DPInput input, DPOutput output) {
+		// Fill the graph weights.
+		fillGraph(model, input);
+
 		/*
 		 * Find the maximum branching rooted at the zero node and fill the
 		 * output inverted branching array with it.
 		 */
-		new MaximumBranchingAlgorithm().getMaxBranching(
-				createGraph(model, input), 0,
-				output.getInvertedBranchingArray());
+		maxBranchingAlgorithm.findMaxBranching(input.getNumberOfTokens(),
+				graph, 0, output.getInvertedBranchingArray());
 	}
 
 	/**
-	 * Create a complete graph using the given model and input sentence.
+	 * Fill the graph using the given model and input sentence.
 	 * 
 	 * @param model
 	 * @param input
 	 * @return
 	 */
-	private CompleteGraph createGraph(DPModel model, DPInput input) {
+	private void fillGraph(DPModel model, DPInput input) {
 		// Number of tokens in the input structure.
 		int numTokens = input.getNumberOfTokens();
-
-		// Allocate and fill the weight matrix.
-		double[][] weights = new double[numTokens][numTokens];
-		for (int head = 0; head < numTokens; ++head)
+		// Fill the weight matrix.
+		for (int head = 0; head < numTokens; ++head) {
 			// Root node (zero) is never considered a dependent.
-			for (int dependent = 1; dependent < numTokens; ++dependent)
-				for (int ftrCode : input.getFeatureCodes(head, dependent))
-					weights[head][dependent] += model.getFeatureWeight(ftrCode);
-
-		// Create a complete graph using these weights.
-		return new CompleteGraph(weights);
+			graph[head][0] = Double.NEGATIVE_INFINITY;
+			// Calculate the weights based on edge features.
+			for (int dependent = 1; dependent < numTokens; ++dependent) {
+				if (head != dependent) {
+					graph[head][dependent] = 0d;
+					for (int ftrCode : input.getFeatureCodes(head, dependent))
+						graph[head][dependent] += model
+								.getFeatureWeight(ftrCode);
+					// TODO debug
+					double absWeight = Math.abs(graph[head][dependent]);
+					if (absWeight > maxAbsEdgeWeight)
+						maxAbsEdgeWeight = absWeight;
+					// Check infinity values.
+					if (graph[head][dependent] == Double.NEGATIVE_INFINITY
+							|| graph[head][dependent] == Double.POSITIVE_INFINITY)
+						LOG.warn("Infinity edge weight value");
+				} else {
+					// Do not use self-loop edges.
+					graph[head][dependent] = Double.NEGATIVE_INFINITY;
+				}
+			}
+		}
 	}
 
 	@Override
@@ -80,8 +128,8 @@ public class MaximumBranchingInference implements Inference {
 		// Number of tokens in the input structure.
 		int numTokens = input.getNumberOfTokens();
 
-		// Create the lossless graph.
-		CompleteGraph graph = createGraph(model, input);
+		// Fill the graph weight matrix.
+		fillGraph(model, input);
 
 		// Add loss values.
 		for (int head = 0; head < numTokens; ++head) {
@@ -93,7 +141,8 @@ public class MaximumBranchingInference implements Inference {
 				if (head == referenceOutput.getHead(dependent))
 					continue;
 				// Increment edge weight for misclassifing edges.
-				graph.incEdgeWeight(head, dependent, lossWeight);
+				// TODO test
+				graph[head][dependent] += lossWeight;
 			}
 		}
 
@@ -101,8 +150,8 @@ public class MaximumBranchingInference implements Inference {
 		 * Find the maximum branching rooted at the zero node and fill the
 		 * output inverted branching array with it.
 		 */
-		new MaximumBranchingAlgorithm().getMaxBranching(graph, 0,
-				predictedOutput.getInvertedBranchingArray());
+		maxBranchingAlgorithm.findMaxBranching(input.getNumberOfTokens(),
+				graph, 0, predictedOutput.getInvertedBranchingArray());
 	}
 
 	@Override

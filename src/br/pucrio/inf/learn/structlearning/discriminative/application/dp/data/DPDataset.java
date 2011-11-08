@@ -2,11 +2,16 @@ package br.pucrio.inf.learn.structlearning.discriminative.application.dp.data;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.util.LinkedList;
@@ -17,7 +22,6 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
-
 import br.pucrio.inf.learn.structlearning.discriminative.data.Dataset;
 import br.pucrio.inf.learn.structlearning.discriminative.data.DatasetException;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
@@ -67,6 +71,11 @@ public class DPDataset implements Dataset {
 	private boolean training;
 
 	/**
+	 * Length of the longest sequence in this dataset.
+	 */
+	private int maxNumberOfTokens;
+
+	/**
 	 * Default constructor. Create an empty dataset with the default encoding
 	 * scheme: <code>StringMapEncoding</code>.
 	 */
@@ -113,9 +122,17 @@ public class DPDataset implements Dataset {
 		return training;
 	}
 
+	/**
+	 * @return the lenght of the longest sequence in this dataset.
+	 */
+	public int getMaxNumberOfTokens() {
+		return maxNumberOfTokens;
+	}
+
 	@Override
 	public void load(String fileName) throws IOException, DatasetException {
-		BufferedReader reader = new BufferedReader(new FileReader(fileName));
+		BufferedReader reader = new BufferedReader(new FileReader(fileName),
+				8 * 1024 * 1024);
 		load(reader);
 		reader.close();
 	}
@@ -131,9 +148,7 @@ public class DPDataset implements Dataset {
 		List<DPInput> inputList = new LinkedList<DPInput>();
 		List<DPOutput> outputList = new LinkedList<DPOutput>();
 		int numExs = 0;
-		String line;
-		while ((line = skipBlanksAndComments(reader)) != null) {
-			parseExample(line, inputList, outputList);
+		while (parseExample(reader, inputList, outputList)) {
 			++numExs;
 			if (numExs % 100 == 0) {
 				System.out.print(".");
@@ -190,33 +205,42 @@ public class DPDataset implements Dataset {
 	 * ommited but they are ignored. So they can just comprise an arbitrary
 	 * character sequence, not including TAB chars.
 	 * 
-	 * @param line
+	 * @param reader
 	 * @param inputList
 	 * @param outputList
 	 * @return
 	 * @throws IOException
 	 * @throws DatasetException
 	 */
-	public boolean parseExample(String line, List<DPInput> inputList,
+	public boolean parseExample(BufferedReader reader, List<DPInput> inputList,
 			List<DPOutput> outputList) throws IOException, DatasetException {
-		// Split line in chunks (separated by TAB chars).
-		String[] chunks = REGEX_TAB.split(line);
+		// Read next line.
+		String line = reader.readLine();
+
+		if (line == null)
+			// End of file.
+			return false;
+
+		line = line.trim();
+		if (line.length() == 0)
+			// Skip consecutive blank lines.
+			return true;
+
+		// Sequence features, separated by TAB.
+		String[] seqFtrs = REGEX_TAB.split(line);
 
 		// First chunk is the example ID.
-		String id = chunks[0];
+		String id = seqFtrs[0];
 
 		// Second chunk contains only the number of tokens.
-		int numTokens = Integer.parseInt(chunks[1]);
-		if ((chunks.length - 3) != ((numTokens * numTokens) - numTokens))
-			throw new DatasetException(
-					"Incorrect number of dependent-head feature lists (separated by TAB)");
+		int numTokens = Integer.parseInt(seqFtrs[1]);
 
 		/*
 		 * Parse the pos tags of each token (third chunk) and keep which ones
 		 * are tagged as punctuation.
 		 */
 		boolean[] punctuation = new boolean[numTokens];
-		String[] posTags = REGEX_SPACE.split(chunks[2]);
+		String[] posTags = REGEX_SPACE.split(seqFtrs[2]);
 		for (int idxTkn = 0; idxTkn < numTokens; ++idxTkn)
 			if (posTags[idxTkn].equals("punc")
 					|| posTags[idxTkn].equals("##ROOT##"))
@@ -231,9 +255,6 @@ public class DPDataset implements Dataset {
 		// Allocate the output structure.
 		DPOutput output = new DPOutput(numTokens);
 
-		// Start at the third chunk.
-		int idxChunk = 3;
-
 		for (int dependent = 1; dependent < numTokens; ++dependent) {
 			// List of edges for the current dependent token.
 			LinkedList<LinkedList<Integer>> dependentList = new LinkedList<LinkedList<Integer>>();
@@ -243,7 +264,18 @@ public class DPDataset implements Dataset {
 			 * dependent token.
 			 */
 			boolean sawCorrectEdge = false;
-			for (int head = 0; head < numTokens; ++head, ++idxChunk) {
+			for (int head = 0; head < numTokens; ++head) {
+				// Read next line.
+				line = reader.readLine();
+				if (line == null)
+					throw new DatasetException(
+							"Incorrect number of dependent-head feature lists (separated by newline)");
+
+				line = line.trim();
+				if (line.length() == 0)
+					throw new DatasetException(
+							"Incorrect number of dependent-head feature lists (separated by newline)");
+
 				// Skip diagonal edges.
 				if (dependent == head) {
 					dependentList.add(null);
@@ -251,7 +283,7 @@ public class DPDataset implements Dataset {
 				}
 
 				// Split edge in feature values.
-				String[] ftrValues = REGEX_SPACE.split(chunks[idxChunk]);
+				String[] ftrValues = REGEX_SPACE.split(line);
 
 				// First feature is, in fact, the flag of correct edge.
 				int isCorrectEdge = Integer.parseInt(ftrValues[1]);
@@ -309,9 +341,23 @@ public class DPDataset implements Dataset {
 			DPInput input = new DPInput(new String(id), features);
 			input.setPunctuation(punctuation);
 
+			// Keep the length of the longest sequence.
+			int len = input.getNumberOfTokens();
+			if (len > maxNumberOfTokens)
+				maxNumberOfTokens = len;
+
 			inputList.add(input);
 			outputList.add(output);
-			return true;
+
+			// Read the blank line (or last line of file).
+			line = reader.readLine();
+			if (line != null && line.trim().length() != 0)
+				throw new DatasetException(
+						"There are more lines than expected in example: " + id);
+
+			// Return true if there are more lines.
+			return line != null;
+
 		} catch (DPInputException e) {
 			throw new DatasetException("Error constructing DPInput", e);
 		}
@@ -344,6 +390,46 @@ public class DPDataset implements Dataset {
 	 */
 	public FeatureEncoding<String> getFeatureEncoding() {
 		return encoding;
+	}
+
+	/**
+	 * Write the content of this dataset in the given file using Java
+	 * Serialization API, i.e., using a binary format.
+	 * 
+	 * @param filename
+	 * @throws FileNotFoundException
+	 * @throws IOException
+	 */
+	public void serialize(String filename) throws FileNotFoundException,
+			IOException {
+		ObjectOutputStream os = new ObjectOutputStream(new FileOutputStream(
+				filename));
+		os.writeObject(inputs);
+		os.writeObject(outputs);
+		os.writeBoolean(training);
+		os.writeInt(maxNumberOfTokens);
+		os.close();
+	}
+
+	/**
+	 * Read the content of this object from the given file. The content of the
+	 * file must has been generated by the method <code>serialize()</code> of
+	 * this class.
+	 * 
+	 * @param filename
+	 * @throws IOException
+	 * @throws FileNotFoundException
+	 * @throws ClassNotFoundException
+	 */
+	public void deserialize(String filename) throws FileNotFoundException,
+			IOException, ClassNotFoundException {
+		ObjectInputStream is = new ObjectInputStream(new FileInputStream(
+				filename));
+		inputs = (DPInput[]) is.readObject();
+		outputs = (DPOutput[]) is.readObject();
+		training = is.readBoolean();
+		maxNumberOfTokens = is.readInt();
+		is.close();
 	}
 
 }

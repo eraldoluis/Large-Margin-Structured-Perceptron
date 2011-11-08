@@ -1,5 +1,7 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.dp.data;
 
+import java.io.Serializable;
+
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 
 /**
@@ -10,7 +12,12 @@ import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
  * @author eraldo
  * 
  */
-public class DPOutput implements ExampleOutput {
+public class DPOutput implements ExampleOutput, Serializable {
+
+	/**
+	 * Automatically generated serial version id.
+	 */
+	private static final long serialVersionUID = -8372776458147079713L;
 
 	/**
 	 * Indicate the head (parent) of each token in a sentence.
