@@ -1,10 +1,13 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.pq;
 
 import java.io.PrintStream;
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Set;
 
 import br.pucrio.inf.learn.structlearning.discriminative.application.pq.data.PQInput2;
 import br.pucrio.inf.learn.structlearning.discriminative.application.pq.data.PQOutput2;
+import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.AveragedParameter;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.FeatureEncoding;
@@ -21,10 +24,22 @@ public class PQModel2 implements Model {
 	/**
 	 * Feature weights.
 	 */
-	private double[] featureWeights;
+	private AveragedParameter[] featureWeights;
+	
+	private Set<AveragedParameter> updatedParameters;
 
 	public PQModel2(int numberOfFeatures) {
-		featureWeights = new double[numberOfFeatures];
+		featureWeights = new AveragedParameter[numberOfFeatures];
+		for(int i = 0; i < featureWeights.length; ++i) {
+			featureWeights[i] = new AveragedParameter();
+		}
+		
+		updatedParameters = new HashSet<AveragedParameter>();
+	}
+	
+	protected PQModel2(AveragedParameter[] featureWeights) {
+		this.featureWeights = featureWeights;
+		this.updatedParameters = new HashSet<AveragedParameter>();
 	}
 
 	/**
@@ -48,12 +63,13 @@ public class PQModel2 implements Model {
 			if (labelCorrect != labelPredicted) {
 				++numberOfErrors;
 				int featureIndex;
-				
+
 				if(labelCorrect >= 0) {
 					Iterator<Integer> it = input.getFeatureCodes(i, labelCorrect).iterator();
 					while(it.hasNext()) {
 						featureIndex = it.next();
-						this.featureWeights[featureIndex] += learningRate;
+						this.featureWeights[featureIndex].update(learningRate);
+						updatedParameters.add(featureWeights[featureIndex]);
 					}
 				}
 				
@@ -61,7 +77,8 @@ public class PQModel2 implements Model {
 					Iterator<Integer> it = input.getFeatureCodes(i, labelPredicted).iterator();
 					while(it.hasNext()) {
 						featureIndex = it.next();
-						this.featureWeights[featureIndex] -= learningRate;
+						this.featureWeights[featureIndex].update(-learningRate);
+						updatedParameters.add(featureWeights[featureIndex]);
 					}
 				}
 			}
@@ -78,19 +95,23 @@ public class PQModel2 implements Model {
 
 	@Override
 	public void sumUpdates(int iteration) {
-		// TODO Auto-generated method stub
-
+		for (AveragedParameter parm : updatedParameters)
+			parm.sum(iteration);
+		updatedParameters.clear();
 	}
 
 	@Override
 	public void average(int numberOfIterations) {
-		// TODO Auto-generated method stub
-
+		for (AveragedParameter parm : updatedParameters)
+			parm.average(numberOfIterations);
 	}
 
 	@Override
 	public PQModel2 clone() throws CloneNotSupportedException {
-		return null;
+		AveragedParameter[] clones = new AveragedParameter[featureWeights.length];
+		for (int idx = 0; idx < clones.length; ++idx)
+			clones[idx] = featureWeights[idx].clone();
+		return new PQModel2(clones);
 	}
 
 	@Override
@@ -99,9 +120,9 @@ public class PQModel2 implements Model {
 		// TODO Auto-generated method stub
 
 	}
-	
+
 	public double getFeatureWeight(int featureIndex) {
-		return this.featureWeights[featureIndex];
+		return this.featureWeights[featureIndex].get();
 	}
 
 }

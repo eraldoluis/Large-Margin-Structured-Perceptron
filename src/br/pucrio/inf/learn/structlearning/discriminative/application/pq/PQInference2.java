@@ -39,6 +39,14 @@ public class PQInference2 implements Inference {
 			output.setAuthor(tasks[solutionIndexes[i]].getQuotationPosition(), tasks[solutionIndexes[i]].getCoreferencePosition());
 	}
 
+	@Override
+	public void lossAugmentedInference(Model model, ExampleInput input,
+			ExampleOutput referenceOutput, ExampleOutput predictedOutput,
+			double lossWeight) {
+		inference((PQModel2) model, (PQInput2) input, (PQOutput2) predictedOutput);
+
+	}
+
 	public Task[] generateCandidates(PQModel2 model, PQInput2 input) {
 		// Implementation of a method for comparison between two tasks.
 		// It is used to find out in which position we have to insert the
@@ -203,14 +211,6 @@ public class PQInference2 implements Inference {
 	@Override
 	public void partialInference(Model model, ExampleInput input,
 			ExampleOutput partiallyLabeledOutput, ExampleOutput predictedOutput) {
-		// TODO Auto-generated method stub
-
-	}
-
-	@Override
-	public void lossAugmentedInference(Model model, ExampleInput input,
-			ExampleOutput referenceOutput, ExampleOutput predictedOutput,
-			double lossWeight) {
 		// TODO Auto-generated method stub
 
 	}
