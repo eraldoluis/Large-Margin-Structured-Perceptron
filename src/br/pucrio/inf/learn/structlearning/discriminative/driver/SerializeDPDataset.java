@@ -268,14 +268,11 @@ public class SerializeDPDataset implements Command {
 			LOG.info("Feature encoding: "
 					+ featureEncoding.getClass().getSimpleName());
 
-			LOG.info("Loading input dataset...");
+			LOG.info("Loading and serializing input dataset...");
 			inDataset = new DPDataset(featureEncoding);
-			inDataset.load(inputFilename);
+			inDataset.serialize(inputFilename, outputFilename);
 
 			LOG.info("Feature encoding size: " + featureEncoding.size());
-
-			LOG.info("Serializing dataset...");
-			inDataset.serialize(outputFilename);
 
 			LOG.info("Serialization successfully done!");
 

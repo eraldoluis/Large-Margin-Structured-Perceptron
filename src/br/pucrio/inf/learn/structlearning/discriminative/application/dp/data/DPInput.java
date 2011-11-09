@@ -107,8 +107,9 @@ public class DPInput implements ExampleInput, Serializable {
 	 * Allocate the matrix of feature codes and fill it with the values in the
 	 * given collection of collections. The given matrix is tranposed, i.e.,
 	 * lines are destin tokens and columns are origin tokens. The first line of
-	 * the matrix is ommited since there is not point in considering edges
-	 * entering the root token (zero).
+	 * the matrix is ignored since there is no point in considering edges
+	 * entering the root token (zero), i.e., the root token is never a dependent
+	 * token.
 	 * 
 	 * @param featuresCollection
 	 * @throws DPInputException
@@ -122,7 +123,7 @@ public class DPInput implements ExampleInput, Serializable {
 		 * Number of tokens. The first line is ommited since there is no point
 		 * in considering edges entering the root token.
 		 */
-		int numTokens = featuresCollection.size() + 1;
+		int numTokens = featuresCollection.size();
 
 		// Allocate feature matrix (a matrix of arrays of feature codes).
 		features = new int[numTokens][numTokens][];
@@ -131,8 +132,13 @@ public class DPInput implements ExampleInput, Serializable {
 		for (int from = 0; from < numTokens; ++from)
 			features[from][0] = new int[0];
 
-		int idxTokenTo = 1;
+		int idxTokenTo = 0;
 		for (Collection<? extends Collection<Integer>> tokensFrom : featuresCollection) {
+			if (idxTokenTo == 0) {
+				// Root token is never a dependent.
+				++idxTokenTo;
+				continue;
+			}
 			// Number of lines must be the same number of columns.
 			if (tokensFrom.size() != numTokens)
 				throw new DPInputException(
@@ -143,7 +149,7 @@ public class DPInput implements ExampleInput, Serializable {
 			int idxTokenFrom = 0;
 			for (Collection<Integer> tokenFrom : tokensFrom) {
 				// Skip the diagonal elements.
-				if (idxTokenFrom != idxTokenTo) {
+				if (tokenFrom != null) {
 					// Allocate the array of feature codes.
 					features[idxTokenFrom][idxTokenTo] = new int[tokenFrom
 							.size()];

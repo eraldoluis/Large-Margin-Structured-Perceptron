@@ -1,5 +1,7 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.dp.data;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.FileInputStream;
@@ -14,6 +16,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -131,8 +134,7 @@ public class DPDataset implements Dataset {
 
 	@Override
 	public void load(String fileName) throws IOException, DatasetException {
-		BufferedReader reader = new BufferedReader(new FileReader(fileName),
-				8 * 1024 * 1024);
+		BufferedReader reader = new BufferedReader(new FileReader(fileName));
 		load(reader);
 		reader.close();
 	}
@@ -250,87 +252,81 @@ public class DPDataset implements Dataset {
 		 * List of dependent token edges. Each dependent token is a list of
 		 * edges. Each edge is a list of feature codes.
 		 */
-		LinkedList<LinkedList<LinkedList<Integer>>> features = new LinkedList<LinkedList<LinkedList<Integer>>>();
+		ArrayList<ArrayList<LinkedList<Integer>>> features = new ArrayList<ArrayList<LinkedList<Integer>>>(
+				numTokens);
+		for (int idx = 0; idx < numTokens; ++idx) {
+			ArrayList<LinkedList<Integer>> depFtrs = new ArrayList<LinkedList<Integer>>(
+					numTokens);
+			features.add(depFtrs);
+			for (int idxHead = 0; idxHead < numTokens; ++idxHead)
+				depFtrs.add(null);
+		}
+
+		// Which dependent tokens has the correct edges been seen for.
+		boolean[] sawCorrectEdge = new boolean[numTokens];
 
 		// Allocate the output structure.
 		DPOutput output = new DPOutput(numTokens);
 
-		for (int dependent = 1; dependent < numTokens; ++dependent) {
-			// List of edges for the current dependent token.
-			LinkedList<LinkedList<Integer>> dependentList = new LinkedList<LinkedList<Integer>>();
+		// Read next line.
+		while ((line = reader.readLine()) != null) {
 
-			/*
-			 * Guarantee that only one correct edge is present for each
-			 * dependent token.
-			 */
-			boolean sawCorrectEdge = false;
-			for (int head = 0; head < numTokens; ++head) {
-				// Read next line.
-				line = reader.readLine();
-				if (line == null)
-					throw new DatasetException(
-							"Incorrect number of dependent-head feature lists (separated by newline)");
+			line = line.trim();
+			if (line.length() == 0)
+				// Stop on blank lines.
+				break;
 
-				line = line.trim();
-				if (line.length() == 0)
-					throw new DatasetException(
-							"Incorrect number of dependent-head feature lists (separated by newline)");
+			// Split edge in feature values.
+			String[] ftrValues = REGEX_SPACE.split(line);
 
-				// Skip diagonal edges.
-				if (dependent == head) {
-					dependentList.add(null);
-					continue;
-				}
+			// Head and dependent tokens indexes.
+			String[] edgeId = ftrValues[0].split(">");
+			int head = Integer.parseInt(edgeId[0]);
+			int dependent = Integer.parseInt(edgeId[1]);
 
-				// Split edge in feature values.
-				String[] ftrValues = REGEX_SPACE.split(line);
+			// Skip diagonal edges.
+			if (dependent == head)
+				continue;
 
-				// First feature is, in fact, the flag of correct edge.
-				int isCorrectEdge = Integer.parseInt(ftrValues[1]);
+			// First feature is, in fact, the flag of correct edge.
+			int isCorrectEdge = Integer.parseInt(ftrValues[1]);
 
-				// If it is the correct edge.
-				if (isCorrectEdge == 1) {
-					if (sawCorrectEdge)
-						/*
-						 * If another correct edge has been seen before, throw
-						 * an execption.
-						 */
-						throw new DatasetException(
-								"Double correct edge for token " + dependent);
-					output.setHead(dependent, head);
-					sawCorrectEdge = true;
-				} else if (isCorrectEdge != 0) {
+			// If it is the correct edge.
+			if (isCorrectEdge == 1) {
+				if (sawCorrectEdge[dependent])
 					/*
-					 * If it is not the correct edge, but the value is not 0,
-					 * throw an exception.
+					 * If another correct edge has been seen before, throw an
+					 * execption.
 					 */
-					throw new DatasetException(
-							"First feature value must be 0 or 1 to indicate "
-									+ "the correct edge. However, this is not "
-									+ "true for token " + dependent
-									+ " and head " + head);
-				}
-
-				// Encode the edge features.
-				LinkedList<Integer> ftrCodes = new LinkedList<Integer>();
-				for (int idxFtr = 2; idxFtr < ftrValues.length; ++idxFtr) {
-					/*
-					 * Create a new string before including the feature value in
-					 * the encoding, since the ftrValues[idxFtr] string keeps a
-					 * reference to the line string.
-					 */
-					int code = encoding.put(new String(ftrValues[idxFtr]));
-
-					if (code >= 0)
-						ftrCodes.add(code);
-				}
-
-				// Add feature codes to the list of edges.
-				dependentList.add(ftrCodes);
+					throw new DatasetException("Double correct edge for token "
+							+ dependent);
+				output.setHead(dependent, head);
+				sawCorrectEdge[dependent] = true;
+			} else if (isCorrectEdge != 0) {
+				/*
+				 * If it is not the correct edge, but the value is not 0, throw
+				 * an exception.
+				 */
+				throw new DatasetException(
+						"First feature value must be 0 or 1 to indicate "
+								+ "the correct edge. However, this is not "
+								+ "true for token " + dependent + " and head "
+								+ head);
 			}
 
-			// Add the list of edges of the current dependent token.
-			features.add(dependentList);
+			// Encode the edge features.
+			LinkedList<Integer> ftrCodes = new LinkedList<Integer>();
+			features.get(dependent).set(head, ftrCodes);
+			for (int idxFtr = 2; idxFtr < ftrValues.length; ++idxFtr) {
+				/*
+				 * Create a new string before including the feature value in the
+				 * encoding, since the ftrValues[idxFtr] string keeps a
+				 * reference to the line string.
+				 */
+				int code = encoding.put(new String(ftrValues[idxFtr]));
+				if (code >= 0)
+					ftrCodes.add(code);
+			}
 		}
 
 		try {
@@ -348,12 +344,6 @@ public class DPDataset implements Dataset {
 
 			inputList.add(input);
 			outputList.add(output);
-
-			// Read the blank line (or last line of file).
-			line = reader.readLine();
-			if (line != null && line.trim().length() != 0)
-				throw new DatasetException(
-						"There are more lines than expected in example: " + id);
 
 			// Return true if there are more lines.
 			return line != null;
@@ -412,6 +402,43 @@ public class DPDataset implements Dataset {
 	}
 
 	/**
+	 * Load examples from input file and imediately serialize them without
+	 * storing them.
+	 * 
+	 * @param inFilename
+	 * @param outFilename
+	 * @throws IOException
+	 * @throws DatasetException
+	 */
+	public void serialize(String inFilename, String outFilename)
+			throws IOException, DatasetException {
+		BufferedReader reader = new BufferedReader(new FileReader(inFilename));
+		ObjectOutputStream os = new ObjectOutputStream(
+				new BufferedOutputStream(new FileOutputStream(outFilename)));
+		List<DPInput> inputList = new LinkedList<DPInput>();
+		List<DPOutput> outputList = new LinkedList<DPOutput>();
+		int numExs = 0;
+		while (parseExample(reader, inputList, outputList)) {
+			if (inputList.size() > 0) {
+				DPInput input = inputList.remove(0);
+				DPOutput output = outputList.remove(0);
+				os.writeObject(input);
+				os.writeObject(output);
+				++numExs;
+				if (numExs % 100 == 0) {
+					System.out.print(".");
+					System.out.flush();
+				}
+			}
+		}
+		os.writeObject(new Boolean(training));
+		os.writeObject(new Integer(maxNumberOfTokens));
+		os.close();
+		reader.close();
+		LOG.info("Read " + numExs + " examples.");
+	}
+
+	/**
 	 * Read the content of this object from the given file. The content of the
 	 * file must has been generated by the method <code>serialize()</code> of
 	 * this class.
@@ -423,12 +450,28 @@ public class DPDataset implements Dataset {
 	 */
 	public void deserialize(String filename) throws FileNotFoundException,
 			IOException, ClassNotFoundException {
-		ObjectInputStream is = new ObjectInputStream(new FileInputStream(
-				filename));
-		inputs = (DPInput[]) is.readObject();
-		outputs = (DPOutput[]) is.readObject();
-		training = is.readBoolean();
-		maxNumberOfTokens = is.readInt();
+		ObjectInputStream is = new ObjectInputStream(new BufferedInputStream(
+				new FileInputStream(filename)));
+		List<DPInput> inputList = new LinkedList<DPInput>();
+		List<DPOutput> outputList = new LinkedList<DPOutput>();
+		int numExs = 0;
+		Object obj;
+		while ((obj = is.readObject()) != null) {
+			if (!(obj instanceof DPInput))
+				break;
+			inputList.add((DPInput) obj);
+			outputList.add((DPOutput) is.readObject());
+			++numExs;
+			if (numExs % 100 == 0) {
+				System.out.print(".");
+				System.out.flush();
+			}
+		}
+		System.out.println();
+		inputs = inputList.toArray(new DPInput[0]);
+		outputs = outputList.toArray(new DPOutput[0]);
+		training = (Boolean) obj;
+		maxNumberOfTokens = (Integer) is.readObject();
 		is.close();
 	}
 
