@@ -193,10 +193,12 @@ public class DPDataset implements Dataset {
 	 * comprises list of feature values, separated by space, representing an
 	 * edge of the sentence graph.
 	 * 
-	 * The first feature of each edge is just an alphanumeric ID of the edge.
-	 * The second feature is 1 (one) if the edge is part of the dependecy tree
-	 * of the example and 0 (zero) otherwise. The remaining features represent
-	 * the edge. Each edge connects a head token to a dependent token.
+	 * The first feature of each edge comprises its ID that *must* obey the
+	 * format head_token_index>dependent_token_index to indicate, respectively,
+	 * the start and end points of the edge. The second feature is 1 (one) if
+	 * the edge is part of the dependecy tree of the example and 0 (zero)
+	 * otherwise. The remaining features represent the edge. Each edge connects
+	 * a head token to a dependent token.
 	 * 
 	 * The edges must come in a specific order in the line. More specifically,
 	 * edges are order by dependent token and then by head token. Following this
