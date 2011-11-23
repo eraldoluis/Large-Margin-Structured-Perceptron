@@ -151,7 +151,7 @@ public class ViterbiInference implements Inference {
 		double[] emissionWeights = new double[numberOfStates];
 
 		// Calculate emission weights at the first token.
-		hmm.getTokenEmissionWeights(input, 0, emissionWeights);
+		getLossAugmentedTokenEmissionWeights(hmm, input, 0, emissionWeights);
 
 		// Delta values for the first token.
 		for (int state = 0; state < numberOfStates; ++state)
@@ -161,7 +161,7 @@ public class ViterbiInference implements Inference {
 		// Apply each step of the Viterbi algorithm.
 		for (int tkn = 1; tkn < lenExample; ++tkn) {
 			// Calculate emission weights at the current token.
-			hmm.getTokenEmissionWeights(input, tkn, emissionWeights);
+			getLossAugmentedTokenEmissionWeights(hmm, input, tkn, emissionWeights);
 			// Calculate best previous state for each possible state.
 			for (int state = 0; state < numberOfStates; ++state)
 				viterbi(hmm, delta, psi, tkn, state, emissionWeights[state],
@@ -262,7 +262,7 @@ public class ViterbiInference implements Inference {
 
 		if (curState == SequenceDataset.NON_ANNOTATED_STATE_CODE) {
 			// Non-annotated token.
-			hmm.getTokenEmissionWeights(input, 0, emissionWeights);
+			getLossAugmentedTokenEmissionWeights(hmm, input, 0, emissionWeights);
 			for (int state = 0; state < numberOfStates; ++state)
 				delta[0][state] = emissionWeights[state]
 						+ hmm.getInitialStateParameter(state);
@@ -280,7 +280,7 @@ public class ViterbiInference implements Inference {
 			curState = partiallyLabeledOutput.getLabel(tkn);
 			if (curState == SequenceDataset.NON_ANNOTATED_STATE_CODE) {
 				// Get emission weights for each state.
-				hmm.getTokenEmissionWeights(input, tkn, emissionWeights);
+				getLossAugmentedTokenEmissionWeights(hmm, input, tkn, emissionWeights);
 				/*
 				 * If the current token is non-annotated, we need to calculate
 				 * the best previous state and corresponding weight for each
