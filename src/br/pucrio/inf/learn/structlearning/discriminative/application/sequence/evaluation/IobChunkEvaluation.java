@@ -75,6 +75,8 @@ public class IobChunkEvaluation extends EntityF1Evaluation {
 		int lenExample = output.size();
 		for (int idxTkn = 0; idxTkn < lenExample; ++idxTkn) {
 			String tag = stateEncoding.getValueByCode(output.getLabel(idxTkn));
+			if (tag == null)
+				tag = nullLabel;
 
 			String beg = nullLabel;
 			String type = nullLabel;
