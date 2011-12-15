@@ -420,7 +420,7 @@ public class SequenceDataset implements Dataset {
 			LinkedList<Integer> featureList = new LinkedList<Integer>();
 			for (int idxFtr = 0; idxFtr < features.length - 1; ++idxFtr) {
 				++numEmissionFeatures;
-				int code = featureEncoding.put(features[idxFtr]);
+				int code = featureEncoding.put(new String(features[idxFtr]));
 				if (code >= 0)
 					featureList.add(code);
 			}
@@ -437,7 +437,7 @@ public class SequenceDataset implements Dataset {
 				// special label is null (totally annotated dataset).
 				sequenceOutputAsList.add(NON_ANNOTATED_STATE_CODE);
 			else {
-				int code = stateEncoding.put(label);
+				int code = stateEncoding.put(new String(label));
 				if (code < 0)
 					LOG.warn("Unknown label (" + label + ") in token "
 							+ (idxTkn - 1) + " of example " + id
@@ -456,12 +456,12 @@ public class SequenceDataset implements Dataset {
 				 * Training examples must store internally their indexes in the
 				 * array of training examples.
 				 */
-				sequenceInputs.add(new ArraySequenceInput(id, sequenceInputs
+				sequenceInputs.add(new ArraySequenceInput(new String(id), sequenceInputs
 						.size(), sequenceInputAsList));
 				sequenceOutputs.add(new ArraySequenceOutput(
 						sequenceOutputAsList, sequenceOutputAsList.size()));
 			} else {
-				sequenceInputs.add(new ArraySequenceInput(id,
+				sequenceInputs.add(new ArraySequenceInput(new String(id),
 						sequenceInputAsList));
 				sequenceOutputs.add(new ArraySequenceOutput(
 						sequenceOutputAsList, sequenceOutputAsList.size()));
