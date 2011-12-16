@@ -22,6 +22,7 @@ import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.Pe
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.TowardBetterPerceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.AveragedArrayHmm;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.AveragedArrayHmm2ndOrder;
+import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.AveragedMapHmm;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.DualHmm;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.Viterbi2ndOrderInference;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.ViterbiInference;
@@ -435,7 +436,6 @@ public class TrainHmm implements Command {
 				.hasOption("skipunlabeled");
 		boolean normalizeInput = cmdLine.hasOption("norm");
 
-		LOG.info("Loading input corpus...");
 		SequenceDataset inputCorpusA = null;
 		SequenceDataset inputCorpusB = null;
 		double weightAdditionalCorpus = -1d;
@@ -444,6 +444,8 @@ public class TrainHmm implements Command {
 		FeatureEncoding<String> additionalFeatureEncoding = null;
 		StringMapEncoding stateEncoding = null;
 		try {
+
+			LOG.info("Creating/loading encoding...");
 
 			// Create (or load) the feature value encoding.
 			if (encodingFile != null) {
@@ -547,6 +549,8 @@ public class TrainHmm implements Command {
 				 * depend on order of appereance of the labels).
 				 */
 				stateEncoding = new StringMapEncoding();
+
+			LOG.info("Loading input corpus...");
 
 			// Get the list of input paths and concatenate the corpora in them.
 			inputCorpusA = new SequenceDataset(featureEncoding, stateEncoding,
@@ -666,11 +670,20 @@ public class TrainHmm implements Command {
 			inference = new ViterbiInference(inputCorpusA.getStateEncoding()
 					.put(defaultLabel));
 
-			if (algType != AlgorithmType.DUAL_PERCEPTRON)
+			if (algType != AlgorithmType.DUAL_PERCEPTRON) {
 				// Ordinary HMM model.
-				model = new AveragedArrayHmm(inputCorpusA.getNumberOfStates(),
+				// TODO test
+
+				/*
+				 * model = new
+				 * AveragedArrayHmm(inputCorpusA.getNumberOfStates(),
+				 * inputCorpusA.getNumberOfSymbols());
+				 */
+
+				model = new AveragedMapHmm(inputCorpusA.getNumberOfStates(),
 						inputCorpusA.getNumberOfSymbols());
-			else {
+
+			} else {
 				// Dual HMM model.
 				model = new DualHmm(inputCorpusA.getInputs(),
 						inputCorpusA.getOutputs(),
