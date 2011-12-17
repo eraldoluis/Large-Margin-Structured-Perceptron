@@ -19,9 +19,13 @@ import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.Du
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.LossAugmentedPerceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.Perceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.TowardBetterPerceptron;
-import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPModel;
+import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPBasicModel;
+import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPTemplateModel;
+import br.pucrio.inf.learn.structlearning.discriminative.application.dp.FeatureTemplate;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.MaximumBranchingInference;
+import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPBasicDataset;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPDataset;
+import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPEdgeCorpus;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.evaluation.DPEvaluation;
@@ -103,6 +107,14 @@ public class TrainDP implements Command {
 		options.addOption(OptionBuilder.withLongOpt("train").isRequired()
 				.withArgName("filename").hasArg()
 				.withDescription("Training dataset file name.").create());
+		options.addOption(OptionBuilder
+				.withLongOpt("templates")
+				.withArgName("filename")
+				.hasArg()
+				.withDescription(
+						"Feature templates file name. Implies that train and "
+								+ "test must be column-format datasets.")
+				.create());
 		options.addOption(OptionBuilder
 				.withLongOpt("serial")
 				.withDescription(
@@ -286,6 +298,7 @@ public class TrainDP implements Command {
 		 * default values.
 		 */
 		String[] inputCorpusFileNames = cmdLine.getOptionValues("train");
+		String templatesFileName = cmdLine.getOptionValue("templates");
 		String modelFileName = cmdLine.getOptionValue("model");
 		int numEpochs = Integer.parseInt(cmdLine.getOptionValue("numepochs",
 				"10"));
@@ -317,6 +330,7 @@ public class TrainDP implements Command {
 		int sizeEncoding = -1;
 		FeatureEncoding<String> featureEncoding = null;
 		FeatureEncoding<String> additionalFeatureEncoding = null;
+		FeatureTemplate[] templates = null;
 		try {
 
 			if (serialDatasets && encodingFile != null) {
@@ -436,18 +450,26 @@ public class TrainDP implements Command {
 						+ featureEncoding.getClass().getSimpleName());
 			}
 
-			inDataset = new DPDataset(featureEncoding);
-			if (serialDatasets) {
-				// Load a serialized dataset.
-				LOG.info("Loading input corpus from a serialized file...");
-				inDataset.deserialize(inputCorpusFileNames[0]);
+			if (templatesFileName == null) {
+				inDataset = new DPBasicDataset(featureEncoding);
+				if (serialDatasets) {
+					// Load a serialized dataset.
+					LOG.info("Loading input corpus from a serialized file...");
+					inDataset.deserialize(inputCorpusFileNames[0]);
+				} else {
+					// Load from a textual file.
+					LOG.info("Loading input corpus...");
+					if (inDataset.equals("stdin"))
+						inDataset.load(System.in);
+					else
+						inDataset.load(inputCorpusFileNames[0]);
+				}
 			} else {
-				// Load from a textual file.
-				LOG.info("Loading input corpus...");
-				if (inDataset.equals("stdin"))
-					inDataset.load(System.in);
-				else
-					inDataset.load(inputCorpusFileNames[0]);
+				// Load templates and edge corpus.
+				inDataset = new DPEdgeCorpus(null);
+				inDataset.load(inputCorpusFileNames[0]);
+				templates = ((DPEdgeCorpus) inDataset)
+						.loadTemplates(templatesFileName);
 			}
 
 		} catch (Exception e) {
@@ -482,8 +504,16 @@ public class TrainDP implements Command {
 		if (sizeEncoding == -1)
 			// Serialized datasets.
 			sizeEncoding = featureEncoding.size();
-		Model model = new DPModel(sizeEncoding);
-		Inference inference = new MaximumBranchingInference(
+		Model model;
+		Inference inference;
+		if (templates == null)
+			// Explicit-features model.
+			model = new DPBasicModel(sizeEncoding);
+		else
+			// Template-based model.
+			model = new DPTemplateModel(templates);
+
+		inference = new MaximumBranchingInference(
 				inDataset.getMaxNumberOfTokens());
 
 		// Learning rate update strategy.
@@ -601,8 +631,11 @@ public class TrainDP implements Command {
 			try {
 
 				LOG.info("Loading and preparing test data...");
-				DPDataset testset = new DPDataset(
-						inDataset.getFeatureEncoding());
+				DPDataset testset;
+				if (templates == null)
+					testset = new DPBasicDataset(inDataset.getFeatureEncoding());
+				else
+					testset = new DPEdgeCorpus(null);
 
 				if (serialDatasets)
 					testset.deserialize(testCorpusFileName);
@@ -635,7 +668,7 @@ public class TrainDP implements Command {
 			try {
 
 				LOG.info("Loading and preparing test data...");
-				DPDataset testset = new DPDataset(
+				DPBasicDataset testset = new DPBasicDataset(
 						inDataset.getFeatureEncoding());
 				if (serialDatasets)
 					testset.deserialize(testCorpusFileName);

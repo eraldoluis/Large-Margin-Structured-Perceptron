@@ -130,7 +130,7 @@ public class DPInput implements ExampleInput, Serializable {
 
 		// No features to token zero.
 		for (int from = 0; from < numTokens; ++from)
-			features[from][0] = new int[0];
+			features[from][0] = null;
 
 		int idxTokenTo = 0;
 		for (Collection<? extends Collection<Integer>> tokensFrom : featuresCollection) {
@@ -159,7 +159,7 @@ public class DPInput implements ExampleInput, Serializable {
 						++idxFtr;
 					}
 				} else
-					features[idxTokenFrom][idxTokenTo] = new int[0];
+					features[idxTokenFrom][idxTokenTo] = null;
 
 				++idxTokenFrom;
 			}

@@ -1,6 +1,7 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.dp.data;
 
 import java.io.Serializable;
+import java.util.Arrays;
 
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 
@@ -32,6 +33,7 @@ public class DPOutput implements ExampleOutput, Serializable {
 	 */
 	public DPOutput(int numberOfTokens) {
 		heads = new int[numberOfTokens];
+		Arrays.fill(heads, -1);
 	}
 
 	@Override

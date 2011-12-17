@@ -7,8 +7,6 @@ import org.apache.commons.logging.LogFactory;
 
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.OnlineStructuredAlgorithm;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.TrainingListener;
-import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPModel;
-import br.pucrio.inf.learn.structlearning.discriminative.application.dp.MaximumBranchingInference;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
@@ -292,15 +290,6 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 					break;
 				}
 			}
-
-			// TODO debug
-			LOG.info("Maximum absolute edge weight: "
-					+ MaximumBranchingInference.maxAbsEdgeWeight);
-			LOG.info("Maximum absolute, averaged parameter: "
-					+ DPModel.maxAbsParam);
-			LOG.info("Maximum absolute, averaged parameter sum: "
-					+ DPModel.maxAbsParamSum);
-
 		}
 
 		if (listener != null)

@@ -24,7 +24,7 @@ public interface Model {
 	 * @param learningRate
 	 * @return the loss between the correct and the predicted outputs.
 	 */
-	double update(ExampleInput input, ExampleOutput outputCorrect,
+	public double update(ExampleInput input, ExampleOutput outputCorrect,
 			ExampleOutput outputPredicted, double learningRate);
 
 	/**
@@ -32,14 +32,14 @@ public interface Model {
 	 * 
 	 * @param iteration
 	 */
-	void sumUpdates(int iteration);
+	public void sumUpdates(int iteration);
 
 	/**
 	 * Average the parameters of all iterations.
 	 * 
 	 * @param numberOfIterations
 	 */
-	void average(int numberOfIterations);
+	public void average(int numberOfIterations);
 
 	/**
 	 * Serialize the model to the given stream.
@@ -48,7 +48,7 @@ public interface Model {
 	 * @param featureEncoding
 	 * @param stateEncoding
 	 */
-	void save(PrintStream ps, FeatureEncoding<String> featureEncoding,
+	public void save(PrintStream ps, FeatureEncoding<String> featureEncoding,
 			FeatureEncoding<String> stateEncoding);
 
 	/**
@@ -57,6 +57,6 @@ public interface Model {
 	 * @return
 	 * @throws CloneNotSupportedException
 	 */
-	Model clone() throws CloneNotSupportedException;
+	public Model clone() throws CloneNotSupportedException;
 
 }
