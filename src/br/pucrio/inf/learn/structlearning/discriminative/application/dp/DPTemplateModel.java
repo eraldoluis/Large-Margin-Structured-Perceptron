@@ -69,25 +69,22 @@ public class DPTemplateModel implements DPModel {
 	 * Copy constructor.
 	 * 
 	 * @param other
+	 * @throws CloneNotSupportedException
 	 */
-	protected DPTemplateModel(DPTemplateModel other) {
+	@SuppressWarnings("unchecked")
+	protected DPTemplateModel(DPTemplateModel other)
+			throws CloneNotSupportedException {
 		// Templates are shallow-copied.
 		this.templates = other.templates;
 
-		// Parameters.
-		this.parameters = new HashMap<Integer, AveragedParameter>();
-		try {
-			for (Entry<Integer, AveragedParameter> entry : other.parameters
-					.entrySet())
-				parameters.put(entry.getKey(), entry.getValue().clone());
-		} catch (CloneNotSupportedException e) {
-			LOG.error("Clone error.", e);
-		}
+		// Shallow-copy parameters map and then clone each parameter.
+		this.parameters = (HashMap<Integer, AveragedParameter>) ((HashMap<Integer, AveragedParameter>) other.parameters)
+				.clone();
+		for (Entry<Integer, AveragedParameter> entry : parameters.entrySet())
+			entry.setValue(entry.getValue().clone());
 
-		// Encoding.
-		encoding = new MapEncoding<Feature>();
-		for (Feature ftr : other.encoding.getValues())
-			encoding.put(ftr);
+		// Encoding is shallow-copied.
+		encoding = other.encoding;
 
 		// Updated weights are NOT copied.
 		updatedWeights = new TreeSet<AveragedParameter>();
@@ -166,7 +163,7 @@ public class DPTemplateModel implements DPModel {
 				}
 
 				// Update parameter value.
-				param.update(learningRate);
+				param.update(-learningRate);
 				updatedWeights.add(param);
 			}
 
@@ -205,8 +202,10 @@ public class DPTemplateModel implements DPModel {
 				continue;
 
 			AveragedParameter param = parameters.get(code);
-			if (param == null)
+			if (param == null) {
+				LOG.warn("Non-zero code (" + code + ") with null parameter");
 				continue;
+			}
 
 			// Accumulate the parameter in the edge score.
 			score += param.get();

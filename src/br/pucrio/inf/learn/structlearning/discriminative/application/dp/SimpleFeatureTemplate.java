@@ -28,14 +28,12 @@ public class SimpleFeatureTemplate implements FeatureTemplate {
 	public Feature instantiate(DPInput input, int idxHead, int idxDep,
 			int idxTemplate) {
 		int[] edgeFeatures = input.getFeatureCodes(idxHead, idxDep);
-		if (edgeFeatures.length > 0) {
-			int[] values = new int[features.length];
-			for (int idx = 0; idx < features.length; ++idx)
-				values[idx] = edgeFeatures[features[idx]];
-			return new Feature(idxTemplate, values);
-		}
-
-		return null;
+		if (edgeFeatures == null || edgeFeatures.length == 0)
+			return null;
+		int[] values = new int[features.length];
+		for (int idx = 0; idx < features.length; ++idx)
+			values[idx] = edgeFeatures[features[idx]];
+		return new Feature(idxTemplate, values);
 	}
 
 }

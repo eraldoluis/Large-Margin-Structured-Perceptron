@@ -5,7 +5,8 @@ import java.util.Arrays;
 import br.pucrio.inf.learn.util.HashCodeUtil;
 
 /**
- * Represents a feature template instantiation.
+ * Represent a feature template instantiation. Store the template index and the
+ * value of each feature in the template.
  * 
  * @author eraldo
  * 
