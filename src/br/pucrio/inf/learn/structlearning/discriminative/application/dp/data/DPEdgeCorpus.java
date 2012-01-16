@@ -11,7 +11,6 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
@@ -23,7 +22,9 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
+import br.pucrio.inf.learn.structlearning.discriminative.application.dp.Feature;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.FeatureTemplate;
+import br.pucrio.inf.learn.structlearning.discriminative.application.dp.InvertedIndex;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.SimpleFeatureTemplate;
 import br.pucrio.inf.learn.structlearning.discriminative.data.DatasetException;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
@@ -50,7 +51,7 @@ public class DPEdgeCorpus implements DPDataset {
 	private final Pattern REGEX_SPACE = Pattern.compile("[ ]");
 
 	/**
-	 * Textual features encoding scheme.
+	 * Encoding for basic textual features.
 	 */
 	private FeatureEncoding<String> encoding;
 
@@ -85,8 +86,32 @@ public class DPEdgeCorpus implements DPDataset {
 	private int maxNumberOfTokens;
 
 	/**
-	 * Default constructor. Create an empty dataset with the default encoding
-	 * scheme: <code>StringMapEncoding</code>.
+	 * Optional inverted index representation to speedup some algorithms.
+	 * Mainly, training algorithms.
+	 */
+	private InvertedIndex invertedIndex;
+
+	/**
+	 * Explicit lists of features to speedup some algorithms. Mainly, extraction
+	 * algorithms for small corpus (testing data, for instance).
+	 */
+	@SuppressWarnings("rawtypes")
+	private LinkedList[][][] explicitFeatures;
+
+	/**
+	 * Punctuation file reader.
+	 */
+	private BufferedReader readerPunc;
+
+	/**
+	 * Punctuation file name.
+	 */
+	private String fileNamePunc;
+
+	/**
+	 * Create edge corpus.
+	 * 
+	 * @param multiValuedFeatures
 	 */
 	public DPEdgeCorpus(Collection<String> multiValuedFeatures) {
 		this.multiValuedFeatures = new TreeSet<String>();
@@ -94,7 +119,30 @@ public class DPEdgeCorpus implements DPDataset {
 			for (String ftrLabel : multiValuedFeatures)
 				this.multiValuedFeatures.add(ftrLabel);
 		}
-		encoding = new StringMapEncoding();
+		this.encoding = new StringMapEncoding();
+	}
+
+	/**
+	 * Create edge corpus with the given encoding.
+	 * 
+	 * @param multiValuedFeatures
+	 * @param encoding
+	 */
+	public DPEdgeCorpus(Collection<String> multiValuedFeatures,
+			FeatureEncoding<String> encoding) {
+		this.multiValuedFeatures = new TreeSet<String>();
+		if (multiValuedFeatures != null) {
+			for (String ftrLabel : multiValuedFeatures)
+				this.multiValuedFeatures.add(ftrLabel);
+		}
+		this.encoding = encoding;
+	}
+
+	/**
+	 * @return the number of features (columns) in this corpus.
+	 */
+	public int getNumberOfFeatures() {
+		return featureLabels.length;
 	}
 
 	@Override
@@ -125,6 +173,95 @@ public class DPEdgeCorpus implements DPDataset {
 	@Override
 	public boolean isTraining() {
 		return training;
+	}
+
+	/**
+	 * Return the optional inverted index that represents this corpus.
+	 * 
+	 * This data structure can be used to speedup training algorithms.
+	 * 
+	 * @return
+	 */
+	public InvertedIndex getInvertedIndex() {
+		return invertedIndex;
+	}
+
+	/**
+	 * Create an inverted index for this corpus.
+	 */
+	public void createInvertedIndex() {
+		this.invertedIndex = new InvertedIndex(this);
+	}
+
+	/**
+	 * Return the lists of explicit features.
+	 * 
+	 * These lists can be used to speedup extraction algorithms for small corpus
+	 * (testing data, for instance).
+	 * 
+	 * @return
+	 */
+	@SuppressWarnings("rawtypes")
+	public LinkedList[][][] getExplicitFeatures() {
+		return explicitFeatures;
+	}
+
+	/**
+	 * Return the punctuation file name.
+	 * 
+	 * @return
+	 */
+	public String getFileNamePunc() {
+		return fileNamePunc;
+	}
+
+	/**
+	 * Set the name of the punctuation file for this edge corpus.
+	 * 
+	 * @param filename
+	 */
+	public void setFileNamePunc(String filename) {
+		this.fileNamePunc = filename;
+	}
+
+	/**
+	 * Create lists of explicit features for this corpus.
+	 * 
+	 * @param templates
+	 */
+	public void createExplicitFeatures(FeatureTemplate[] templates) {
+		int numExs = getNumberOfExamples();
+		explicitFeatures = new LinkedList[numExs][][];
+		for (int idxEx = 0; idxEx < numExs; ++idxEx) {
+			DPInput input = inputs[idxEx];
+			int lenEx = input.getNumberOfTokens();
+			explicitFeatures[idxEx] = new LinkedList[lenEx][lenEx];
+			for (int head = 0; head < lenEx; ++head) {
+				for (int dependent = 0; dependent < lenEx; ++dependent) {
+					if (input.getFeatureCodes(head, dependent) == null) {
+						// Inexistent edge.
+						explicitFeatures[idxEx][head][dependent] = null;
+						continue;
+					}
+
+					// Explicitly generate edge features from templates.
+					LinkedList<Feature> features = new LinkedList<Feature>();
+					explicitFeatures[idxEx][head][dependent] = features;
+					for (int idxTpl = 0; idxTpl < templates.length; ++idxTpl) {
+						FeatureTemplate template = templates[idxTpl];
+						Feature ftr = template.newInstance(input, head,
+								dependent, idxTpl);
+						features.add(ftr);
+					}
+				}
+			}
+
+			// Progress info.
+			if ((idxEx + 1) % 100 == 0) {
+				System.out.print(".");
+				System.out.flush();
+			}
+		}
 	}
 
 	/**
@@ -163,7 +300,11 @@ public class DPEdgeCorpus implements DPDataset {
 	@Override
 	public void load(BufferedReader reader) throws IOException,
 			DatasetException {
-		// Feature labels.
+		// Punctuation file.
+		if (fileNamePunc != null)
+			readerPunc = new BufferedReader(new FileReader(fileNamePunc));
+
+		// Read feature labels in the first line of the file.
 		String line = reader.readLine();
 		int eq = line.indexOf('=');
 		int end = line.indexOf(']');
@@ -184,7 +325,7 @@ public class DPEdgeCorpus implements DPDataset {
 		while (parseExample(reader, multiValuedFeaturesIndexes, "|", inputList,
 				outputList)) {
 			++numExs;
-			if (numExs % 100 == 0) {
+			if ((numExs + 1) % 100 == 0) {
 				System.out.print(".");
 				System.out.flush();
 			}
@@ -192,6 +333,10 @@ public class DPEdgeCorpus implements DPDataset {
 		System.out.println();
 		inputs = inputList.toArray(new DPInput[0]);
 		outputs = outputList.toArray(new DPOutput[0]);
+
+		// Close punctuation file.
+		if (fileNamePunc != null)
+			readerPunc.close();
 
 		LOG.info("Read " + inputs.length + " examples.");
 	}
@@ -267,8 +412,9 @@ public class DPEdgeCorpus implements DPDataset {
 			return true;
 
 		// Skip first line of example, which contains the original sentence.
-		String id = line;
-		line = reader.readLine();
+		String id = readerPunc.readLine();
+		line = readerPunc.readLine();
+		readerPunc.readLine();
 
 		// Punctuation flags separated by space.
 		String[] puncs = REGEX_SPACE.split(line);
@@ -366,7 +512,8 @@ public class DPEdgeCorpus implements DPDataset {
 			 * Create a new string to store the input id to avoid memory leaks,
 			 * since the id string keeps a reference to the line string.
 			 */
-			DPInput input = new DPInput(new String(id), features);
+			DPInput input = new DPInput(inputList.size(), new String(id),
+					features);
 			input.setPunctuation(punctuation);
 
 			// Keep the length of the longest sequence.
@@ -430,7 +577,7 @@ public class DPEdgeCorpus implements DPDataset {
 			int[] ftrs = new int[ftrsStr.length];
 			for (int idx = 0; idx < ftrs.length; ++idx)
 				ftrs[idx] = getFeatureIndex(ftrsStr[idx]);
-			templates.add(new SimpleFeatureTemplate(ftrs));
+			templates.add(new SimpleFeatureTemplate(templates.size(), ftrs));
 			// Read next line.
 			line = skipBlanksAndComments(reader);
 		}

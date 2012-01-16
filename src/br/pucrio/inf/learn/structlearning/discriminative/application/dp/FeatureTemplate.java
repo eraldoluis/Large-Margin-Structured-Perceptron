@@ -11,7 +11,7 @@ import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPI
 public interface FeatureTemplate {
 
 	/**
-	 * Instantiate a feature for the given token.
+	 * Return a possibly temporary feature for the given token.
 	 * 
 	 * @param input
 	 * @param idxHead
@@ -19,7 +19,26 @@ public interface FeatureTemplate {
 	 * @param idxTemplate
 	 * @return
 	 */
-	public Feature instantiate(DPInput input, int idxHead, int idxDep,
+	public Feature getInstance(DPInput input, int idxHead, int idxDep,
 			int idxTemplate);
+
+	/**
+	 * Instantiate a NEW feature for the given token.
+	 * 
+	 * @param input
+	 * @param idxHead
+	 * @param idxDep
+	 * @param idxTemplate
+	 * @return
+	 */
+	public Feature newInstance(DPInput input, int idxHead, int idxDep,
+			int idxTemplate);
+
+	/**
+	 * Return the feature indexes used in this template.
+	 * 
+	 * @return
+	 */
+	public int[] getFeatures();
 
 }
