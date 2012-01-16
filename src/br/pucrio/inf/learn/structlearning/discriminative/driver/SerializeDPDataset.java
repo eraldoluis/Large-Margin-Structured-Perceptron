@@ -8,7 +8,7 @@ import org.apache.commons.cli.PosixParser;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPDataset;
+import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPBasicDataset;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.HybridStringEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.JavaHashCodeEncoding;
@@ -158,7 +158,7 @@ public class SerializeDPDataset implements Command {
 		String lookup3 = cmdLine.getOptionValue("lookup3");
 		String javaHashSizeStr = cmdLine.getOptionValue("javahash");
 
-		DPDataset inDataset = null;
+		DPBasicDataset inDataset = null;
 		FeatureEncoding<String> featureEncoding = null;
 		FeatureEncoding<String> additionalFeatureEncoding = null;
 		try {
@@ -269,7 +269,7 @@ public class SerializeDPDataset implements Command {
 					+ featureEncoding.getClass().getSimpleName());
 
 			LOG.info("Loading and serializing input dataset...");
-			inDataset = new DPDataset(featureEncoding);
+			inDataset = new DPBasicDataset(featureEncoding);
 			inDataset.serialize(inputFilename, outputFilename);
 
 			LOG.info("Feature encoding size: " + featureEncoding.size());

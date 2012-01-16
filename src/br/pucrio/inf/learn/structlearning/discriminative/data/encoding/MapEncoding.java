@@ -13,6 +13,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Vector;
 
+import sun.reflect.generics.reflectiveObjects.NotImplementedException;
+
 /**
  * Encode a dictionary of arbitrarily-typed values as integer values.
  * 
@@ -22,8 +24,7 @@ import java.util.Vector;
  * 
  * @param <ValueType>
  */
-public abstract class MapEncoding<ValueType> implements
-		FeatureEncoding<ValueType> {
+public class MapEncoding<ValueType> implements FeatureEncoding<ValueType> {
 
 	/**
 	 * Map from values to codes.
@@ -241,7 +242,9 @@ public abstract class MapEncoding<ValueType> implements
 	 * @param reader
 	 * @throws IOException
 	 */
-	public abstract void load(BufferedReader reader) throws IOException;
+	public void load(BufferedReader reader) throws IOException {
+		throw new NotImplementedException();
+	}
 
 	/**
 	 * Write the values of this encoding to <code>ps</code>. Concrete
@@ -250,5 +253,7 @@ public abstract class MapEncoding<ValueType> implements
 	 * 
 	 * @param ps
 	 */
-	public abstract void save(PrintStream ps);
+	public void save(PrintStream ps) {
+		throw new NotImplementedException();
+	}
 }

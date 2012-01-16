@@ -26,6 +26,13 @@ public final class HashCodeUtil {
 	private static final int PRIME_SEED = 37;
 
 	/**
+	 * An initial value for a <code>hashCode</code>, to which is added
+	 * contributions from fields. Using a non-zero value decreases collisons of
+	 * <code>hashCode</code> values.
+	 */
+	public static final int SEED = 1509949439;
+
+	/**
 	 * List of "good" sizes for a hash table (almost prime). The list is
 	 * generated from the number 89 and iteratively doind expansions of the form
 	 * 2n+1.
@@ -52,13 +59,6 @@ public final class HashCodeUtil {
 			return GOOD_TABLE_SIZES[GOOD_TABLE_SIZES.length - 1];
 		return GOOD_TABLE_SIZES[numberOfBits - min];
 	}
-
-	/**
-	 * An initial value for a <code>hashCode</code>, to which is added
-	 * contributions from fields. Using a non-zero value decreases collisons of
-	 * <code>hashCode</code> values.
-	 */
-	public static final int SEED = 1509949439;
 
 	/**
 	 * booleans.
@@ -155,17 +155,34 @@ public final class HashCodeUtil {
 	public static int hash(int aSeed, Object aObject) {
 		int result = aSeed;
 		if (aObject == null) {
+			// Null object.
 			result = hash(result, 0);
 		} else if (!isArray(aObject)) {
+			// Ordinary object.
 			result = hash(result, aObject.hashCode());
 		} else {
+			// Array object.
 			int length = Array.getLength(aObject);
 			for (int idx = 0; idx < length; ++idx) {
 				Object item = Array.get(aObject, idx);
-				// recursive call!
 				result = hash(result, item);
 			}
 		}
+		return result;
+	}
+
+	/**
+	 * Combine hash codes of integer array elements into a unique code.
+	 * 
+	 * @param aSeed
+	 * @param array
+	 * @return
+	 */
+	public static int hash(int aSeed, int[] array) {
+		int result = aSeed;
+		int length = array.length;
+		for (int idx = 0; idx < length; ++idx)
+			result = hash(result, array[idx]);
 		return result;
 	}
 

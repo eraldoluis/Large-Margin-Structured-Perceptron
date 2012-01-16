@@ -1,8 +1,5 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.dp;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPOutput;
@@ -22,15 +19,6 @@ import br.pucrio.inf.learn.util.maxbranching.MaximumBranchingAlgorithm;
  * 
  */
 public class MaximumBranchingInference implements Inference {
-
-	// TODO debug
-	public static double maxAbsEdgeWeight;
-
-	/**
-	 * Logging object.
-	 */
-	private static final Log LOG = LogFactory
-			.getLog(MaximumBranchingInference.class);
 
 	/**
 	 * Algorithm and its data structures for finding maximum branching.
@@ -81,30 +69,10 @@ public class MaximumBranchingInference implements Inference {
 		// Number of tokens in the input structure.
 		int numTokens = input.getNumberOfTokens();
 		// Fill the weight matrix.
-		for (int head = 0; head < numTokens; ++head) {
-			// Root node (zero) is never considered a dependent.
-			graph[head][0] = Double.NEGATIVE_INFINITY;
-			// Calculate the weights based on edge features.
-			for (int dependent = 1; dependent < numTokens; ++dependent) {
-				if (head != dependent) {
-					graph[head][dependent] = 0d;
-					for (int ftrCode : input.getFeatureCodes(head, dependent))
-						graph[head][dependent] += model
-								.getFeatureWeight(ftrCode);
-					// TODO debug
-					double absWeight = Math.abs(graph[head][dependent]);
-					if (absWeight > maxAbsEdgeWeight)
-						maxAbsEdgeWeight = absWeight;
-					// Check infinity values.
-					if (graph[head][dependent] == Double.NEGATIVE_INFINITY
-							|| graph[head][dependent] == Double.POSITIVE_INFINITY)
-						LOG.warn("Infinity edge weight value");
-				} else {
-					// Do not use self-loop edges.
-					graph[head][dependent] = Double.NEGATIVE_INFINITY;
-				}
-			}
-		}
+		for (int head = 0; head < numTokens; ++head)
+			for (int dependent = 0; dependent < numTokens; ++dependent)
+				graph[head][dependent] = model.getEdgeScore(input, head,
+						dependent);
 	}
 
 	@Override
@@ -132,16 +100,22 @@ public class MaximumBranchingInference implements Inference {
 		fillGraph(model, input);
 
 		// Add loss values.
-		for (int head = 0; head < numTokens; ++head) {
-			for (int dependent = 1; dependent < numTokens; ++dependent) {
+		for (int dependent = 1; dependent < numTokens; ++dependent) {
+			int correctHead = referenceOutput.getHead(dependent);
+			if (correctHead == -1)
+				/*
+				 * Skip tokens with no correct edge (due to pruning
+				 * preprocessing).
+				 */
+				continue;
+
+			for (int head = 0; head < numTokens; ++head) {
 				// Skip self-loops.
 				if (head == dependent)
 					continue;
 				// Skip correct labeled tokens.
-				if (head == referenceOutput.getHead(dependent))
+				if (head == correctHead)
 					continue;
-				// Increment edge weight for misclassifing edges.
-				// TODO test
 				graph[head][dependent] += lossWeight;
 			}
 		}
