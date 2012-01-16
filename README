@@ -34,3 +34,14 @@ algorithm. The are also three instantiations of the framework. Namely, for
 sequence labeling, dependency parsing and quotation extraction. The package also
 includes a dual implementation of the structured perceptron that can handle
 kernel functions.
+
+How to execute an included instance of the framework?
+-----------------------------------------------------
+The common entry point for all instantiations is the command
+
+  java br.pucrio.inf.learn.structlearning.discriminative.driver.Driver
+
+When executed, this command shows a list available sub-commands.
+For instance, you have the sub-command TrainDP to train and evaluate dependency
+parsing models. You can execute each sub-command without parameters to access
+their list of options.
