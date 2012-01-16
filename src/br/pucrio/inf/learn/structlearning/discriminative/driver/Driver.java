@@ -38,6 +38,10 @@ public class Driver {
 		descriptions.add(new CommandDescription(new SerializeDPDataset(),
 				"SerializeDPDataset", "Serialize a DP dataset."));
 
+		// Trainer for the Structural Perceptron.
+		descriptions.add(new CommandDescription(new TrainPQ2(), "TrainPQ2",
+				"Train using the Structural Perceptron algorithm."));
+
 		if (args.length < 1) {
 			usage();
 			System.exit(1);
