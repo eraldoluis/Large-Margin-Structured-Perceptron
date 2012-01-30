@@ -107,11 +107,11 @@ public class TrainDP implements Command {
 		options.addOption(OptionBuilder.withLongOpt("train").isRequired()
 				.withArgName("filename").hasArg()
 				.withDescription("Training dataset file name.").create());
-		options.addOption(OptionBuilder.withLongOpt("trainpunc").isRequired()
+		options.addOption(OptionBuilder.withLongOpt("trainpunc")
 				.withArgName("filename").hasArg()
 				.withDescription("Punctuation file name for train dataset.")
 				.create());
-		options.addOption(OptionBuilder.withLongOpt("testpunc").isRequired()
+		options.addOption(OptionBuilder.withLongOpt("testpunc")
 				.withArgName("filename").hasArg()
 				.withDescription("Punctuation file name for test dataset.")
 				.create());
