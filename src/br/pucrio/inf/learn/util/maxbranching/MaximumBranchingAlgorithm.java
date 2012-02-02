@@ -3,6 +3,9 @@ package br.pucrio.inf.learn.util.maxbranching;
 import java.util.Arrays;
 import java.util.LinkedList;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
 /**
  * Chu-Liu-Edmonds' algorithm for finding a maximum branching in a directed
  * graph. This implementation is optimized for dense graphs, i.e., number of
@@ -21,6 +24,12 @@ import java.util.LinkedList;
  * 
  */
 public class MaximumBranchingAlgorithm {
+	/**
+	 * Logging object.
+	 */
+	private final static Log LOG = LogFactory
+			.getLog(MaximumBranchingAlgorithm.class);
+
 	/**
 	 * Union-find data structure to store the partition of the strongly
 	 * connected components (SCCs).
@@ -167,6 +176,9 @@ public class MaximumBranchingAlgorithm {
 				if (inEdgeToNode == -1)
 					continue;
 				double w = graph[from][inEdgeToNode];
+				if (w == Double.NaN) {
+					LOG.warn("NaN-weight edge selected");
+				}
 				if (w > maxInEdgeWeight) {
 					maxInEdgeFromNode = from;
 					maxInEdgeWeight = w;
@@ -285,6 +297,10 @@ public class MaximumBranchingAlgorithm {
 
 			// Include the new SCC to be considered in the future.
 			rootComponents.add(sccTo);
+		}
+
+		if (doneRootComponents.size() > 1) {
+			LOG.warn("Final root components list contains more than one element");
 		}
 
 		// Invert the maximum branching.
