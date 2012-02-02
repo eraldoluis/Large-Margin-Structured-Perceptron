@@ -107,11 +107,11 @@ public class TrainDP implements Command {
 		options.addOption(OptionBuilder.withLongOpt("train").isRequired()
 				.withArgName("filename").hasArg()
 				.withDescription("Training dataset file name.").create());
-		options.addOption(OptionBuilder.withLongOpt("trainpunc").isRequired()
+		options.addOption(OptionBuilder.withLongOpt("trainpunc")
 				.withArgName("filename").hasArg()
 				.withDescription("Punctuation file name for train dataset.")
 				.create());
-		options.addOption(OptionBuilder.withLongOpt("testpunc").isRequired()
+		options.addOption(OptionBuilder.withLongOpt("testpunc")
 				.withArgName("filename").hasArg()
 				.withDescription("Punctuation file name for test dataset.")
 				.create());
@@ -534,7 +534,7 @@ public class TrainDP implements Command {
 			}
 			// Explicit-features model.
 			LOG.info("Allocating initial model...");
-			model = new DPBasicModel(sizeEncoding);
+			model = new DPBasicModel();
 		} else if (hasInvertedIndex) {
 			LOG.info("Allocating initial model...");
 			model = new DPTemplateModel(templates);
@@ -777,6 +777,9 @@ public class TrainDP implements Command {
 				LOG.error("Saving model " + modelFileName, e);
 			}
 		}
+
+		LOG.info(String.format("# updated parameters: %d",
+				((DPBasicModel) model).getNonZeroParameters()));
 
 		LOG.info("Training done!");
 	}
