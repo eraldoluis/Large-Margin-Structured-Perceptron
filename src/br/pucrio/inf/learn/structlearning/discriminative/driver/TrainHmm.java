@@ -20,7 +20,6 @@ import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.Du
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.LossAugmentedPerceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.Perceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.TowardBetterPerceptron;
-import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.AveragedArrayHmm;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.AveragedArrayHmm2ndOrder;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.AveragedMapHmm;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.DualHmm;

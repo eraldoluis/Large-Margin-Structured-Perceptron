@@ -154,8 +154,13 @@ public class MaximumBranchingAlgorithm {
 				 * Add all incoming edges of <code>scc</code> to its SCC
 				 * priority queue.
 				 */
-				for (int from = 0; from < numberOfNodes; ++from)
-					incomingEdges[scc][from] = scc;
+				for (int from = 0; from < numberOfNodes; ++from) {
+					if (Double.isNaN(graph[from][scc]))
+						// Edge does not exist.
+						incomingEdges[scc][from] = -1;
+					else
+						incomingEdges[scc][from] = scc;
+				}
 				// Remove autocycle edges.
 				incomingEdges[scc][scc] = -1;
 			}
@@ -176,9 +181,8 @@ public class MaximumBranchingAlgorithm {
 				if (inEdgeToNode == -1)
 					continue;
 				double w = graph[from][inEdgeToNode];
-				if (w == Double.NaN) {
-					LOG.warn("NaN-weight edge selected");
-				}
+				assert !Double.isNaN(w);
+
 				if (w > maxInEdgeWeight) {
 					maxInEdgeFromNode = from;
 					maxInEdgeWeight = w;
@@ -299,9 +303,8 @@ public class MaximumBranchingAlgorithm {
 			rootComponents.add(sccTo);
 		}
 
-		if (doneRootComponents.size() > 1) {
-			LOG.warn("Final root components list contains more than one element");
-		}
+		if (doneRootComponents.size() > 1)
+			LOG.error("Final root components list contains more than one element");
 
 		// Invert the maximum branching.
 		Arrays.fill(visited, 0, numberOfNodes, false);
@@ -309,6 +312,27 @@ public class MaximumBranchingAlgorithm {
 			invertBranching(numberOfNodes, min[scc], maxBranching, visited,
 					invertedMaxBranching);
 	}
+
+	// /**
+	// * Print graph weights to the error output stream.
+	// *
+	// * @param numberOfNodes
+	// * @param graph
+	// * @param root
+	// */
+	// private void printGraph(int numberOfNodes, double[][] graph, int root) {
+	// System.err.println();
+	// System.err.println("Graph weights");
+	// for (int from = 0; from < numberOfNodes; ++from) {
+	// System.err.print(from);
+	// for (int to = 0; to < numberOfNodes; ++to) {
+	// System.err.print(String.format("\t%3d:%10f", to,
+	// graph[from][to]));
+	// }
+	// System.err.println();
+	// }
+	// System.err.println();
+	// }
 
 	/**
 	 * Walk through the given branching from <code>node</code> and store the

@@ -12,7 +12,6 @@ import br.pucrio.inf.learn.structlearning.generative.data.DatasetException;
 import br.pucrio.inf.learn.structlearning.generative.data.FeatureValueEncoding;
 import br.pucrio.inf.learn.util.RandomGenerator;
 
-
 /**
  * Generative-unsupervised HMM trainer.
  * 
@@ -226,7 +225,7 @@ public class UnsupervisedHmmTrainer {
 					logProbObservations += Math.log(probObservation);
 			}
 
-			// TODO just for debuging
+			// Info...
 			System.out
 					.println("Log-likelihood on iteration "
 							+ iter
@@ -453,10 +452,6 @@ public class UnsupervisedHmmTrainer {
 		}
 	}
 
-	// TODO debug
-	int myid = -1;
-	int mysize = 100000000;
-
 	/**
 	 * Account the given example in the estimation of the new model
 	 * probabilities.
@@ -479,13 +474,8 @@ public class UnsupervisedHmmTrainer {
 			probExample += alpha.get(size - 1).get(state);
 
 		// If the example has zero probability, just skip it.
-		if (probExample <= 0.0) {
-			if (size < mysize) {
-				mysize = size;
-				myid = example.getIndex();
-			}
+		if (probExample <= 0.0)
 			return probExample;
-		}
 
 		for (int token = 0; token < size; ++token) {
 			// Emission symbol in the current token.

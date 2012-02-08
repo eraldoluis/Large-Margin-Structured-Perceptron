@@ -9,7 +9,6 @@ import br.pucrio.inf.learn.structlearning.generative.data.DatasetException;
 import br.pucrio.inf.learn.structlearning.generative.evaluation.Evaluation;
 import br.pucrio.inf.learn.structlearning.generative.evaluation.Performance;
 
-
 /**
  * Generative semi-supervised HMM trainer.
  * 
@@ -112,20 +111,12 @@ public class SemiSupervisedHmmTrainer extends UnsupervisedHmmTrainer {
 	}
 
 	protected void preIteration(int iter) throws DatasetException {
-		// TODO debug
-		System.out.println("# transitions: " + model.getNumberOfTransitions());
-		System.out.println("# emission: " + model.getNumberOfEmissions());
-
 		if (iter == 0)
 			postIteration(iter);
 	}
 
 	@Override
 	protected void postIteration(int iter) throws DatasetException {
-		// TODO debug
-		System.out.println("# transitions: " + model.getNumberOfTransitions());
-		System.out.println("# emission: " + model.getNumberOfEmissions());
-
 		if (testset == null)
 			return;
 

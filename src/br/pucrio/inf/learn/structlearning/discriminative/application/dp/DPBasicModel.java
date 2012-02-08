@@ -3,7 +3,6 @@ package br.pucrio.inf.learn.structlearning.discriminative.application.dp;
 import java.io.PrintStream;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
@@ -39,7 +38,7 @@ public class DPBasicModel implements DPModel {
 	/**
 	 * Weight for each feature code.
 	 */
-	private Map<Integer, AveragedParameter> featureWeights;
+	private HashMap<Integer, AveragedParameter> featureWeights;
 
 	/**
 	 * Set of parameters that have been updated in the current iteration.
@@ -60,8 +59,10 @@ public class DPBasicModel implements DPModel {
 	 * 
 	 * @param featureWeights
 	 */
-	protected DPBasicModel(Map<Integer, AveragedParameter> featureWeights) {
-		this.featureWeights = featureWeights;
+	@SuppressWarnings("unchecked")
+	protected DPBasicModel(HashMap<Integer, AveragedParameter> featureWeights) {
+		this.featureWeights = (HashMap<Integer, AveragedParameter>) featureWeights
+				.clone();
 		for (Entry<Integer, AveragedParameter> entry : this.featureWeights
 				.entrySet()) {
 			try {
