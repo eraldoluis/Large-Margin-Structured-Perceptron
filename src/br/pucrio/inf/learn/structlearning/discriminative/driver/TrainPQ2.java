@@ -11,6 +11,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import br.pucrio.inf.learn.structlearning.discriminative.evaluation.F1Measure;
+import br.pucrio.inf.learn.structlearning.discriminative.algorithm.TrainingListener;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.OnlineStructuredAlgorithm.LearnRateUpdateStrategy;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.LossAugmentedPerceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.Perceptron;
@@ -103,7 +104,7 @@ public class TrainPQ2 implements Command {
 				"lossweight", "0d"));
 		String lrUpdateStrategy = cmdLine.getOptionValue("lrupdate");
 		String testCorpusFileName = cmdLine.getOptionValue("testcorpus");
-
+		
 		// Get the options given in the command-line or the corresponding
 		// default values.
 		String[] inputCorpusFileNames = cmdLine.getOptionValues("incorpus");
@@ -156,70 +157,13 @@ public class TrainPQ2 implements Command {
 			System.exit(1);
 		}
 
-
-
-		/*
-		// TO BE REMOVED
-		PQInput2[] inputs = inputCorpusA.getInputs();
-		PQOutput2[] outputs = inputCorpusA.getOutputs();
-		PQOutput2[] predicteds = new PQOutput2[inputs.length];
-		for (int idx = 0; idx < inputs.length; ++idx)
-			predicteds[idx] = (PQOutput2) inputs[idx].createOutput();
-		
-		Inference inference = new PQInference2();
-		
-		// Create a new model at each iteration.
-		Model model = new PQModel2(inputCorpusA.getNumberOfSymbols());
-
-		// Training.
-		LossAugmentedPerceptron alg = new LossAugmentedPerceptron(
-				inference, model, numEpochs, learningRate, lossWeight,
-				false, averageWeights, learningRateUpdateStrategy);
-
-		alg.train(inputs, outputs,
-				inputCorpusA.getFeatureEncoding(), null);
-		
-		F1Measure eval = new F1Measure("Quotation-Person");
-
-		// Fill the list of predicted outputs.
-		for (int idx = 0; idx < inputs.length; ++idx) {
-			// Predict (tag the output example).
-			inference.inference(model, inputs[idx], predicteds[idx]);
-			// Increment data for evaluation.
-			int outputsSize = outputs[idx].size();
-			for (int j = 0; j < outputsSize; ++j) {
-				// Total.
-				if (outputs[idx].getAuthor(j) != -1) {
-					eval.incNumObjects();
-				}
-
-				// Retrieved.
-				if (predicteds[idx].getAuthor(j) != -1) {
-					eval.incNumPredicted();
-				}
-
-				// Correct.
-				if ((outputs[idx].getAuthor(j) != -1)
-						&& (outputs[idx].getAuthor(j) == predicteds[idx]
-								.getAuthor(j))) {
-					eval.incNumCorrectlyPredicted();
-				}
-			}
-		}
-
-		// Write results (precision, recall and F-1) per class.
-		printF1Results("Performance: ", eval);
-		*/
-
-
-
 		// Structure.
-		Inference inference = new PQInference2();
+		PQInference2 inference = new PQInference2();
 
+		// Establish the number of folds and generate the fold mask.
 		int numFolds = 5;
 		int numExamples = inputCorpusA.getInputs().length;
-		int seed = 12032041;
-		Random generator = new Random(seed);
+		Random generator = new Random();
 		int[] mask = new int[numExamples];
 		for (int i = 0; i < numExamples; ++i) {
 			mask[i] = generator.nextInt(numFolds);
@@ -227,6 +171,7 @@ public class TrainPQ2 implements Command {
 
 		F1Measure evalAverage = new F1Measure("Quotation-Person");
 
+		// For each fold, train and evaluate the model.
 		for (int fold = 0; fold < numFolds; ++fold) {
 			// Count the number of training examples.
 			int numTrainExamples = 0;
@@ -234,11 +179,11 @@ public class TrainPQ2 implements Command {
 				if (mask[j] != fold)
 					++numTrainExamples;
 
-			PQInput2[] trainCorpusInput = new PQInput2[numTrainExamples];
+			PQInput2[] trainCorpusInput   = new PQInput2[numTrainExamples];
 			PQOutput2[] trainCorpusOutput = new PQOutput2[numTrainExamples];
-			PQInput2[] devCorpusInput = new PQInput2[numExamples
+			PQInput2[] devCorpusInput     = new PQInput2[numExamples
 					- numTrainExamples];
-			PQOutput2[] devCorpusOutput = new PQOutput2[numExamples
+			PQOutput2[] devCorpusOutput   = new PQOutput2[numExamples
 					- numTrainExamples];
 
 			int trainIdx = 0;
@@ -256,50 +201,53 @@ public class TrainPQ2 implements Command {
 			}
 
 			// Create a new model at each iteration.
-			Model model = new PQModel2(inputCorpusA.getNumberOfSymbols());
+			PQModel2 model = new PQModel2(inputCorpusA.getNumberOfSymbols());
 
 			// Training.
 			LossAugmentedPerceptron alg = new LossAugmentedPerceptron(
 					inference, model, numEpochs, learningRate, lossWeight,
-					false, averageWeights, learningRateUpdateStrategy);
+					true, averageWeights, learningRateUpdateStrategy);
+
+			alg.setListener(new EvaluateModelListener(devCorpusInput, devCorpusOutput, averageWeights));
 
 			alg.train(trainCorpusInput, trainCorpusOutput,
 					inputCorpusA.getFeatureEncoding(), null);
 
-			// Evaluate on development set.
-			// Ignore features not seen in the training corpus.
-			inputCorpusA.getFeatureEncoding().setReadOnly(true);
+			// Evaluate on the fold development set.
+			//// Ignore features not seen in the training corpus.
+			//inputCorpusA.getFeatureEncoding().setReadOnly(true);
 
 			// Allocate output sequences for predictions.
-			PQInput2[] inputs = devCorpusInput;
-			PQOutput2[] outputs = devCorpusOutput;
+			PQInput2[] inputs      = devCorpusInput;
+			PQOutput2[] outputs    = devCorpusOutput;
 			PQOutput2[] predicteds = new PQOutput2[inputs.length];
 			for (int idx = 0; idx < inputs.length; ++idx)
-				predicteds[idx] = (PQOutput2) inputs[idx].createOutput();
+				predicteds[idx]    = (PQOutput2) inputs[idx].createOutput();
 
 			F1Measure eval = new F1Measure("Quotation-Person");
 
 			// Fill the list of predicted outputs.
 			for (int idx = 0; idx < inputs.length; ++idx) {
 				// Predict (tag the output example).
+				//inference.lossAugmentedInference(model, inputs[idx], outputs[idx], predicteds[idx], lossWeight);
 				inference.inference(model, inputs[idx], predicteds[idx]);
 				// Increment data for evaluation.
 				int outputsSize = outputs[idx].size();
 				for (int j = 0; j < outputsSize; ++j) {
 					// Total.
-					if (outputs[idx].getAuthor(j) != -1) {
+					if (outputs[idx].getAuthor(j) != 0) {
 						eval.incNumObjects();
 						evalAverage.incNumObjects();
 					}
 
 					// Retrieved.
-					if (predicteds[idx].getAuthor(j) != -1) {
+					if (predicteds[idx].getAuthor(j) != 0) {
 						eval.incNumPredicted();
 						evalAverage.incNumPredicted();
 					}
 
 					// Correct.
-					if ((outputs[idx].getAuthor(j) != -1)
+					if ((outputs[idx].getAuthor(j) != 0)
 							&& (outputs[idx].getAuthor(j) == predicteds[idx]
 									.getAuthor(j))) {
 						eval.incNumCorrectlyPredicted();
@@ -308,11 +256,12 @@ public class TrainPQ2 implements Command {
 				}
 			}
 
-			// Write results (precision, recall and F-1) per class.
-			printF1Results("Performance at fold " + fold + ": ", eval);
+			//// Write results (precision, recall and F-1) per class.
+			//printF1Results("Performance at fold " + fold + ": ", eval);
+			//System.out.println("-------------------------------------");
 		}
 
-		printF1Results("Average Performance: ", evalAverage);
+		//printF1Results("Average Performance: ", evalAverage);
 	}
 
 	/**
@@ -333,8 +282,8 @@ public class TrainPQ2 implements Command {
 		if (f1 != null) {
 			System.out.println("|-");
 			System.out.println(String.format(
-					"| %s || %.2f || %.2f || %.2f || %d || %d || %d",
-					"overall", 100 * f1.getPrecision(), 100 * f1.getRecall(),
+					"| overall || %.2f || %.2f || %.2f || %d || %d || %d",
+					100 * f1.getPrecision(), 100 * f1.getRecall(),
 					100 * f1.getF1(), f1.getNumObjects(), f1.getNumRetrieved(),
 					f1.getNumCorrectlyRetrieved()));
 		}
@@ -342,5 +291,118 @@ public class TrainPQ2 implements Command {
 		// Footer.
 		System.out.println();
 
+	}
+	
+	
+	/**
+	 * Training listener to evaluate models after each iteration.
+	 * 
+	 * @author eraldof
+	 * 
+	 */
+	private static class EvaluateModelListener implements TrainingListener {
+
+		private PQInput2[] inputs;
+
+		private PQOutput2[] outputs;
+
+		private PQOutput2[] predicteds;
+
+		private boolean averageWeights;
+
+		public EvaluateModelListener(PQInput2[] inputs, PQOutput2[] outputs,
+				boolean averageWeights) {
+			this.inputs = inputs;
+			this.outputs = outputs;
+			this.averageWeights = averageWeights;
+			if (inputs != null) {
+				this.predicteds = new PQOutput2[inputs.length];
+				// Allocate output sequences for predictions.
+				for (int idx = 0; idx < inputs.length; ++idx)
+					predicteds[idx] = (PQOutput2) inputs[idx]
+							.createOutput();
+			}
+		}
+
+		@Override
+		public boolean beforeTraining(Inference impl, Model curModel) {
+			return true;
+		}
+
+		@Override
+		public void afterTraining(Inference impl, Model curModel) {
+		}
+
+		@Override
+		public boolean beforeEpoch(Inference impl, Model curModel, int epoch,
+				int iteration) {
+			return true;
+		}
+
+		@Override
+		public boolean afterEpoch(Inference inferenceImpl, Model model,
+				int epoch, double loss, int iteration) {
+
+			if (inputs == null)
+				return true;
+
+			if (averageWeights) {
+				try {
+
+					// Clone the current model to average it, if necessary.
+					model = (Model) model.clone();
+
+					// The averaged perceptron averages the final model only in
+					// the end of the training process, hence we need to average
+					// the temporary model here in order to have a better
+					// picture of its current (intermediary) performance.
+					model.average(iteration);
+
+				} catch (CloneNotSupportedException e) {
+					LOG.error("Cloning current model on epoch " + epoch
+							+ " and iteration " + iteration, e);
+					return true;
+				}
+			}
+
+			F1Measure eval = new F1Measure("Quotation-Person");
+
+			// Fill the list of predicted outputs.
+			for (int idx = 0; idx < inputs.length; ++idx) {
+				// Predict (tag the output example).
+				//inferenceImpl.lossAugmentedInference(model, inputs[idx], outputs[idx], predicteds[idx], loss);
+				inferenceImpl.inference(model, inputs[idx], predicteds[idx]);
+				// Increment data for evaluation.
+				int outputsSize = outputs[idx].size();
+				for (int j = 0; j < outputsSize; ++j) {
+					// Total.
+					if (outputs[idx].getAuthor(j) != 0)
+						eval.incNumObjects();
+
+					// Retrieved.
+					if (predicteds[idx].getAuthor(j) != 0)
+						eval.incNumPredicted();
+
+					// Correct.
+					if ((outputs[idx].getAuthor(j) != 0)
+							&& (outputs[idx].getAuthor(j) == predicteds[idx]
+									.getAuthor(j)))
+						eval.incNumCorrectlyPredicted();
+				}
+			}
+
+			// Write results (precision, recall and F-1) per class.
+			if(epoch < 10)
+				printF1Results("Performance after epoch 0" + epoch + ":", eval);
+			else
+				printF1Results("Performance after epoch " + epoch + ":", eval);
+
+			return true;
+		}
+
+		@Override
+		public void progressReport(Inference impl, Model curModel, int epoch,
+				double loss, int iteration) {
+		}
 	}
 }

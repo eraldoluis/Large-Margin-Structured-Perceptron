@@ -27,7 +27,9 @@ public class Driver {
 		// Trainer for the Structural Perceptron.
 		descriptions.add(new CommandDescription(new TrainPQ2(), "TrainPQ2",
 				"Train using the Structural Perceptron algorithm."));
-
+		// Test for the Structural Perceptron.
+		descriptions.add(new CommandDescription(new TestPQ2(), "TestPQ2",
+				"Test using the Structural Perceptron algorithm."));
 		if (args.length < 1) {
 			usage();
 			System.exit(1);

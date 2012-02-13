@@ -1,7 +1,6 @@
 package br.pucrio.inf.learn.structlearning.discriminative.driver;
 
-import java.util.Map;
-import java.util.Map.Entry;
+import java.util.Random;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.OptionBuilder;
@@ -12,13 +11,18 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import br.pucrio.inf.learn.structlearning.discriminative.evaluation.F1Measure;
+import br.pucrio.inf.learn.structlearning.discriminative.algorithm.TrainingListener;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.OnlineStructuredAlgorithm.LearnRateUpdateStrategy;
+import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.LossAugmentedPerceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.Perceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.application.pq.data.PQDataset;
+import br.pucrio.inf.learn.structlearning.discriminative.application.pq.data.PQDataset2;
 import br.pucrio.inf.learn.structlearning.discriminative.application.pq.data.PQInput;
+import br.pucrio.inf.learn.structlearning.discriminative.application.pq.data.PQInput2;
 import br.pucrio.inf.learn.structlearning.discriminative.application.pq.data.PQOutput;
-import br.pucrio.inf.learn.structlearning.discriminative.application.pq.PQModel;
-import br.pucrio.inf.learn.structlearning.discriminative.application.pq.PQInference;
+import br.pucrio.inf.learn.structlearning.discriminative.application.pq.data.PQOutput2;
+import br.pucrio.inf.learn.structlearning.discriminative.application.pq.PQModel2;
+import br.pucrio.inf.learn.structlearning.discriminative.application.pq.PQInference2;
 import br.pucrio.inf.learn.structlearning.discriminative.data.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.StringMapEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.driver.Driver.Command;
@@ -26,12 +30,12 @@ import br.pucrio.inf.learn.structlearning.discriminative.task.Inference;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Model;
 import br.pucrio.inf.learn.util.CommandLineOptionsUtil;
 
-public class TrainPQ implements Command {
+public class TestPQ2 implements Command {
 
 	/**
 	 * Logging object.
 	 */
-	private static final Log LOG = LogFactory.getLog(TrainPQ.class);
+	private static final Log LOG = LogFactory.getLog(TestPQ2.class);
 
 	@SuppressWarnings("static-access")
 	@Override
@@ -74,6 +78,13 @@ public class TrainPQ implements Command {
 								+ "where n is the initial learning rate and t "
 								+ "is the current iteration (number of processed"
 								+ " examples).").create());
+		options.addOption(OptionBuilder
+				.withLongOpt("lossweight")
+				.withArgName("numeric loss weight")
+				.hasArg()
+				.withDescription(
+						"Weight of the loss term in the inference objective"
+								+ " function.").create());
 
 		// Parse the command-line arguments.
 		CommandLine cmdLine = null;
@@ -88,52 +99,49 @@ public class TrainPQ implements Command {
 		// List of options along the values provided by the user.
 		CommandLineOptionsUtil.printOptionValues(cmdLine, options);
 		double learningRate = Double.parseDouble(cmdLine.getOptionValue(
-													"learnrate", "1"));
+				"learnrate", "1"));
 		int numEpochs = Integer.parseInt(cmdLine.getOptionValue("numepochs",
-											"10"));
+				"10"));
 		boolean averageWeights = !cmdLine.hasOption("noavg");
+		double lossWeight = Double.parseDouble(cmdLine.getOptionValue(
+				"lossweight", "0d"));
 		String lrUpdateStrategy = cmdLine.getOptionValue("lrupdate");
 		String testCorpusFileName = cmdLine.getOptionValue("testcorpus");
-
-		/*
-		 * Get the options given in the command-line or the corresponding
-		 * default values.
-		 */
+		
+		// Get the options given in the command-line or the corresponding
+		// default values.
 		String[] inputCorpusFileNames = cmdLine.getOptionValues("incorpus");
-		
+
 		LOG.info("Loading input corpus...");
-		PQDataset inputCorpusA = null;
-		
+		PQDataset2 inputCorpusA = null;
+
 		FeatureEncoding<String> featureEncoding = null;
-		
+
 		try {
-			/*
-			 * No encoding given by the user. Create an empty and
-			 * flexible feature encoding that will encode unambiguously
-			 * all feature values. If the training dataset is big, this
-			 * may not fit in memory.
-			 */
+			// No encoding given by the user. Create an empty and
+			// flexible feature encoding that will encode unambiguously
+			// all feature values. If the training dataset is big, this
+			// may not fit in memory.
 			featureEncoding = new StringMapEncoding();
-			
+
 			LOG.info("Feature encoding: "
 					+ featureEncoding.getClass().getSimpleName());
-			
+
 			// Get the list of input paths and concatenate the corpora in them.
-			inputCorpusA = new PQDataset(featureEncoding, true);
-			
+			inputCorpusA = new PQDataset2(featureEncoding, true);
+
 			// Load the first data file, which can be the standard input.
 			if (inputCorpusFileNames[0].equals("stdin"))
 				inputCorpusA.load(System.in);
 			else
 				inputCorpusA.load(inputCorpusFileNames[0]);
-		}
-		catch (Exception e) {
+		} catch (Exception e) {
 			LOG.error("Parsing command-line options", e);
 			System.exit(1);
 		}
-		
+
 		LOG.info("Feature encoding size: " + featureEncoding.size());
-		
+
 		// Learning rate update strategy.
 		LearnRateUpdateStrategy learningRateUpdateStrategy = LearnRateUpdateStrategy.NONE;
 		if (lrUpdateStrategy == null)
@@ -151,50 +159,60 @@ public class TrainPQ implements Command {
 					+ lrUpdateStrategy);
 			System.exit(1);
 		}
-		
+
 		// Structure.
-		LOG.info("Allocating initial model...");
-		Inference inference = new PQInference();
-
-		Model model = new PQModel(inputCorpusA.getNumberOfSymbols());
-
-		F1Measure eval = new F1Measure("Quotation-Person");
-
-		Perceptron alg = new Perceptron(inference, model, numEpochs, learningRate,
-							 false, averageWeights, learningRateUpdateStrategy);
-
+		PQInference2 inference = new PQInference2();
+		
+		// Create a new model at each iteration.
+		PQModel2 model = new PQModel2(inputCorpusA.getNumberOfSymbols());
 
 		// Training.
+		LossAugmentedPerceptron alg = new LossAugmentedPerceptron(
+				inference, model, numEpochs, learningRate, lossWeight,
+				true, averageWeights, learningRateUpdateStrategy);
+
 		alg.train(inputCorpusA.getInputs(), inputCorpusA.getOutputs(),
 				inputCorpusA.getFeatureEncoding(), null);
-
-
+		
 		// Test.
 		// Ignore features not seen in the training corpus.
 		inputCorpusA.getFeatureEncoding().setReadOnly(true);
+		
+		F1Measure eval = new F1Measure("Quotation-Person");
 
 		try {
 			LOG.info("Loading and preparing test data...");
-			PQDataset testset = new PQDataset(featureEncoding);
+			PQDataset2 testset = new PQDataset2(featureEncoding);
 			testset.load(testCorpusFileName);
 
 			// Allocate output sequences for predictions.
-			PQInput[] inputs = testset.getInputs();
-			PQOutput[] outputs = testset.getOutputs();
-			PQOutput[] predicteds = new PQOutput[inputs.length];
+			PQInput2[] inputs = testset.getInputs();
+			PQOutput2[] outputs = testset.getOutputs();
+			PQOutput2[] predicteds = new PQOutput2[inputs.length];
 			for (int idx = 0; idx < inputs.length; ++idx)
-				predicteds[idx] = (PQOutput) inputs[idx]
+				predicteds[idx] = (PQOutput2) inputs[idx]
 						.createOutput();
 
 			// Fill the list of predicted outputs.
 			for (int idx = 0; idx < inputs.length; ++idx) {
 				// Predict (tag the output sequence).
 				inference.inference(model, inputs[idx], predicteds[idx]);
+				
 				// Increment data for evaluation.
-				eval.incNumObjects();
-				eval.incNumPredicted();
-				if (predicteds[idx].getPerson() == outputs[idx].getPerson())
-					eval.incNumCorrectlyPredicted();
+				int outputsSize = outputs[idx].size();
+				for (int j = 0; j < outputsSize; ++j) {
+					// Total.
+					if (outputs[idx].getAuthor(j) != 0)
+						eval.incNumObjects();
+					// Retrieved.
+					if (predicteds[idx].getAuthor(j) != 0)
+						eval.incNumPredicted();
+					// Correct.
+					if ((outputs[idx].getAuthor(j) != 0)
+							&& (outputs[idx].getAuthor(j) == predicteds[idx]
+									.getAuthor(j)))
+						eval.incNumCorrectlyPredicted();
+				}
 			}
 
 			// Write results (precision, recall and F-1) per class.
@@ -206,15 +224,13 @@ public class TrainPQ implements Command {
 		}
 	}
 
-
 	/**
 	 * Print the given result set and title.
 	 * 
 	 * @param title
 	 * @param results
 	 */
-	private static void printF1Results(String title,
-			F1Measure f1) {
+	private static void printF1Results(String title, F1Measure f1) {
 
 		// Title and header.
 		System.out.println("\n" + title + "\n");
@@ -226,8 +242,8 @@ public class TrainPQ implements Command {
 		if (f1 != null) {
 			System.out.println("|-");
 			System.out.println(String.format(
-					"| %s || %.2f || %.2f || %.2f || %d || %d || %d",
-					"overall", 100 * f1.getPrecision(), 100 * f1.getRecall(),
+					"| overall || %.2f || %.2f || %.2f || %d || %d || %d",
+					100 * f1.getPrecision(), 100 * f1.getRecall(),
 					100 * f1.getF1(), f1.getNumObjects(), f1.getNumRetrieved(),
 					f1.getNumCorrectlyRetrieved()));
 		}

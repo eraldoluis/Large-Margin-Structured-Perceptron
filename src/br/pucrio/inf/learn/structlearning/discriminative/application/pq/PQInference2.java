@@ -25,16 +25,16 @@ public class PQInference2 implements Inference {
 
 	public void inference(PQModel2 model, PQInput2 input, PQOutput2 output) {
 		// Generate candidates.
-		Task[] tasks = generateCandidates(model, input);
+		Task[] tasks = generateWISCandidates(model, input, null, 0d);
 
 		// Run WIS, which returns the indexes of the selected tasks.
 		int[] solutionIndexes = wis(tasks);
 
-		// Initialize the output vector with -1, indicating the quotations
+		// Initialize the output vector with zero, indicating the quotations
 		// are invalid. Then we assign the solution of WIS to the output.
 		int outputSize = output.size();
 		for(int i = 0; i < outputSize; ++i)
-			output.setAuthor(i, -1);
+			output.setAuthor(i, 0);
 		for(int i = 0; i < solutionIndexes.length; ++i)
 			output.setAuthor(tasks[solutionIndexes[i]].getQuotationPosition(), tasks[solutionIndexes[i]].getCoreferencePosition());
 	}
@@ -43,11 +43,100 @@ public class PQInference2 implements Inference {
 	public void lossAugmentedInference(Model model, ExampleInput input,
 			ExampleOutput referenceOutput, ExampleOutput predictedOutput,
 			double lossWeight) {
-		inference((PQModel2) model, (PQInput2) input, (PQOutput2) predictedOutput);
-
+		lossAugmentedInference((PQModel2) model, (PQInput2) input, (PQOutput2) referenceOutput,
+							   (PQOutput2) predictedOutput, lossWeight);
 	}
 
-	public Task[] generateCandidates(PQModel2 model, PQInput2 input) {
+	public void lossAugmentedInference(PQModel2 model, PQInput2 input,
+			PQOutput2 referenceOutput, PQOutput2 predictedOutput,
+			double lossWeight) {
+		// Generate candidates.
+		Task[] tasks = generateWISCandidates(model, input, referenceOutput, lossWeight);
+		
+		
+		////TO BE REMOVED
+		//generateAssignmentCandidates(model, input, referenceOutput, lossWeight);
+		
+		
+		// Run WIS, which returns the indexes of the selected tasks.
+		int[] solutionIndexes = wis(tasks);
+
+		// Initialize the output vector with -1, indicating the quotations
+		// are invalid. Then we assign the WIS solution to the output.
+		int predictedOutputSize = predictedOutput.size();
+		for(int i = 0; i < predictedOutputSize; ++i)
+			predictedOutput.setAuthor(i, 0);
+		for(int i = 0; i < solutionIndexes.length; ++i)
+			predictedOutput.setAuthor(tasks[solutionIndexes[i]].getQuotationPosition(), tasks[solutionIndexes[i]].getCoreferencePosition());
+	}
+	
+	public double[][] generateAssignmentCandidates(PQModel2 model, PQInput2 input, PQOutput2 correctOutput, double lossWeight) {
+		ArrayList<Integer> coreferences = new ArrayList<Integer>();
+		Quotation[] quotationIndexes    = input.getQuotationIndexes();
+		
+		// Create an ordered list of all the document coreferences. As there is no nested
+		// coreference, keep only the coreference start token.
+		for (int i = 0; i < quotationIndexes.length; ++i) {
+			int numberOfCoreferences = quotationIndexes[i].getNumberOfCoreferences();
+			
+			for (int j = 0; j < numberOfCoreferences; ++j) {
+				int[] coreferenceIndex = quotationIndexes[i].getCoreferenceIndex(j);
+				int coreferenceStart   = coreferenceIndex[0];
+				
+				if (!coreferences.contains(coreferenceStart)) {
+					// We search for a position to insert the new coreference in
+					// the coreference list (O(n)). Then we insert the coreference in
+					// specified position.
+					int insertionIndex = Collections.binarySearch(coreferences, coreferenceStart);
+					if (insertionIndex < 0)
+						coreferences.add(-insertionIndex - 1, coreferenceStart);
+					else
+						coreferences.add(insertionIndex + 1, coreferenceStart);
+				}
+			}
+		}
+		
+		int totalOfCoreferences = coreferences.size();
+		double[][] costs = new double[quotationIndexes.length][totalOfCoreferences];
+		
+		// Fill the cost matrix with zeros.
+		for (int i = 0; i < quotationIndexes.length; ++i)
+			for (int j = 0; j < totalOfCoreferences; ++j)
+				costs[i][j] = 0d;
+		
+		// Generate all costs for the cost matrix. Lines correspond to 
+		// quotations and columns correspond to coreferences.
+		for (int i = 0; i < quotationIndexes.length; ++i) {
+			int correctAuthor = 0;
+			if(correctOutput != null)
+				correctAuthor = correctOutput.getAuthor(i);
+			
+			int numberOfCoreferences = quotationIndexes[i].getNumberOfCoreferences();
+			
+			for (int j = 0; j < numberOfCoreferences; ++j) {
+				int[] coreferenceIndex  = quotationIndexes[i].getCoreferenceIndex(j);
+				int coreferencePosition = coreferences.indexOf(coreferenceIndex[0]);
+				
+				double currentLoss = 0d;
+				if(correctOutput != null)
+					currentLoss = (j != correctAuthor ? lossWeight : 0d);
+				
+				double cost = 0d;
+				int featureIndex;
+				Iterator<Integer> it = input.getFeatureCodes(i, j).iterator();
+				while (it.hasNext()) {
+					featureIndex = it.next();
+					cost += currentLoss + model.getFeatureWeight(featureIndex);
+				}
+				
+				costs[i][coreferencePosition] = cost;
+			}
+		}
+		
+		return costs;
+	}
+
+	public Task[] generateWISCandidates(PQModel2 model, PQInput2 input, PQOutput2 correctOutput, double lossWeight) {
 		// Implementation of a method for comparison between two tasks.
 		// It is used to find out in which position we have to insert the
 		// new task in the list of tasks. Ordered by task end.
@@ -61,22 +150,28 @@ public class PQInference2 implements Inference {
 		// Each quotation is associated to a number of coreferences, which are
 		// the candidates to quotation author. We transform this problem into
 		// the Weighted Interval Scheduling problem. The interval is:
-		// [coreferenceStartToken, quotationEndToken], if the coreference
-		// appears before the quotation; otherwise [quotationStartToken,
-		// coreferenceEndToken]. The prize is given by the sum of the feature
-		// weights that appears in the coreference.
+		// [quotationStartToken, quotationEndToken]. The prize is given by the
+		// sum of the feature weights that appears in the coreference.
 		LinkedList<Task> tasks = new LinkedList<Task>();
 		Quotation[] quotationIndexes = input.getQuotationIndexes();
 
 		for (int i = 0; i < quotationIndexes.length; ++i) {
 			int[] quotationIndex = quotationIndexes[i].getQuotationIndex();
 
+			int correctAuthor = 0;
+			if(correctOutput != null)
+				correctAuthor = correctOutput.getAuthor(i);
+			
 			int numberOfCoreferences = quotationIndexes[i]
 					.getNumberOfCoreferences();
 			for (int j = 0; j < numberOfCoreferences; ++j) {
 				int[] coreferenceIndex = quotationIndexes[i]
 						.getCoreferenceIndex(j);
 
+
+				int start = quotationIndex[0];
+				int end   = quotationIndex[1];
+				/*
 				int start;
 				int end;
 				if (quotationIndex[0] > coreferenceIndex[0]) {
@@ -86,13 +181,19 @@ public class PQInference2 implements Inference {
 					start = quotationIndex[0];
 					end = coreferenceIndex[1];
 				}
+				*/
 
+
+				double currentLoss = 0d;
+				if(correctOutput != null)
+					currentLoss = (j != correctAuthor ? lossWeight : 0d);
+				
 				double prize = 0d;
 				int featureIndex;
 				Iterator<Integer> it = input.getFeatureCodes(i, j).iterator();
 				while (it.hasNext()) {
 					featureIndex = it.next();
-					prize += model.getFeatureWeight(featureIndex);
+					prize += currentLoss + model.getFeatureWeight(featureIndex);
 				}
 
 				Task task = new Task(start, end, prize, i, j, quotationIndex,

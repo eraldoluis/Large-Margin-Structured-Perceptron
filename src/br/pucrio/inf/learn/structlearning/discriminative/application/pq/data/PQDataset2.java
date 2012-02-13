@@ -326,7 +326,7 @@ public class PQDataset2 {
 			// Right coreference index.
 			if (firstField[2].trim().length() == 0)
 				return false;
-			int rightCoref = Integer.parseInt(firstField[2]);
+			int rightCoref = Integer.parseInt(firstField[2]) + 1;
 			
 			// Walk into the coreference feature list.
 			LinkedList<LinkedList<Integer>> corefFeatureList = new LinkedList<LinkedList<Integer>>();

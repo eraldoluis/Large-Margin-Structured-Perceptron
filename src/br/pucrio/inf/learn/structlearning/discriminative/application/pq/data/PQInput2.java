@@ -126,6 +126,10 @@ public class PQInput2 implements ExampleInput {
 		// TODO only to use kernel functions
 	}
 
+	public String getDocId() {
+		return docId;
+	}
+
 	@Override
 	public int getTrainingIndex() {
 		return -1;
