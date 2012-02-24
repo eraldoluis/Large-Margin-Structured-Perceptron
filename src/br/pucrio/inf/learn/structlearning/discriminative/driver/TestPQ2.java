@@ -15,14 +15,11 @@ import br.pucrio.inf.learn.structlearning.discriminative.algorithm.TrainingListe
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.OnlineStructuredAlgorithm.LearnRateUpdateStrategy;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.LossAugmentedPerceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.Perceptron;
-import br.pucrio.inf.learn.structlearning.discriminative.application.pq.data.PQDataset;
 import br.pucrio.inf.learn.structlearning.discriminative.application.pq.data.PQDataset2;
-import br.pucrio.inf.learn.structlearning.discriminative.application.pq.data.PQInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.pq.data.PQInput2;
-import br.pucrio.inf.learn.structlearning.discriminative.application.pq.data.PQOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.pq.data.PQOutput2;
 import br.pucrio.inf.learn.structlearning.discriminative.application.pq.PQModel2;
-import br.pucrio.inf.learn.structlearning.discriminative.application.pq.PQInference2;
+import br.pucrio.inf.learn.structlearning.discriminative.application.pq.PQInference2PBM;
 import br.pucrio.inf.learn.structlearning.discriminative.data.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.StringMapEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.driver.Driver.Command;
@@ -161,7 +158,7 @@ public class TestPQ2 implements Command {
 		}
 
 		// Structure.
-		PQInference2 inference = new PQInference2();
+		PQInference2PBM inference = new PQInference2PBM();
 		
 		// Create a new model at each iteration.
 		PQModel2 model = new PQModel2(inputCorpusA.getNumberOfSymbols());

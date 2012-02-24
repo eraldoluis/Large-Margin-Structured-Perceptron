@@ -19,7 +19,7 @@ import br.pucrio.inf.learn.structlearning.discriminative.application.pq.data.PQD
 import br.pucrio.inf.learn.structlearning.discriminative.application.pq.data.PQInput2;
 import br.pucrio.inf.learn.structlearning.discriminative.application.pq.data.PQOutput2;
 import br.pucrio.inf.learn.structlearning.discriminative.application.pq.PQModel2;
-import br.pucrio.inf.learn.structlearning.discriminative.application.pq.PQInference2;
+import br.pucrio.inf.learn.structlearning.discriminative.application.pq.PQInference2PBM;
 import br.pucrio.inf.learn.structlearning.discriminative.data.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.StringMapEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.driver.Driver.Command;
@@ -158,7 +158,7 @@ public class TrainPQ2 implements Command {
 		}
 
 		// Structure.
-		PQInference2 inference = new PQInference2();
+		PQInference2PBM inference = new PQInference2PBM();
 
 		// Establish the number of folds and generate the fold mask.
 		int numFolds = 5;
