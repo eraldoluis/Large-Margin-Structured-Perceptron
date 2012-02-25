@@ -49,14 +49,18 @@ public class PQInference2PBM implements Inference {
 		double[] pLine   = new double[hcmSize];
 		double[] pColumn = new double[hcmSize];
 		
+		double[][] modifiedHungarianCostMatrix = new double[hcmSize][hcmSize]; 
+		
 		//Initialize both p arrays
 		for(int i = 0; i < hcmSize; ++i) {
 			double minLine = Double.MAX_VALUE;
-			for(int j = 0; j < hcmSize; ++j)
+			for(int j = 0; j < hcmSize; ++j) {
+				modifiedHungarianCostMatrix[i][j] = hungarianCostMatrix[i][j];
 				if(hungarianCostMatrix[i][j] < minLine)
 					minLine = hungarianCostMatrix[i][j];
-			pLine[i]   = minLine;
-			pColumn[i] = 0d;
+			}
+			pLine[i]   = 0d;
+			pColumn[i] = minLine;
 		}
 		
 		ArrayList<int[]> M = new ArrayList<int[]>();
@@ -66,7 +70,7 @@ public class PQInference2PBM implements Inference {
 			//Update hungarian cost matrix
 			for(int i = 0; i < hcmSize; ++i)
 				for(int j = 0; j < hcmSize; ++j)
-					hungarianCostMatrix[i][j] += pColumn[i] - pLine[i];
+					modifiedHungarianCostMatrix[i][j] = hungarianCostMatrix[i][j] + pLine[i] - pColumn[j];
 			
 			//Create a graph with artificial source and target
 			int numberOfVertices = hcmSize * 2 + 2;
@@ -80,7 +84,7 @@ public class PQInference2PBM implements Inference {
 			//Create edges corresponding to the hungarian matrix costs
 			for(int i = 0; i < hcmSize; ++i)
 				for(int j = 0; j < hcmSize; ++j)
-					graph.addEdge(i + 1, j + hcmSize + 1, hungarianCostMatrix[i][j]);
+					graph.addEdge(i + 1, j + hcmSize + 1, modifiedHungarianCostMatrix[i][j]);
 			
 			//Invert edges that belong to M and disconnect the vertices from source and target
 			int mSize = M.size();
@@ -137,17 +141,16 @@ public class PQInference2PBM implements Inference {
 				if(!M.contains(edge))
 					newM.add(edge);
 			}
-			//Update M with newM (if this copy does not work, use the commented code)
-			M.clear();
-			M = newM;
-			//int newMSize = newM.size(); 
-			//for(int i = 0; i < newMSize; ++i) {
-			//	edge = newM.get(i);
-			//	int[] newEdge = new int[2];
-			//	newEdge[0] = edge[0];
-			//	newEdge[1] = edge[1];
-			//	M.add(newEdge);
-			//}
+			//Update M with newM
+			M = new ArrayList<int[]>();
+			int newMSize = newM.size(); 
+			for(int i = 0; i < newMSize; ++i) {
+				edge = newM.get(i);
+				int[] newEdge = new int[2];
+				newEdge[0] = edge[0];
+				newEdge[1] = edge[1];
+				M.add(newEdge);
+			}
 			
 			//Build the array with costs 'd'
 			double[] d = new double[numberOfVertices];
@@ -168,15 +171,14 @@ public class PQInference2PBM implements Inference {
 				d[i] = cost;
 			}
 			
-			//TODO: Update both p arrays
 			for(int i = 0; i < hcmSize; ++i) {
 				pLine[i]   += d[i + 1];
-				pColumn[i] += d[i + hcmSize + 1];
+				pColumn[i] += d[i + 1 + hcmSize];
 			}
 		}
 		
 		//Eliminate negative cost arcs and arcs linked to artificial nodes
-		postProcessPerfectMatching(costMatrix, hungarianCostMatrix, M);
+		postProcessPerfectMatching(costMatrix, modifiedHungarianCostMatrix, M, input);
 		
 		//Initialize the output vector with zero, indicating the quotations
 		//are invalid. Then we assign the Perfect Bipartite Matching solution 
@@ -295,20 +297,28 @@ public class PQInference2PBM implements Inference {
 		return hungarianCostMatrix;
 	}
 	
-	public void postProcessPerfectMatching(double[][] costMatrix, double[][] hungarianCostMatrix, ArrayList<int[]> M) {
+	public void postProcessPerfectMatching(double[][] costMatrix, double[][] hungarianCostMatrix, ArrayList<int[]> M, PQInput2 input) {
 		int[] edge;
-		int lineSize   = costMatrix.length;
-		int columnSize = (lineSize > 0 ? costMatrix[0].length : 0);
-		int hcmSize    = hungarianCostMatrix.length;
+		int lineSize                 = costMatrix.length;
+		int columnSize               = (lineSize > 0 ? costMatrix[0].length : 0);
+		int hcmSize                  = hungarianCostMatrix.length;
+		int numberOfVertices         = hcmSize * 2 + 2;
+		Quotation[] quotationIndexes = input.getQuotationIndexes();
 		
 		int mSize  = M.size();
-		for(int i = 0; i < mSize; ++i) {
+		for(int i = mSize - 1; i >= 0; --i) {
 			edge = M.get(i);
 			
+			//Take off M arcs that link some node to the artificial source or target
+			if(edge[0] == 0 || edge[1] == numberOfVertices - 1) {
+				M.remove(i);
+				continue;
+			}
+
 			//Convert M indexes to the Cost Matrix indexes
 			int iIndex = edge[0] - 1;
 			int jIndex = edge[1] - 1 - hcmSize;
-
+			
 			//Eliminate arcs linked to artificial nodes
 			if(iIndex >= lineSize)
 				M.remove(i);
@@ -316,6 +326,10 @@ public class PQInference2PBM implements Inference {
 				M.remove(i);
 			//Eliminate negative cost arcs
 			else if(costMatrix[iIndex][jIndex] < 0d)
+				M.remove(i);
+			//Eliminate arcs linked to coreferences that cannot be associated with the
+			//current quotation
+			else if(jIndex >= quotationIndexes[iIndex].getNumberOfCoreferences())
 				M.remove(i);
 		}
 	}
