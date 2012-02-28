@@ -5,6 +5,27 @@ import java.util.ArrayList;
 public class Dijkstra {
 
 	public static int[] dijkstra(WeightedGraph graph, int source) {
+		/*
+		 * Find the shortest path in a graph from source to every node.
+		 * 
+		 * @param graph: a weighted graph represented by the class WeightedGraph.
+		 * @param source: index of the source vertex.
+		 * 
+		 * @return: an array[graph.getNumberOfVertices()] of predecessors.
+		 *          To find the shortest path from node i to source, we have to
+		 *          get the predecessors of i iteratively, until reach node 0.
+		 *          Below we put an example.
+		 *          
+		 *          int pred[] = Dijkstra.dijkstra(graph, 0);
+		 *          int node   = 3;
+		 *          
+		 *          System.out.println(node);
+		 *          while(pred[node] != 0) {
+		 *          	node = pred[node];
+		 *          	System.out.println(node);
+		 *          }
+		 *          System.out.println(0);
+		 */
 		double[] dist     = new double[graph.getNumberOfVertices()];
 		int[] pred        = new int[graph.getNumberOfVertices()];
 		boolean[] visited = new boolean[graph.getNumberOfVertices()];

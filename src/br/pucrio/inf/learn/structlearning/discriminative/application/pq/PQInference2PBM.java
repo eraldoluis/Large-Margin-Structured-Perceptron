@@ -32,170 +32,59 @@ public class PQInference2PBM implements Inference {
 							   (PQOutput2) predictedOutput, lossWeight);
 	}
 	
-	//Perfect Bipartite Matching
 	public void inference(PQModel2 model, PQInput2 input, PQOutput2 output) {
-		// TODO
+		//Generate cost matrix
+		double[][] costMatrix = generateCostMatrix(model, input, output, 0d);
+		
+		//Eliminate zeros and create artificial nodes from cost matrix
+		double[][] hungarianCostMatrix = preProcessCostMatrix(costMatrix);
+		
+		//Run Hungarian Method in order to find Perfect Bipartite Matching
+		ArrayList<int[]> P = PerfectBipartiteMatching.perfectBipartiteMatching(hungarianCostMatrix);
+		
+		//Eliminate negative cost arcs and arcs linked to artificial nodes
+		postProcessPerfectMatching(costMatrix, hungarianCostMatrix, P, input);
+		
+		//Initialize the output vector with zero, indicating the quotations
+		//are invalid. Then we assign Perfect Bipartite Matching solution 
+		//to the output
+		int[] edge;
+		int pSize      = P.size();
+		int outputSize = output.size();
+		for(int i = 0; i < outputSize; ++i)
+			output.setAuthor(i, 0);
+		for(int i = 0; i < pSize; ++i) {
+			edge = P.get(i);
+			output.setAuthor(edge[0], edge[1]);
+		}
 	}
 	
-	//Perfect Bipartite Matching
 	public void lossAugmentedInference(PQModel2 model, PQInput2 input,
 			PQOutput2 referenceOutput, PQOutput2 predictedOutput,
 			double lossWeight) {
+		//Generate cost matrix
 		double[][] costMatrix = generateCostMatrix(model, input, referenceOutput, lossWeight);
+		
+		//Eliminate zeros and create artificial nodes from cost matrix
 		double[][] hungarianCostMatrix = preProcessCostMatrix(costMatrix);
 		
-		int hcmSize = hungarianCostMatrix.length;
-		
-		double[] pLine   = new double[hcmSize];
-		double[] pColumn = new double[hcmSize];
-		
-		double[][] modifiedHungarianCostMatrix = new double[hcmSize][hcmSize]; 
-		
-		//Initialize both p arrays
-		for(int i = 0; i < hcmSize; ++i) {
-			double minLine = Double.MAX_VALUE;
-			for(int j = 0; j < hcmSize; ++j) {
-				modifiedHungarianCostMatrix[i][j] = hungarianCostMatrix[i][j];
-				if(hungarianCostMatrix[i][j] < minLine)
-					minLine = hungarianCostMatrix[i][j];
-			}
-			pLine[i]   = 0d;
-			pColumn[i] = minLine;
-		}
-		
-		ArrayList<int[]> M = new ArrayList<int[]>();
-		//In each iteration, the matching augments of 1. By the end of
-		//the iterations, we will have a perfect matching
-		for(int n = 0; n < hcmSize; ++n) {
-			//Update hungarian cost matrix
-			for(int i = 0; i < hcmSize; ++i)
-				for(int j = 0; j < hcmSize; ++j)
-					modifiedHungarianCostMatrix[i][j] = hungarianCostMatrix[i][j] + pLine[i] - pColumn[j];
-			
-			//Create a graph with artificial source and target
-			int numberOfVertices = hcmSize * 2 + 2;
-			WeightedGraph graph = new WeightedGraph(numberOfVertices);
-			//Create edges from source to all vertices in the first layer
-			for(int i = 1; i < hcmSize + 1; ++i)
-				graph.addEdge(0, i, 0d);
-			//Create edges from all vertices in the second layer to target
-			for(int i = hcmSize + 1; i < numberOfVertices - 1; ++i)
-				graph.addEdge(i, numberOfVertices - 1, 0d);
-			//Create edges corresponding to the hungarian matrix costs
-			for(int i = 0; i < hcmSize; ++i)
-				for(int j = 0; j < hcmSize; ++j)
-					graph.addEdge(i + 1, j + hcmSize + 1, modifiedHungarianCostMatrix[i][j]);
-			
-			//Invert edges that belong to M and disconnect the vertices from source and target
-			int mSize = M.size();
-			for(int i = 0; i < mSize; ++i) {
-				int[] edge = M.get(i);
-				double weight = graph.getWeight(edge[0], edge[1]);
-				
-				//Invert edge
-				graph.removeEdge(edge[0], edge[1]);
-				graph.addEdge(edge[1], edge[0], weight);
-				//Disconnect vertices from source and target
-				graph.removeEdge(0, edge[0]);
-				graph.removeEdge(edge[1], numberOfVertices - 1);
-			}
-			
-			//Run Dijkstra's algorithm
-			int pred[] = Dijkstra.dijkstra(graph, 0);
-			
-			//Build the alternating path A
-			ArrayList<int[]> A = new ArrayList<int[]>();
-			int currentVertex  = numberOfVertices - 1;
-			int previousVertex = pred[currentVertex];
-			int[] edge;
-			
-			while(previousVertex != 0) {
-				//Create an edge and add it in the alternating path
-				edge    = new int[2];
-				edge[0] = previousVertex;
-				edge[1] = currentVertex;
-				A.add(0, edge);
-				
-				currentVertex = previousVertex;
-				previousVertex = pred[previousVertex];
-			}
-			
-			//Create the first edge and add it in the alternating path
-			edge    = new int[2];
-			edge[0] = previousVertex;
-			edge[1] = currentVertex;
-			A.add(0, edge);
-			
-			//Generate a new M, M <- (M-A) U (A-M)
-			ArrayList<int[]> newM = new ArrayList<int[]>();
-			//(M-A)
-			for(int i = 0; i < mSize; ++i) {
-				edge = M.get(i);
-				if(!A.contains(edge))
-					newM.add(edge);
-			}
-			//(A-M)
-			int aSize = A.size();
-			for(int i = 0; i < aSize; ++i) {
-				edge = A.get(i);
-				if(!M.contains(edge))
-					newM.add(edge);
-			}
-			//Update M with newM
-			M = new ArrayList<int[]>();
-			int newMSize = newM.size(); 
-			for(int i = 0; i < newMSize; ++i) {
-				edge = newM.get(i);
-				int[] newEdge = new int[2];
-				newEdge[0] = edge[0];
-				newEdge[1] = edge[1];
-				M.add(newEdge);
-			}
-			
-			//Build the array with costs 'd'
-			double[] d = new double[numberOfVertices];
-			for(int i = 0; i < numberOfVertices; ++i) {
-				currentVertex = i;
-				previousVertex = pred[i];
-				
-				double cost = 0d;
-				while(previousVertex != 0) {
-					cost += graph.getWeight(previousVertex, currentVertex);
-					currentVertex = previousVertex;
-					previousVertex = pred[previousVertex];
-				}
-				
-				if(currentVertex != 0)
-					cost += graph.getWeight(previousVertex, currentVertex);
-				
-				d[i] = cost;
-			}
-			
-			for(int i = 0; i < hcmSize; ++i) {
-				pLine[i]   += d[i + 1];
-				pColumn[i] += d[i + 1 + hcmSize];
-			}
-		}
+		//Run Hungarian Method in order to find Perfect Bipartite Matching
+		ArrayList<int[]> P = PerfectBipartiteMatching.perfectBipartiteMatching(hungarianCostMatrix);
 		
 		//Eliminate negative cost arcs and arcs linked to artificial nodes
-		postProcessPerfectMatching(costMatrix, modifiedHungarianCostMatrix, M, input);
+		postProcessPerfectMatching(costMatrix, hungarianCostMatrix, P, input);
 		
 		//Initialize the output vector with zero, indicating the quotations
-		//are invalid. Then we assign the Perfect Bipartite Matching solution 
+		//are invalid. Then we assign Perfect Bipartite Matching solution 
 		//to the output
 		int[] edge;
+		int pSize               = P.size();
 		int predictedOutputSize = predictedOutput.size();
-		int mSize               = M.size();
 		for(int i = 0; i < predictedOutputSize; ++i)
 			predictedOutput.setAuthor(i, 0);
-		for(int i = 0; i < mSize; ++i) {
-			edge = M.get(i);
-			//Convert M indexes to the Cost Matrix indexes, in which 'iIndex' represents 
-			//quotations and 'jIndex' represents coreferences
-			int iIndex = edge[0] - 1;
-			int jIndex = edge[1] - 1 - hcmSize;
-			
-			predictedOutput.setAuthor(iIndex, jIndex);
+		for(int i = 0; i < pSize; ++i) {
+			edge = P.get(i);
+			predictedOutput.setAuthor(edge[0], edge[1]);
 		}
 	}
 	
@@ -271,11 +160,10 @@ public class PQInference2PBM implements Inference {
 		int hcmSize    = (lineSize > columnSize ? lineSize : columnSize);
 		
 		double[][] hungarianCostMatrix = new double[hcmSize][hcmSize];
-		double maxCost = -1d;
 		
 		//Fill artificial arcs with zero and eliminate negative costs
 		for(int i = 0; i < hcmSize; ++i)
-			for(int j = 0; j < hcmSize; ++j) {
+			for(int j = 0; j < hcmSize; ++j)
 				if(i < lineSize && j < columnSize) {
 					if(costMatrix[i][j] > 0d)
 						hungarianCostMatrix[i][j] = costMatrix[i][j];
@@ -284,53 +172,32 @@ public class PQInference2PBM implements Inference {
 				}
 				else
 					hungarianCostMatrix[i][j] = 0d;
-				
-				if(maxCost < hungarianCostMatrix[i][j])
-					maxCost = hungarianCostMatrix[i][j];
-			}
-		
-		//Convert the cost matrix to be used by the Hungarian Algorithm
-		for(int i = 0; i < hcmSize; ++i)
-			for(int j = 0; j < hcmSize; ++j)
-				hungarianCostMatrix[i][j] = maxCost - hungarianCostMatrix[i][j];
 		
 		return hungarianCostMatrix;
 	}
 	
-	public void postProcessPerfectMatching(double[][] costMatrix, double[][] hungarianCostMatrix, ArrayList<int[]> M, PQInput2 input) {
+	public void postProcessPerfectMatching(double[][] costMatrix, double[][] hungarianCostMatrix, ArrayList<int[]> P, PQInput2 input) {
 		int[] edge;
 		int lineSize                 = costMatrix.length;
 		int columnSize               = (lineSize > 0 ? costMatrix[0].length : 0);
-		int hcmSize                  = hungarianCostMatrix.length;
-		int numberOfVertices         = hcmSize * 2 + 2;
 		Quotation[] quotationIndexes = input.getQuotationIndexes();
 		
-		int mSize  = M.size();
-		for(int i = mSize - 1; i >= 0; --i) {
-			edge = M.get(i);
-			
-			//Take off M arcs that link some node to the artificial source or target
-			if(edge[0] == 0 || edge[1] == numberOfVertices - 1) {
-				M.remove(i);
-				continue;
-			}
-
-			//Convert M indexes to the Cost Matrix indexes
-			int iIndex = edge[0] - 1;
-			int jIndex = edge[1] - 1 - hcmSize;
+		int pSize  = P.size();
+		for(int i = pSize - 1; i >= 0; --i) {
+			edge = P.get(i);
 			
 			//Eliminate arcs linked to artificial nodes
-			if(iIndex >= lineSize)
-				M.remove(i);
-			else if(jIndex >= columnSize)
-				M.remove(i);
+			if(edge[0] >= lineSize)
+				P.remove(i);
+			else if(edge[1] >= columnSize)
+				P.remove(i);
 			//Eliminate negative cost arcs
-			else if(costMatrix[iIndex][jIndex] < 0d)
-				M.remove(i);
+			else if(costMatrix[edge[0]][edge[1]] < 0d)
+				P.remove(i);
 			//Eliminate arcs linked to coreferences that cannot be associated with the
 			//current quotation
-			else if(jIndex >= quotationIndexes[iIndex].getNumberOfCoreferences())
-				M.remove(i);
+			else if(edge[1] >= quotationIndexes[edge[0]].getNumberOfCoreferences())
+				P.remove(i);
 		}
 	}
 

@@ -1,5 +1,6 @@
 package br.pucrio.inf.learn.structlearning.discriminative.driver;
 
+import java.util.ArrayList;
 import java.util.Random;
 
 import org.apache.commons.cli.CommandLine;
@@ -170,6 +171,9 @@ public class TrainPQ2 implements Command {
 		}
 
 		F1Measure evalAverage = new F1Measure("Quotation-Person");
+		
+		int numOfAuthorsThatSayMoreThanOneQuote = 0;
+		int numOfQuotesSameAuthor = 0;
 
 		// For each fold, train and evaluate the model.
 		for (int fold = 0; fold < numFolds; ++fold) {
@@ -229,7 +233,6 @@ public class TrainPQ2 implements Command {
 			// Fill the list of predicted outputs.
 			for (int idx = 0; idx < inputs.length; ++idx) {
 				// Predict (tag the output example).
-				//inference.lossAugmentedInference(model, inputs[idx], outputs[idx], predicteds[idx], lossWeight);
 				inference.inference(model, inputs[idx], predicteds[idx]);
 				// Increment data for evaluation.
 				int outputsSize = outputs[idx].size();
@@ -255,12 +258,12 @@ public class TrainPQ2 implements Command {
 					}
 				}
 			}
-
+			
 			//// Write results (precision, recall and F-1) per class.
 			//printF1Results("Performance at fold " + fold + ": ", eval);
 			//System.out.println("-------------------------------------");
 		}
-
+		
 		//printF1Results("Average Performance: ", evalAverage);
 	}
 

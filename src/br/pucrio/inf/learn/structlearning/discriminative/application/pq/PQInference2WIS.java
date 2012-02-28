@@ -32,13 +32,12 @@ public class PQInference2WIS implements Inference {
 							   (PQOutput2) predictedOutput, lossWeight);
 	}
 	
-	//Weighted Interval Scheduling
 	public void inference(PQModel2 model, PQInput2 input, PQOutput2 output) {
 		// Generate candidates.
 		Task[] tasks = generateWISCandidates(model, input, null, 0d);
 
 		// Run WIS, which returns the indexes of the selected tasks.
-		int[] solutionIndexes = wis(tasks);
+		int[] solutionIndexes = WeightedIntervalScheduling.weightedIntervalScheduling(tasks);
 
 		// Initialize the output vector with zero, indicating the quotations
 		// are invalid. Then we assign the solution of WIS to the output.
@@ -49,7 +48,6 @@ public class PQInference2WIS implements Inference {
 			output.setAuthor(tasks[solutionIndexes[i]].getQuotationPosition(), tasks[solutionIndexes[i]].getCoreferencePosition());
 	}
 
-	//Weighted Interval Scheduling
 	public void lossAugmentedInference(PQModel2 model, PQInput2 input,
 			PQOutput2 referenceOutput, PQOutput2 predictedOutput,
 			double lossWeight) {
@@ -57,7 +55,7 @@ public class PQInference2WIS implements Inference {
 		Task[] tasks = generateWISCandidates(model, input, referenceOutput, lossWeight);
 		
 		// Run WIS, which returns the indexes of the selected tasks.
-		int[] solutionIndexes = wis(tasks);
+		int[] solutionIndexes = WeightedIntervalScheduling.weightedIntervalScheduling(tasks);
 
 		// Initialize the output vector with zero, indicating the quotations
 		// are invalid. Then we assign the WIS solution to the output.
@@ -141,92 +139,6 @@ public class PQInference2WIS implements Inference {
 		}
 
 		return tasksArray;
-	}
-
-	public int[] wis(Task[] tasks) {
-		// Calculate the predecessors of each task.
-		calculatePredecessors(tasks);
-
-		// Store each subproblem in a cache. The boolean array
-		// indicates if the indexed position is still empty.
-		double[] cache = new double[tasks.length];
-		boolean[] cacheEmpty = new boolean[tasks.length];
-
-		for (int i = 0; i < cacheEmpty.length; ++i) {
-			cacheEmpty[i] = true;
-		}
-
-		// Compute the optimal solution.
-		computeOptimal(tasks, tasks.length - 1, cache, cacheEmpty);
-
-		// Find the tasks that constitute the solution for the problem.
-		ArrayList<Integer> solutionIndexes = new ArrayList<Integer>();
-		findSolution(tasks, tasks.length - 1, cache, solutionIndexes);
-
-		// Convert the ArrayList ''solutionIndexes'' in the array of
-		// integers ''solutionIndexesArray''.
-		int solutionIndexesSize = solutionIndexes.size();
-		int[] solutionIndexesArray = new int[solutionIndexesSize];
-
-		for (int i = 0; i < solutionIndexesSize; ++i)
-			solutionIndexesArray[i] = solutionIndexes.get(i);
-
-		return solutionIndexesArray;
-	}
-
-	public void findSolution(Task[] tasks, int index, double[] cache,
-			ArrayList<Integer> solutionIndexes) {
-		if (index >= 0) {
-			double prize1 = tasks[index].getPrize();
-			int predecessorIndex = tasks[index].getPredecessorIndex();
-			if (predecessorIndex >= 0)
-				prize1 += cache[predecessorIndex];
-
-			double prize2 = (index > 0 ? cache[index - 1] : 0d);
-
-			if (prize1 > prize2) {
-				solutionIndexes.add(index);
-				findSolution(tasks, tasks[index].getPredecessorIndex(), cache,
-						solutionIndexes);
-			} else
-				findSolution(tasks, index - 1, cache, solutionIndexes);
-		}
-	}
-
-	public double computeOptimal(Task[] tasks, int index, double[] cache,
-			boolean[] cacheEmpty) {
-		if (index == -1)
-			return 0d;
-
-		if (cacheEmpty[index]) {
-			double prize1 = tasks[index].getPrize()
-					+ computeOptimal(tasks, tasks[index].getPredecessorIndex(),
-							cache, cacheEmpty);
-			double prize2 = computeOptimal(tasks, index - 1, cache, cacheEmpty);
-
-			cacheEmpty[index] = false;
-			if (prize1 > prize2)
-				cache[index] = prize1;
-			else
-				cache[index] = prize2;
-		}
-
-		return cache[index];
-	}
-
-	public void calculatePredecessors(Task[] tasks) {
-		for (int i = 0; i < tasks.length; ++i) {
-			Task task = tasks[i];
-
-			for (int j = i; j >= 0; --j) {
-				Task predecessorTask = tasks[j];
-
-				if (task.getStart() > predecessorTask.getEnd()) {
-					task.setPredecessorIndex(j);
-					break;
-				}
-			}
-		}
 	}
 
 	@Override

@@ -1,6 +1,12 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.pq;
 
 public class WeightedGraph {
+	/*
+	 * This class is used to represent a weighted graph.
+	 * The internal data structure used to store the graph is
+	 * an adjacence list.
+	 */
+	
 	private Node[] adjList;
 
 	public WeightedGraph(int numberOfVertices) {
@@ -31,6 +37,23 @@ public class WeightedGraph {
 		}
 		
 		return Double.NaN;
+	}
+	
+	public void setWeight(int source, int target, double weight) {
+		int numberOfVertices = this.adjList.length;
+		if(source > numberOfVertices - 1 || source < 0 ||
+		   target > numberOfVertices - 1 || target < 0)
+			return;
+		
+		Node node = this.adjList[source].getNext();
+		while(node != null) {
+			if(node.getVertex() == target) {
+				node.setWeight(weight);
+				return;
+			}
+			
+			node = node.getNext();
+		}
 	}
 	
 	public boolean addEdge(int source, int target, double weight) {
