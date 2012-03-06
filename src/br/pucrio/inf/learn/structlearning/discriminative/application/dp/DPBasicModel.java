@@ -210,17 +210,7 @@ public class DPBasicModel implements DPModel {
 		return new DPBasicModel(featureWeights);
 	}
 
-	/**
-	 * Return the number of non-zero parameters in the model.
-	 * 
-	 * In fact, the returned number is not exactly the number of non-zero
-	 * parameters, but the number of parameters that have been updated at some
-	 * point of the training algorithm. If a parameter has its value increased
-	 * and at some point its value is decreased and becomes zero, this parameter
-	 * is accounted anyway in the number returned by this method.
-	 * 
-	 * @return
-	 */
+	@Override
 	public int getNonZeroParameters() {
 		return featureWeights.size();
 	}

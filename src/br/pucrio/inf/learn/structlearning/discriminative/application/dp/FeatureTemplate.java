@@ -11,7 +11,7 @@ import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPI
 public interface FeatureTemplate {
 
 	/**
-	 * Return a possibly temporary feature for the given token.
+	 * Return a temporary feature for the given token.
 	 * 
 	 * @param input
 	 * @param idxHead

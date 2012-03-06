@@ -20,6 +20,8 @@ import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.Lo
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.Perceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.TowardBetterPerceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPBasicModel;
+import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPModel;
+import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPTemplateEvolutionModel;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPTemplateModel;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.FeatureTemplate;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.MaximumBranchingInference;
@@ -348,7 +350,7 @@ public class TrainDP implements Command {
 		int sizeEncoding = -1;
 		FeatureEncoding<String> featureEncoding = null;
 		FeatureEncoding<String> additionalFeatureEncoding = null;
-		FeatureTemplate[] templates = null;
+		FeatureTemplate[][] templates = null;
 		try {
 
 			if (serialDatasets && encodingFile != null) {
@@ -490,7 +492,8 @@ public class TrainDP implements Command {
 					((DPEdgeCorpus) inDataset)
 							.setFileNamePunc(puncFileNameTrain);
 				inDataset.load(inputCorpusFileNames[0]);
-				templates = ((DPEdgeCorpus) inDataset)
+				templates = new FeatureTemplate[1][];
+				templates[0] = ((DPEdgeCorpus) inDataset)
 						.loadTemplates(templatesFileName);
 			}
 
@@ -537,7 +540,7 @@ public class TrainDP implements Command {
 			model = new DPBasicModel();
 		} else if (hasInvertedIndex) {
 			LOG.info("Allocating initial model...");
-			model = new DPTemplateModel(templates);
+			model = new DPTemplateModel(templates[0]);
 			// Template-based model with inverted index.
 			LOG.info("Creating inverted index...");
 			((DPEdgeCorpus) inDataset).createInvertedIndex();
@@ -545,8 +548,10 @@ public class TrainDP implements Command {
 		} else {
 			// Template-based model.
 			LOG.info("Allocating initial model...");
-			model = new DPTemplateModel(templates);
-			((DPTemplateModel) model).init((DPEdgeCorpus) inDataset);
+			// model = new DPTemplateModel(templates[0]);
+			// ((DPTemplateModel) model).init((DPEdgeCorpus) inDataset);
+			model = new DPTemplateEvolutionModel(templates);
+			((DPTemplateEvolutionModel) model).init((DPEdgeCorpus) inDataset);
 		}
 
 		// Inference algorithm.
@@ -664,7 +669,7 @@ public class TrainDP implements Command {
 		DPEvaluation eval = new DPEvaluation(false);
 
 		// Evaluation after each training epoch.
-		boolean explicitFeatures = cmdLine.hasOption("testexplicit");
+		boolean testExplicitFeatures = cmdLine.hasOption("testexplicit");
 		if (testCorpusFileName != null && evalPerEpoch) {
 			try {
 
@@ -685,14 +690,15 @@ public class TrainDP implements Command {
 				else
 					testset.load(testCorpusFileName);
 
-				if (templates != null && explicitFeatures) {
+				if (templates != null && testExplicitFeatures) {
 					// Generate explicit features lists.
 					LOG.info("Generating explicit features lists");
-					((DPEdgeCorpus) testset).createExplicitFeatures(templates);
+					((DPEdgeCorpus) testset)
+							.createExplicitFeatures(templates[0]);
 				}
 
 				alg.setListener(new EvaluateModelListener(eval, testset,
-						averageWeights, explicitFeatures));
+						averageWeights, testExplicitFeatures));
 
 			} catch (Exception e) {
 				LOG.error("Loading testset " + testCorpusFileName, e);
@@ -723,14 +729,9 @@ public class TrainDP implements Command {
 				else {
 					testset = new DPEdgeCorpus(null,
 							inDataset.getFeatureEncoding());
-					if (explicitFeatures) {
+					if (puncFileNameTest != null)
 						((DPEdgeCorpus) testset)
-								.createExplicitFeatures(templates);
-						((DPTemplateModel) model).init((DPEdgeCorpus) testset);
-						if (puncFileNameTest != null)
-							((DPEdgeCorpus) testset)
-									.setFileNamePunc(puncFileNameTest);
-					}
+								.setFileNamePunc(puncFileNameTest);
 				}
 
 				if (serialDatasets)
@@ -779,7 +780,7 @@ public class TrainDP implements Command {
 		}
 
 		LOG.info(String.format("# updated parameters: %d",
-				((DPBasicModel) model).getNonZeroParameters()));
+				((DPModel) model).getNonZeroParameters()));
 
 		LOG.info("Training done!");
 	}

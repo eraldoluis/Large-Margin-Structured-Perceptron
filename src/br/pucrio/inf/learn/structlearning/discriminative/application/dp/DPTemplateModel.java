@@ -33,42 +33,44 @@ public class DPTemplateModel implements DPModel {
 	/**
 	 * Feature templates.
 	 */
-	private FeatureTemplate[] templates;
+	protected FeatureTemplate[] templates;
 
 	/**
 	 * Weight for each feature code. A feature code represents a template
 	 * instantiation.
 	 */
-	private Map<Feature, AveragedParameter> parameters;
+	protected Map<Feature, AveragedParameter> parameters;
 
 	/**
 	 * Set of parameters that have been updated in the current iteration.
 	 */
-	private Set<AveragedParameter> updatedParameters;
+	protected Set<AveragedParameter> updatedParameters;
 
 	/**
 	 * Corpus inverted index.
 	 */
-	private InvertedIndex index;
+	protected InvertedIndex index;
 
 	/**
 	 * List of features with value different from zero.
 	 */
 	@SuppressWarnings("rawtypes")
-	private LinkedList[][][] activeFeatures;
+	protected LinkedList[][][] activeFeatures;
 
 	/**
 	 * Missed features to be updated (increment weight).
 	 */
-	private HashSet<Feature> updateMissedFeatures;
+	protected HashSet<Feature> updateMissedFeatures;
 
 	/**
 	 * Wrong recovered features to be updated (decrement weight).
 	 */
-	private HashSet<Feature> updateWrongFeatures;
+	protected HashSet<Feature> updateWrongFeatures;
 
 	/**
-	 * Create an empty model.
+	 * Create a new model with the given template set.
+	 * 
+	 * @param templates
 	 */
 	public DPTemplateModel(FeatureTemplate[] templates) {
 		this.templates = templates;
@@ -111,7 +113,13 @@ public class DPTemplateModel implements DPModel {
 	public void init(DPEdgeCorpus corpus) {
 		index = corpus.getInvertedIndex();
 		if (index != null) {
-			// Use inverted index.
+			/*
+			 * Use inverted index. The active features matrix
+			 * (<code>activeFeatures</code>) stores the derived features whose
+			 * value is different from zero. The inverted index is used to
+			 * efficiently instantiate derived features on all examples when
+			 * their value is changed from zero.
+			 */
 			DPInput[] inputs = corpus.getInputs();
 			int numExs = corpus.getNumberOfExamples();
 			activeFeatures = new LinkedList[numExs][][];
@@ -125,9 +133,54 @@ public class DPTemplateModel implements DPModel {
 			}
 			System.out.println();
 		} else {
-			// Use explicit features lists.
+			/*
+			 * Possibly, use explicit features lists, if the returned object is
+			 * not null. Conversely, if this list is null, then derived features
+			 * are instantiated from templates every time the algorithm needs
+			 * them and, just subsenquently, they are discarded.
+			 */
 			activeFeatures = corpus.getExplicitFeatures();
 		}
+	}
+
+	@SuppressWarnings("unchecked")
+	@Override
+	public double getEdgeScore(DPInput input, int idxHead, int idxDependent) {
+		// Check edge existence.
+		if (input.getFeatureCodes(idxHead, idxDependent) == null)
+			return Double.NaN;
+
+		double score = 0d;
+
+		if (activeFeatures == null) {
+			if (input.getFeatureCodes(idxHead, idxDependent) != null) {
+				// Generate all features from templates.
+				for (int idxTemplate = 0; idxTemplate < templates.length; ++idxTemplate) {
+					AveragedParameter param = parameters
+							.get(templates[idxTemplate].getInstance(input,
+									idxHead, idxDependent, idxTemplate));
+					if (param == null)
+						// Feature not instantiated yet, thus its value is zero.
+						continue;
+					// Accumulate the parameter in the edge score.
+					score += param.get();
+				}
+			}
+		} else {
+			// Use active features only.
+			LinkedList<Feature> activeFtrs = activeFeatures[input
+					.getTrainingIndex()][idxHead][idxDependent];
+			if (activeFtrs != null) {
+				for (Feature ftr : activeFtrs) {
+					AveragedParameter param = parameters.get(ftr);
+					if (param != null)
+						// Accumulate the parameter in the edge score.
+						score += param.get();
+				}
+			}
+		}
+
+		return score;
 	}
 
 	@Override
@@ -158,10 +211,14 @@ public class DPTemplateModel implements DPModel {
 		// Per-token loss value for this example.
 		double loss = 0d;
 		for (int idxTkn = 1; idxTkn < input.getNumberOfTokens(); ++idxTkn) {
+			// Correct head token.
 			int idxCorrectHead = outputCorrect.getHead(idxTkn);
+
+			// Predicted head token.
 			int idxPredictedHead = outputPredicted.getHead(idxTkn);
+
+			// Skip. Correctly predicted head.
 			if (idxCorrectHead == idxPredictedHead)
-				// Correctly predicted head.
 				continue;
 
 			if (idxCorrectHead == -1)
@@ -171,9 +228,9 @@ public class DPTemplateModel implements DPModel {
 				 */
 				continue;
 
-			//
-			// Misclassified head for this token. Update parameters.
-			//
+			/*
+			 * Misclassified head for this token. Update parameters.
+			 */
 
 			// Generate missed correct features.
 			for (int idxTemplate = 0; idxTemplate < templates.length; ++idxTemplate)
@@ -270,46 +327,6 @@ public class DPTemplateModel implements DPModel {
 			parm.average(numberOfIterations);
 	}
 
-	@SuppressWarnings("unchecked")
-	@Override
-	public double getEdgeScore(DPInput input, int idxHead, int idxDependent) {
-		// Check edge existence.
-		if (input.getFeatureCodes(idxHead, idxDependent) == null)
-			return Double.NEGATIVE_INFINITY;
-
-		double score = 0d;
-
-		if (activeFeatures == null) {
-			if (input.getFeatureCodes(idxHead, idxDependent) != null) {
-				// Generate all features from templates.
-				for (int idxTemplate = 0; idxTemplate < templates.length; ++idxTemplate) {
-					AveragedParameter param = parameters
-							.get(templates[idxTemplate].getInstance(input,
-									idxHead, idxDependent, idxTemplate));
-					if (param == null)
-						// Feature not instantiated yet, thus its value is zero.
-						continue;
-					// Accumulate the parameter in the edge score.
-					score += param.get();
-				}
-			}
-		} else {
-			// Use active features only.
-			LinkedList<Feature> activeFtrs = activeFeatures[input
-					.getTrainingIndex()][idxHead][idxDependent];
-			if (activeFtrs != null) {
-				for (Feature ftr : activeFtrs) {
-					AveragedParameter param = parameters.get(ftr);
-					if (param != null)
-						// Accumulate the parameter in the edge score.
-						score += param.get();
-				}
-			}
-		}
-
-		return score;
-	}
-
 	@Override
 	public DPTemplateModel clone() throws CloneNotSupportedException {
 		return new DPTemplateModel(this);
@@ -319,6 +336,11 @@ public class DPTemplateModel implements DPModel {
 	public void save(PrintStream ps, FeatureEncoding<String> featureEncoding,
 			FeatureEncoding<String> stateEncoding) {
 		throw new NotImplementedException();
+	}
+
+	@Override
+	public int getNonZeroParameters() {
+		return parameters.size();
 	}
 
 }
