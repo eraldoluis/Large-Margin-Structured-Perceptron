@@ -1,7 +1,9 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.dp;
 
 import java.io.PrintStream;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import org.apache.commons.logging.Log;
@@ -36,7 +38,7 @@ public class DPBasicModel implements DPModel {
 	/**
 	 * Weight for each feature code.
 	 */
-	private AveragedParameter[] featureWeights;
+	private HashMap<Integer, AveragedParameter> featureWeights;
 
 	/**
 	 * Set of parameters that have been updated in the current iteration.
@@ -46,13 +48,58 @@ public class DPBasicModel implements DPModel {
 	/**
 	 * Create a model with the given total number of features.
 	 * 
-	 * @param numberOfFeatures
 	 */
-	public DPBasicModel(int numberOfFeatures) {
-		featureWeights = new AveragedParameter[numberOfFeatures];
-		for (int idxFtr = 0; idxFtr < numberOfFeatures; ++idxFtr)
-			featureWeights[idxFtr] = new AveragedParameter();
+	public DPBasicModel() {
+		featureWeights = new HashMap<Integer, AveragedParameter>();
 		updatedWeights = new HashSet<AveragedParameter>();
+	}
+
+	/**
+	 * Copy constructor.
+	 * 
+	 * @param featureWeights
+	 */
+	@SuppressWarnings("unchecked")
+	protected DPBasicModel(HashMap<Integer, AveragedParameter> featureWeights) {
+		this.featureWeights = (HashMap<Integer, AveragedParameter>) featureWeights
+				.clone();
+		for (Entry<Integer, AveragedParameter> entry : this.featureWeights
+				.entrySet()) {
+			try {
+				entry.setValue(entry.getValue().clone());
+			} catch (CloneNotSupportedException e) {
+				// This should never happen.
+				LOG.error("Cloning DP basic model", e);
+			}
+		}
+	}
+
+	/**
+	 * Return the parameter associated with the given feature code or
+	 * <code>null</code> if such parameter does not exist.
+	 * 
+	 * @param ftr
+	 * @return
+	 */
+	public AveragedParameter getFeatureWeight(int ftr) {
+		return featureWeights.get(ftr);
+	}
+
+	/**
+	 * Return the parameter object associated with the given feature code. If
+	 * such parameter does not exist, then create a new one, put it in the
+	 * parameter map and return it.
+	 * 
+	 * @param ftr
+	 * @return
+	 */
+	protected AveragedParameter getFeatureWeightOrCreate(int ftr) {
+		AveragedParameter param = featureWeights.get(ftr);
+		if (param == null) {
+			param = new AveragedParameter();
+			featureWeights.put(ftr, param);
+		}
+		return param;
 	}
 
 	@Override
@@ -99,8 +146,9 @@ public class DPBasicModel implements DPModel {
 
 			// Misclassified head. Increment missed edges weights.
 			for (int ftr : input.getFeatureCodes(idxCorrectHead, idxTkn)) {
-				featureWeights[ftr].update(learningRate);
-				updatedWeights.add(featureWeights[ftr]);
+				AveragedParameter param = getFeatureWeightOrCreate(ftr);
+				param.update(learningRate);
+				updatedWeights.add(param);
 			}
 
 			if (idxPredictedHead == -1) {
@@ -110,8 +158,9 @@ public class DPBasicModel implements DPModel {
 
 			// Decrement mispredicted edges weights.
 			for (int ftr : input.getFeatureCodes(idxPredictedHead, idxTkn)) {
-				featureWeights[ftr].update(-learningRate);
-				updatedWeights.add(featureWeights[ftr]);
+				AveragedParameter param = getFeatureWeightOrCreate(ftr);
+				param.update(-learningRate);
+				updatedWeights.add(param);
 			}
 
 			// Increment (per-token) loss value.
@@ -130,7 +179,7 @@ public class DPBasicModel implements DPModel {
 
 	@Override
 	public void average(int numberOfIterations) {
-		for (AveragedParameter parm : featureWeights)
+		for (AveragedParameter parm : featureWeights.values())
 			parm.average(numberOfIterations);
 	}
 
@@ -142,8 +191,11 @@ public class DPBasicModel implements DPModel {
 		if (ftrs == null)
 			// Edge does not exist.
 			return Double.NaN;
-		for (int ftr : ftrs)
-			score += featureWeights[ftr].get();
+		for (int ftr : ftrs) {
+			AveragedParameter param = getFeatureWeight(ftr);
+			if (param != null)
+				score += param.get();
+		}
 		return score;
 	}
 
@@ -155,10 +207,22 @@ public class DPBasicModel implements DPModel {
 
 	@Override
 	public DPBasicModel clone() throws CloneNotSupportedException {
-		DPBasicModel copy = new DPBasicModel(featureWeights.length);
-		for (int idxFtr = 0; idxFtr < featureWeights.length; ++idxFtr)
-			copy.featureWeights[idxFtr] = featureWeights[idxFtr].clone();
-		return copy;
+		return new DPBasicModel(featureWeights);
+	}
+
+	/**
+	 * Return the number of non-zero parameters in the model.
+	 * 
+	 * In fact, the returned number is not exactly the number of non-zero
+	 * parameters, but the number of parameters that have been updated at some
+	 * point of the training algorithm. If a parameter has its value increased
+	 * and at some point its value is decreased and becomes zero, this parameter
+	 * is accounted anyway in the number returned by this method.
+	 * 
+	 * @return
+	 */
+	public int getNonZeroParameters() {
+		return featureWeights.size();
 	}
 
 }

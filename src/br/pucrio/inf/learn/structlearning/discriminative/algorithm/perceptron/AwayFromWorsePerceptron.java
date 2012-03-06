@@ -1,12 +1,9 @@
 package br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron;
 
-import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceInput;
-import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Inference;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Model;
-import br.pucrio.inf.learn.util.DebugUtil;
 
 /**
  * McAllester et al.'s Perceptron implementation that uses a modified updating
@@ -87,12 +84,6 @@ public class AwayFromWorsePerceptron extends LossAugmentedPerceptron {
 		// Update the current model and return the loss for this example.
 		double loss = model.update(input, predictedOutput,
 				lossAugmentedPredictedOutput, getCurrentLearningRate());
-
-		// TODO debug
-		if (DebugUtil.print && loss != 0d)
-			DebugUtil.printSequence((SequenceInput) input,
-					(SequenceOutput) predictedOutput,
-					(SequenceOutput) lossAugmentedPredictedOutput, loss);
 
 		// Averaged-Perceptron: account the updates into the averaged
 		// weights.

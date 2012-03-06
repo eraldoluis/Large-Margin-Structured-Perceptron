@@ -187,8 +187,8 @@ public class DPTemplateModel implements DPModel {
 						idxPredictedHead, idxTkn, idxTemplate);
 				if (!updateMissedFeatures.remove(ftr))
 					/*
-					 * Include feature in the wrongly recovered list, if it is
-					 * not present in the missed feature list.
+					 * Include feature in the wrongly recovered list only if it
+					 * is not present in the missed feature list.
 					 */
 					updateWrongFeatures.add(ftr);
 			}

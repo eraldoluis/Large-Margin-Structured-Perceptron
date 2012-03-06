@@ -221,10 +221,30 @@ public class InvertedIndex {
 		return examples;
 	}
 
+	/**
+	 * Basic (not compound) feature. The inverted index is based on basic
+	 * feature values.
+	 * 
+	 * @author eraldo
+	 * 
+	 */
 	private static class BasicFeature {
+		/**
+		 * Feature code.
+		 */
 		public int feature;
+
+		/**
+		 * Feature value.
+		 */
 		public int value;
 
+		/**
+		 * Intialize a basic feature object.
+		 * 
+		 * @param feature
+		 * @param value
+		 */
 		public BasicFeature(int feature, int value) {
 			this.feature = feature;
 			this.value = value;
@@ -244,11 +264,37 @@ public class InvertedIndex {
 		}
 	}
 
+	/**
+	 * Head-dependent identification along with its example index. For each
+	 * basic feature value, the inverted index stores the list of edges with
+	 * this value.
+	 * 
+	 * @author eraldo
+	 * 
+	 */
 	public static class Edge implements Comparable<Edge> {
+		/**
+		 * Example index.
+		 */
 		public int example;
+
+		/**
+		 * Head token index.
+		 */
 		public int head;
+
+		/**
+		 * Dependent token index.
+		 */
 		public int dependent;
 
+		/**
+		 * Initialize an edge object.
+		 * 
+		 * @param example
+		 * @param head
+		 * @param dependent
+		 */
 		public Edge(int example, int head, int dependent) {
 			this.example = example;
 			this.head = head;
