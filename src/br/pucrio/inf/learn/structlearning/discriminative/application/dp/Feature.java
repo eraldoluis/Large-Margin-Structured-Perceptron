@@ -5,8 +5,8 @@ import java.util.Arrays;
 import br.pucrio.inf.learn.util.HashCodeUtil;
 
 /**
- * Represent a feature template instantiation. Store the template index and the
- * value of each feature in the template.
+ * Represent a feature templateIndex instantiation. Store the templateIndex
+ * index and the value of each feature in the templateIndex.
  * 
  * @author eraldo
  * 
@@ -16,7 +16,7 @@ public class Feature implements Cloneable {
 	/**
 	 * Template index that generated this feature.
 	 */
-	private int template;
+	private int templateIndex;
 
 	/**
 	 * Values for each basic feature in this combined feature.
@@ -26,21 +26,30 @@ public class Feature implements Cloneable {
 	/**
 	 * Instantiate a new feature.
 	 * 
-	 * @param template
+	 * @param templateIndex
 	 * @param values
 	 */
-	public Feature(int template, int[] values) {
-		this.template = template;
+	public Feature(int templateIndex, int[] values) {
+		this.templateIndex = templateIndex;
 		this.values = values;
 	}
 
 	/**
-	 * Return the template index of this feature.
+	 * Return the templateIndex index of this feature.
 	 * 
 	 * @return
 	 */
-	public int getTemplate() {
-		return template;
+	public int getTemplateIndex() {
+		return templateIndex;
+	}
+
+	/**
+	 * Set this feature template index.
+	 * 
+	 * @param index
+	 */
+	public void setTemplateIndex(int index) {
+		templateIndex = index;
 	}
 
 	/**
@@ -63,7 +72,7 @@ public class Feature implements Cloneable {
 
 	@Override
 	public int hashCode() {
-		return HashCodeUtil.hash(template, values);
+		return HashCodeUtil.hash(templateIndex, values);
 	}
 
 	@Override
@@ -71,14 +80,15 @@ public class Feature implements Cloneable {
 		if (!(o instanceof Feature))
 			return false;
 		Feature f = (Feature) o;
-		return template == f.template && Arrays.equals(values, f.values);
+		return templateIndex == f.templateIndex
+				&& Arrays.equals(values, f.values);
 	}
 
 	/**
 	 * Clone this instance.
 	 */
 	public Feature clone() throws CloneNotSupportedException {
-		return new Feature(template, values.clone());
+		return new Feature(templateIndex, values.clone());
 	}
 
 }

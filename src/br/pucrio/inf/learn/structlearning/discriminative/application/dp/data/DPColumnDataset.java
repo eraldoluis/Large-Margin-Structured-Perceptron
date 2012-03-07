@@ -28,22 +28,38 @@ import br.pucrio.inf.learn.structlearning.discriminative.application.dp.Inverted
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.SimpleFeatureTemplate;
 import br.pucrio.inf.learn.structlearning.discriminative.data.DatasetException;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
+import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.MapEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.StringMapEncoding;
 
 /**
  * Represent a dataset with dependency parsing examples. Each edge within a
- * sentence is represented by a fixed number of features. This class is useful
- * for template-based models.
+ * sentence is represented by a fixed number of features (column-based
+ * representation, also commonly used in CoNLL shared tasks). This class is
+ * useful for template-based models.
+ * 
+ * In this representation, there are two types of features: basic and explicit.
+ * Basic features come from dataset columns. Each column has a name and an
+ * sequential id, and, for each example, there is a string value for each basic
+ * feature (column). Explicit features are instantiated from templates. These
+ * are the real features, that is the features used in the model. Generally,
+ * each template combines some basic features and generates an explicit feature
+ * for each edge.
+ * 
+ * There are also two encodings. The first one encodes basic features textual
+ * values into integer codes. The second one encodes explicit features (i.e.,
+ * combined basic features by means of templates) values into integer codes.
+ * These later codes are used by the model as parameter indexes, i.e., for each
+ * index, the model includes a learned weight.
  * 
  * @author eraldo
  * 
  */
-public class DPEdgeCorpus implements DPDataset {
+public class DPColumnDataset implements DPDataset {
 
 	/**
 	 * Logging object.
 	 */
-	private static Log LOG = LogFactory.getLog(DPEdgeCorpus.class);
+	private static Log LOG = LogFactory.getLog(DPColumnDataset.class);
 
 	/**
 	 * Regular expression pattern to parse spaces.
@@ -53,7 +69,28 @@ public class DPEdgeCorpus implements DPDataset {
 	/**
 	 * Encoding for basic textual features.
 	 */
-	private FeatureEncoding<String> encoding;
+	private FeatureEncoding<String> basicEncoding;
+
+	/**
+	 * Template set partitions.
+	 */
+	private FeatureTemplate[][] templates;
+
+	/**
+	 * Encoding for explicit features that are created from templates by
+	 * conjoining basic features.
+	 */
+	private MapEncoding<Feature> explicitEncoding;
+
+	/**
+	 * Number of template partitions.
+	 */
+	private int numberOfPartitions;
+
+	/**
+	 * Current partition.
+	 */
+	private int currentPartition;
 
 	/**
 	 * Feature labels.
@@ -92,13 +129,6 @@ public class DPEdgeCorpus implements DPDataset {
 	private InvertedIndex invertedIndex;
 
 	/**
-	 * Explicit lists of features to speedup some algorithms. Mainly, extraction
-	 * algorithms for small corpus (testing data, for instance).
-	 */
-	@SuppressWarnings("rawtypes")
-	private LinkedList[][][] explicitFeatures;
-
-	/**
 	 * Punctuation file reader.
 	 */
 	private BufferedReader readerPunc;
@@ -113,29 +143,30 @@ public class DPEdgeCorpus implements DPDataset {
 	 * 
 	 * @param multiValuedFeatures
 	 */
-	public DPEdgeCorpus(Collection<String> multiValuedFeatures) {
+	public DPColumnDataset(Collection<String> multiValuedFeatures) {
 		this.multiValuedFeatures = new TreeSet<String>();
 		if (multiValuedFeatures != null) {
 			for (String ftrLabel : multiValuedFeatures)
 				this.multiValuedFeatures.add(ftrLabel);
 		}
-		this.encoding = new StringMapEncoding();
+		this.basicEncoding = new StringMapEncoding();
+		this.explicitEncoding = new MapEncoding<Feature>();
 	}
 
 	/**
-	 * Create edge corpus with the given encoding.
+	 * Create a new dataset using the same encoding and other underlying data
+	 * structures of the given 'sibling' dataset.
 	 * 
-	 * @param multiValuedFeatures
-	 * @param encoding
+	 * For most use cases, the underlying data structures within the sibling
+	 * dataset should be kept unchanged after creating this new dataset.
+	 * 
+	 * @param sibling
 	 */
-	public DPEdgeCorpus(Collection<String> multiValuedFeatures,
-			FeatureEncoding<String> encoding) {
-		this.multiValuedFeatures = new TreeSet<String>();
-		if (multiValuedFeatures != null) {
-			for (String ftrLabel : multiValuedFeatures)
-				this.multiValuedFeatures.add(ftrLabel);
-		}
-		this.encoding = encoding;
+	public DPColumnDataset(DPColumnDataset sibling) {
+		this.multiValuedFeatures = sibling.multiValuedFeatures;
+		this.basicEncoding = sibling.basicEncoding;
+		this.explicitEncoding = sibling.explicitEncoding;
+		this.templates = sibling.templates;
 	}
 
 	/**
@@ -194,19 +225,6 @@ public class DPEdgeCorpus implements DPDataset {
 	}
 
 	/**
-	 * Return the lists of explicit features.
-	 * 
-	 * These lists can be used to speedup extraction algorithms for small corpus
-	 * (testing data, for instance).
-	 * 
-	 * @return
-	 */
-	@SuppressWarnings("rawtypes")
-	public LinkedList[][][] getExplicitFeatures() {
-		return explicitFeatures;
-	}
-
-	/**
 	 * Return the punctuation file name.
 	 * 
 	 * @return
@@ -222,46 +240,6 @@ public class DPEdgeCorpus implements DPDataset {
 	 */
 	public void setFileNamePunc(String filename) {
 		this.fileNamePunc = filename;
-	}
-
-	/**
-	 * Create lists of explicit features for this corpus.
-	 * 
-	 * @param templates
-	 */
-	public void createExplicitFeatures(FeatureTemplate[] templates) {
-		int numExs = getNumberOfExamples();
-		explicitFeatures = new LinkedList[numExs][][];
-		for (int idxEx = 0; idxEx < numExs; ++idxEx) {
-			DPInput input = inputs[idxEx];
-			int lenEx = input.getNumberOfTokens();
-			explicitFeatures[idxEx] = new LinkedList[lenEx][lenEx];
-			for (int head = 0; head < lenEx; ++head) {
-				for (int dependent = 0; dependent < lenEx; ++dependent) {
-					if (input.getFeatureCodes(head, dependent) == null) {
-						// Inexistent edge.
-						explicitFeatures[idxEx][head][dependent] = null;
-						continue;
-					}
-
-					// Explicitly generate edge features from templates.
-					LinkedList<Feature> features = new LinkedList<Feature>();
-					explicitFeatures[idxEx][head][dependent] = features;
-					for (int idxTpl = 0; idxTpl < templates.length; ++idxTpl) {
-						FeatureTemplate template = templates[idxTpl];
-						Feature ftr = template.newInstance(input, head,
-								dependent, idxTpl);
-						features.add(ftr);
-					}
-				}
-			}
-
-			// Progress info.
-			if ((idxEx + 1) % 100 == 0) {
-				System.out.print(".");
-				System.out.flush();
-			}
-		}
 	}
 
 	/**
@@ -502,7 +480,7 @@ public class DPEdgeCorpus implements DPDataset {
 			for (int idxFtr = 0; idxFtr < ftrValues.length; ++idxFtr) {
 				String str = ftrValues[idxFtr];
 				// TODO deal with multi-valued features.
-				int code = encoding.put(new String(str));
+				int code = basicEncoding.put(new String(str));
 				ftrCodes.add(code);
 			}
 		}
@@ -512,8 +490,7 @@ public class DPEdgeCorpus implements DPDataset {
 			 * Create a new string to store the input id to avoid memory leaks,
 			 * since the id string keeps a reference to the line string.
 			 */
-			DPInput input = new DPInput(inputList.size(), new String(id),
-					features);
+			DPInput input = new DPInput(new String(id), features, false);
 			input.setPunctuation(punctuation);
 
 			// Keep the length of the longest sequence.
@@ -554,50 +531,18 @@ public class DPEdgeCorpus implements DPDataset {
 		return buff;
 	}
 
-	/**
-	 * @return the feature encoding used by this dataset.
-	 */
+	@Override
 	public FeatureEncoding<String> getFeatureEncoding() {
-		return encoding;
+		return basicEncoding;
 	}
 
 	/**
-	 * Load templates from the given reader.
+	 * Return the explicit features encoding.
 	 * 
-	 * @param reader
 	 * @return
-	 * @throws IOException
 	 */
-	public FeatureTemplate[] loadTemplates(BufferedReader reader)
-			throws IOException {
-		LinkedList<FeatureTemplate> templates = new LinkedList<FeatureTemplate>();
-		String line = skipBlanksAndComments(reader);
-		while (line != null) {
-			String[] ftrsStr = REGEX_SPACE.split(line);
-			int[] ftrs = new int[ftrsStr.length];
-			for (int idx = 0; idx < ftrs.length; ++idx)
-				ftrs[idx] = getFeatureIndex(ftrsStr[idx]);
-			templates.add(new SimpleFeatureTemplate(templates.size(), ftrs));
-			// Read next line.
-			line = skipBlanksAndComments(reader);
-		}
-		return templates.toArray(new FeatureTemplate[0]);
-	}
-
-	/**
-	 * Load templates from the given file.
-	 * 
-	 * @param templatesFileName
-	 * @return
-	 * @throws IOException
-	 */
-	public FeatureTemplate[] loadTemplates(String templatesFileName)
-			throws IOException {
-		BufferedReader reader = new BufferedReader(new FileReader(
-				templatesFileName));
-		FeatureTemplate[] templates = loadTemplates(reader);
-		reader.close();
-		return templates;
+	public MapEncoding<Feature> getExplicitEncoding() {
+		return explicitEncoding;
 	}
 
 	@Override
@@ -616,5 +561,151 @@ public class DPEdgeCorpus implements DPDataset {
 	public void deserialize(String filename) throws FileNotFoundException,
 			IOException, ClassNotFoundException {
 		throw new NotImplementedException();
+	}
+
+	//
+	// TODO adapt next partition method
+	//
+	// /**
+	// * Store the accumulated weight of each edge for the current template
+	// * partition and generate the features for the next partition.
+	// *
+	// * @return the next partition.
+	// */
+	// public int nextPartition() {
+	// // Input structures.
+	// int numExs = inputs.length;
+	//
+	// // Accumulate current partition feature weights.
+	// for (int idxEx = 0; idxEx < numExs; ++idxEx) {
+	// DPInput input = inputs[idxEx];
+	// int numTkns = input.getNumberOfTokens();
+	// for (int idxHead = 0; idxHead < numTkns; ++idxHead) {
+	// for (int idxDep = 0; idxDep < numTkns; ++idxDep) {
+	// double score = getEdgeScoreFromCurrentFeatures(input,
+	// idxHead, idxDep);
+	// if (!Double.isNaN(score))
+	// fixedWeights[idxEx][idxHead][idxDep] += score;
+	// }
+	// }
+	// }
+	//
+	// // Go to next partition and generate new features.
+	// ++currentPartition;
+	// if (currentPartition < numberOfPartitions)
+	// generateFeatures();
+	// return currentPartition;
+	// }
+
+	/**
+	 * Load templates from the given reader and, optionally, generate explicit
+	 * features.
+	 * 
+	 * @param reader
+	 * @param generateFeatures
+	 * @throws IOException
+	 */
+	public void loadTemplates(BufferedReader reader, boolean generateFeatures)
+			throws IOException {
+		LinkedList<FeatureTemplate> templatesList = new LinkedList<FeatureTemplate>();
+		String line = skipBlanksAndComments(reader);
+		while (line != null) {
+			String[] ftrsStr = REGEX_SPACE.split(line);
+			int[] ftrs = new int[ftrsStr.length];
+			for (int idx = 0; idx < ftrs.length; ++idx)
+				ftrs[idx] = getFeatureIndex(ftrsStr[idx]);
+			templatesList.add(new SimpleFeatureTemplate(templatesList.size(),
+					ftrs));
+			// Read next line.
+			line = skipBlanksAndComments(reader);
+		}
+
+		// Convert list to array.
+		numberOfPartitions = 1;
+		templates = new FeatureTemplate[1][];
+		templates[0] = templatesList.toArray(new FeatureTemplate[0]);
+
+		if (generateFeatures)
+			// Generate explicit features.
+			generateFeatures();
+	}
+
+	/**
+	 * Load templates from the given file and, optionally, generate explicit
+	 * features.
+	 * 
+	 * @param templatesFileName
+	 * @param generateFeatures
+	 * @throws IOException
+	 */
+	public void loadTemplates(String templatesFileName, boolean generateFeatures)
+			throws IOException {
+		BufferedReader reader = new BufferedReader(new FileReader(
+				templatesFileName));
+		loadTemplates(reader, generateFeatures);
+		reader.close();
+	}
+
+	/**
+	 * Generate features for the current template partition.
+	 */
+	public void generateFeatures() {
+		LinkedList<Integer> ftrs = new LinkedList<Integer>();
+		FeatureTemplate[] tpls = templates[currentPartition];
+		int numExs = inputs.length;
+		for (int idxEx = 0; idxEx < numExs; ++idxEx) {
+			// Current input structure.
+			DPInput input = inputs[idxEx];
+
+			// Number of tokens within the current input.
+			int numTkns = input.getNumberOfTokens();
+
+			// Allocate explicit features matrix.
+			input.allocFeatureMatrix();
+
+			for (int idxHead = 0; idxHead < numTkns; ++idxHead) {
+				for (int idxDep = 0; idxDep < numTkns; ++idxDep) {
+					// Skip non-existent edges.
+					if (input.getBasicFeatures(idxHead, idxDep) == null)
+						continue;
+
+					// Clear previous used list of features.
+					ftrs.clear();
+
+					/*
+					 * Instantiate edge features and add them to active features
+					 * list.
+					 */
+					for (int idxTpl = 0; idxTpl < tpls.length; ++idxTpl) {
+						FeatureTemplate tpl = tpls[idxTpl];
+						// Get temporary feature instance.
+						Feature ftr = tpl.getInstance(input, idxHead, idxDep);
+						// Lookup the feature in the encoding.
+						int code = explicitEncoding.getCodeByValue(ftr);
+						/*
+						 * Instantiate a new feature, if it is not present in
+						 * the encoding.
+						 */
+						if (code == FeatureEncoding.UNSEEN_VALUE_CODE)
+							code = explicitEncoding.put(tpl.newInstance(input,
+									idxHead, idxDep));
+						// Add feature code to active features list.
+						ftrs.add(code);
+					}
+
+					// Set feature vector of this input.
+					input.setFeatures(idxHead, idxDep, ftrs, ftrs.size());
+				}
+			}
+
+			// Progess report.
+			if ((idxEx + 1) % 100 == 0) {
+				System.out.print('.');
+				System.out.flush();
+			}
+		}
+
+		System.out.println();
+		System.out.flush();
 	}
 }

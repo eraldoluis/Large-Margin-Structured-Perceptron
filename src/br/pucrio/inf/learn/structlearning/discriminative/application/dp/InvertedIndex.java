@@ -7,7 +7,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.TreeSet;
 
-import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPEdgeCorpus;
+import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPColumnDataset;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPInput;
 import br.pucrio.inf.learn.util.HashCodeUtil;
 
@@ -24,7 +24,7 @@ public class InvertedIndex {
 	/**
 	 * Direct index.
 	 */
-	private DPEdgeCorpus corpus;
+	private DPColumnDataset corpus;
 
 	/**
 	 * Inverted index.
@@ -41,7 +41,7 @@ public class InvertedIndex {
 	 * 
 	 * @param corpus
 	 */
-	public InvertedIndex(DPEdgeCorpus corpus) {
+	public InvertedIndex(DPColumnDataset corpus) {
 		this.corpus = corpus;
 		initIndex();
 	}
@@ -58,7 +58,7 @@ public class InvertedIndex {
 			int len = input.getNumberOfTokens();
 			for (int head = 0; head < len; ++head) {
 				for (int dependent = 0; dependent < len; ++dependent) {
-					int[] vals = input.getFeatureCodes(head, dependent);
+					int[] vals = input.getFeatures(head, dependent);
 					if (vals == null || vals.length == 0)
 						continue;
 					for (int feature = 0; feature < numFtrs; ++feature)
@@ -78,7 +78,7 @@ public class InvertedIndex {
 	 * 
 	 * @return
 	 */
-	public DPEdgeCorpus getCorpus() {
+	public DPColumnDataset getCorpus() {
 		return corpus;
 	}
 

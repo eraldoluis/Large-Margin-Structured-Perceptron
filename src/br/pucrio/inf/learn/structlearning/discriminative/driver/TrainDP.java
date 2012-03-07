@@ -2,6 +2,7 @@ package br.pucrio.inf.learn.structlearning.discriminative.driver;
 
 import java.io.FileNotFoundException;
 import java.io.PrintStream;
+import java.util.Collection;
 import java.util.Map;
 
 import org.apache.commons.cli.CommandLine;
@@ -23,11 +24,10 @@ import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPBasicM
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPModel;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPTemplateEvolutionModel;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPTemplateModel;
-import br.pucrio.inf.learn.structlearning.discriminative.application.dp.FeatureTemplate;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.MaximumBranchingInference;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPBasicDataset;
+import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPColumnDataset;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPDataset;
-import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPEdgeCorpus;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.evaluation.DPEvaluation;
@@ -350,7 +350,6 @@ public class TrainDP implements Command {
 		int sizeEncoding = -1;
 		FeatureEncoding<String> featureEncoding = null;
 		FeatureEncoding<String> additionalFeatureEncoding = null;
-		FeatureTemplate[][] templates = null;
 		try {
 
 			if (serialDatasets && encodingFile != null) {
@@ -487,14 +486,13 @@ public class TrainDP implements Command {
 			} else {
 				// Load templates and edge corpus.
 				LOG.info("Loading edge corpus...");
-				inDataset = new DPEdgeCorpus(null);
+				inDataset = new DPColumnDataset((Collection<String>) null);
 				if (puncFileNameTrain != null)
-					((DPEdgeCorpus) inDataset)
+					((DPColumnDataset) inDataset)
 							.setFileNamePunc(puncFileNameTrain);
 				inDataset.load(inputCorpusFileNames[0]);
-				templates = new FeatureTemplate[1][];
-				templates[0] = ((DPEdgeCorpus) inDataset)
-						.loadTemplates(templatesFileName);
+				((DPColumnDataset) inDataset).loadTemplates(templatesFileName,
+						true);
 			}
 
 		} catch (Exception e) {
@@ -530,7 +528,7 @@ public class TrainDP implements Command {
 			sizeEncoding = featureEncoding.size();
 		Model model;
 		Inference inference;
-		if (templates == null) {
+		if (templatesFileName == null) {
 			if (hasInvertedIndex) {
 				LOG.error("Option --index requires --templates=<file>");
 				System.exit(1);
@@ -540,18 +538,17 @@ public class TrainDP implements Command {
 			model = new DPBasicModel();
 		} else if (hasInvertedIndex) {
 			LOG.info("Allocating initial model...");
-			model = new DPTemplateModel(templates[0]);
+			model = new DPTemplateModel();
 			// Template-based model with inverted index.
 			LOG.info("Creating inverted index...");
-			((DPEdgeCorpus) inDataset).createInvertedIndex();
-			((DPTemplateModel) model).init((DPEdgeCorpus) inDataset);
+			((DPColumnDataset) inDataset).createInvertedIndex();
+			// ((DPTemplateModel) model).init((DPColumnDataset) inDataset);
 		} else {
 			// Template-based model.
 			LOG.info("Allocating initial model...");
 			// model = new DPTemplateModel(templates[0]);
-			// ((DPTemplateModel) model).init((DPEdgeCorpus) inDataset);
-			model = new DPTemplateEvolutionModel(templates);
-			((DPTemplateEvolutionModel) model).init((DPEdgeCorpus) inDataset);
+			// ((DPTemplateModel) model).init((DPColumnDataset) inDataset);
+			model = new DPTemplateEvolutionModel();
 		}
 
 		// Inference algorithm.
@@ -675,13 +672,12 @@ public class TrainDP implements Command {
 
 				LOG.info("Loading and preparing test data...");
 				DPDataset testset;
-				if (templates == null)
+				if (templatesFileName == null)
 					testset = new DPBasicDataset(inDataset.getFeatureEncoding());
 				else {
-					testset = new DPEdgeCorpus(null,
-							inDataset.getFeatureEncoding());
+					testset = new DPColumnDataset((DPColumnDataset) inDataset);
 					if (puncFileNameTest != null)
-						((DPEdgeCorpus) testset)
+						((DPColumnDataset) testset)
 								.setFileNamePunc(puncFileNameTest);
 				}
 
@@ -690,12 +686,8 @@ public class TrainDP implements Command {
 				else
 					testset.load(testCorpusFileName);
 
-				if (templates != null && testExplicitFeatures) {
-					// Generate explicit features lists.
-					LOG.info("Generating explicit features lists");
-					((DPEdgeCorpus) testset)
-							.createExplicitFeatures(templates[0]);
-				}
+				if (templatesFileName != null)
+					((DPColumnDataset) testset).generateFeatures();
 
 				alg.setListener(new EvaluateModelListener(eval, testset,
 						averageWeights, testExplicitFeatures));
@@ -724,13 +716,12 @@ public class TrainDP implements Command {
 
 				LOG.info("Loading and preparing test data...");
 				DPDataset testset;
-				if (templates == null)
+				if (templatesFileName == null)
 					testset = new DPBasicDataset(inDataset.getFeatureEncoding());
 				else {
-					testset = new DPEdgeCorpus(null,
-							inDataset.getFeatureEncoding());
+					testset = new DPColumnDataset((DPColumnDataset) inDataset);
 					if (puncFileNameTest != null)
-						((DPEdgeCorpus) testset)
+						((DPColumnDataset) testset)
 								.setFileNamePunc(puncFileNameTest);
 				}
 
@@ -738,6 +729,9 @@ public class TrainDP implements Command {
 					testset.deserialize(testCorpusFileName);
 				else
 					testset.load(testCorpusFileName);
+
+				if (templatesFileName != null)
+					((DPColumnDataset) testset).generateFeatures();
 
 				// Allocate output sequences for predictions.
 				DPInput[] inputs = testset.getInputs();
@@ -843,8 +837,6 @@ public class TrainDP implements Command {
 
 		private AccuracyEvaluation eval;
 
-		private DPDataset testset;
-
 		private DPInput[] inputs;
 
 		private DPOutput[] outputs;
@@ -858,7 +850,6 @@ public class TrainDP implements Command {
 		public EvaluateModelListener(AccuracyEvaluation eval,
 				DPDataset testset, boolean averageWeights,
 				boolean explicitFeatures) {
-			this.testset = testset;
 			if (testset != null) {
 				this.inputs = testset.getInputs();
 				this.outputs = testset.getOutputs();
@@ -915,10 +906,6 @@ public class TrainDP implements Command {
 			 */
 			if (averageWeights)
 				model.average(iteration);
-
-			// Use the explicit features previously created in the testset.
-			if (explicitFeatures)
-				((DPTemplateModel) model).init((DPEdgeCorpus) testset);
 
 			// Fill the list of predicted outputs.
 			for (int idx = 0; idx < inputs.length; ++idx)

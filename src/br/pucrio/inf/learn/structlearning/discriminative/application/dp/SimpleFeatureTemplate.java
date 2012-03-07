@@ -37,41 +37,36 @@ public class SimpleFeatureTemplate implements FeatureTemplate {
 	}
 
 	@Override
+	public int getIndex() {
+		return index;
+	}
+
+	@Override
 	public int[] getFeatures() {
 		return features;
 	}
 
 	@Override
-	public Feature getInstance(DPInput input, int idxHead, int idxDep,
-			int idxTemplate) {
-		int[] edgeFeatures = input.getFeatureCodes(idxHead, idxDep);
-		if (edgeFeatures == null || edgeFeatures.length == 0)
+	public Feature getInstance(DPInput input, int idxHead, int idxDep) {
+		int[] basicFeatures = input.getBasicFeatures(idxHead, idxDep);
+		if (basicFeatures == null)
 			return null;
 		int[] values = tempFeature.getValues();
 		for (int idx = 0; idx < features.length; ++idx)
-			values[idx] = edgeFeatures[features[idx]];
+			values[idx] = basicFeatures[features[idx]];
+		tempFeature.setTemplateIndex(index);
 		return tempFeature;
 	}
 
 	@Override
-	public Feature newInstance(DPInput input, int idxHead, int idxDep,
-			int idxTemplate) {
-		int[] edgeFeatures = input.getFeatureCodes(idxHead, idxDep);
-		if (edgeFeatures == null || edgeFeatures.length == 0)
+	public Feature newInstance(DPInput input, int idxHead, int idxDep) {
+		int[] basicFeatures = input.getBasicFeatures(idxHead, idxDep);
+		if (basicFeatures == null)
 			return null;
 		int[] values = new int[features.length];
 		for (int idx = 0; idx < features.length; ++idx)
-			values[idx] = edgeFeatures[features[idx]];
-		return new Feature(idxTemplate, values);
-	}
-
-	/**
-	 * Return this template index.
-	 * 
-	 * @return
-	 */
-	public int getIndex() {
-		return index;
+			values[idx] = basicFeatures[features[idx]];
+		return new Feature(index, values);
 	}
 
 }

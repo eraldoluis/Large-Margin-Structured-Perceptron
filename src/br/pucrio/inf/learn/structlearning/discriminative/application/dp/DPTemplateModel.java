@@ -12,7 +12,7 @@ import java.util.TreeSet;
 
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.InvertedIndex.Edge;
-import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPEdgeCorpus;
+import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPColumnDataset;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.AveragedParameter;
@@ -31,11 +31,6 @@ import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEn
 public class DPTemplateModel implements DPModel {
 
 	/**
-	 * Feature templates.
-	 */
-	protected FeatureTemplate[] templates;
-
-	/**
 	 * Weight for each feature code. A feature code represents a template
 	 * instantiation.
 	 */
@@ -52,12 +47,6 @@ public class DPTemplateModel implements DPModel {
 	protected InvertedIndex index;
 
 	/**
-	 * List of features with value different from zero.
-	 */
-	@SuppressWarnings("rawtypes")
-	protected LinkedList[][][] activeFeatures;
-
-	/**
 	 * Missed features to be updated (increment weight).
 	 */
 	protected HashSet<Feature> updateMissedFeatures;
@@ -69,11 +58,8 @@ public class DPTemplateModel implements DPModel {
 
 	/**
 	 * Create a new model with the given template set.
-	 * 
-	 * @param templates
 	 */
-	public DPTemplateModel(FeatureTemplate[] templates) {
-		this.templates = templates;
+	public DPTemplateModel() {
 		parameters = new HashMap<Feature, AveragedParameter>();
 		updatedParameters = new HashSet<AveragedParameter>();
 		updateMissedFeatures = new HashSet<Feature>();
@@ -89,9 +75,6 @@ public class DPTemplateModel implements DPModel {
 	@SuppressWarnings("unchecked")
 	protected DPTemplateModel(DPTemplateModel other)
 			throws CloneNotSupportedException {
-		// Templates are shallow-copied.
-		this.templates = other.templates;
-
 		// Shallow-copy parameters map and then clone each parameter.
 		this.parameters = (HashMap<Feature, AveragedParameter>) ((HashMap<Feature, AveragedParameter>) other.parameters)
 				.clone();
@@ -104,61 +87,53 @@ public class DPTemplateModel implements DPModel {
 		updateWrongFeatures = new HashSet<Feature>();
 	}
 
-	/**
-	 * Initialize internal data structures to use inverted index or explicit
-	 * features lists that can be optionally activated in the given corpus.
-	 * 
-	 * @param corpus
-	 */
-	public void init(DPEdgeCorpus corpus) {
-		index = corpus.getInvertedIndex();
-		if (index != null) {
-			/*
-			 * Use inverted index. The active features matrix
-			 * (<code>activeFeatures</code>) stores the derived features whose
-			 * value is different from zero. The inverted index is used to
-			 * efficiently instantiate derived features on all examples when
-			 * their value is changed from zero.
-			 */
-			DPInput[] inputs = corpus.getInputs();
-			int numExs = corpus.getNumberOfExamples();
-			activeFeatures = new LinkedList[numExs][][];
-			for (int idxEx = 0; idxEx < numExs; ++idxEx) {
-				int lenEx = inputs[idxEx].getNumberOfTokens();
-				activeFeatures[idxEx] = new LinkedList[lenEx][lenEx];
-				if ((idxEx + 1) % 100 == 0) {
-					System.out.print(".");
-					System.out.flush();
-				}
-			}
-			System.out.println();
-		} else {
-			/*
-			 * Possibly, use explicit features lists, if the returned object is
-			 * not null. Conversely, if this list is null, then derived features
-			 * are instantiated from templates every time the algorithm needs
-			 * them and, just subsenquently, they are discarded.
-			 */
-			activeFeatures = corpus.getExplicitFeatures();
-		}
-	}
+	// /**
+	// * Initialize internal data structures to use inverted index or explicit
+	// * features lists that can be optionally activated in the given corpus.
+	// *
+	// * @param corpus
+	// */
+	// public void init(DPColumnDataset corpus) {
+	// index = corpus.getInvertedIndex();
+	// if (index != null) {
+	// /*
+	// * Use inverted index. The active features matrix
+	// * (<code>activeFeatures</code>) stores the derived features whose
+	// * value is different from zero. The inverted index is used to
+	// * efficiently instantiate derived features on all examples when
+	// * their value is changed from zero.
+	// */
+	// DPInput[] inputs = corpus.getInputs();
+	// int numExs = corpus.getNumberOfExamples();
+	// activeFeatures = new LinkedList[numExs][][];
+	// for (int idxEx = 0; idxEx < numExs; ++idxEx) {
+	// int lenEx = inputs[idxEx].getNumberOfTokens();
+	// activeFeatures[idxEx] = new LinkedList[lenEx][lenEx];
+	// if ((idxEx + 1) % 100 == 0) {
+	// System.out.print(".");
+	// System.out.flush();
+	// }
+	// }
+	// System.out.println();
+	// }
+	// }
 
 	@SuppressWarnings("unchecked")
 	@Override
 	public double getEdgeScore(DPInput input, int idxHead, int idxDependent) {
 		// Check edge existence.
-		if (input.getFeatureCodes(idxHead, idxDependent) == null)
+		if (input.getFeatures(idxHead, idxDependent) == null)
 			return Double.NaN;
 
 		double score = 0d;
 
 		if (activeFeatures == null) {
-			if (input.getFeatureCodes(idxHead, idxDependent) != null) {
+			if (input.getFeatures(idxHead, idxDependent) != null) {
 				// Generate all features from templates.
 				for (int idxTemplate = 0; idxTemplate < templates.length; ++idxTemplate) {
 					AveragedParameter param = parameters
 							.get(templates[idxTemplate].getInstance(input,
-									idxHead, idxDependent, idxTemplate));
+									idxHead, idxDependent));
 					if (param == null)
 						// Feature not instantiated yet, thus its value is zero.
 						continue;
@@ -235,13 +210,13 @@ public class DPTemplateModel implements DPModel {
 			// Generate missed correct features.
 			for (int idxTemplate = 0; idxTemplate < templates.length; ++idxTemplate)
 				updateMissedFeatures.add(templates[idxTemplate].newInstance(
-						input, idxCorrectHead, idxTkn, idxTemplate));
+						input, idxCorrectHead, idxTkn));
 
 			// Generate wrongly misrecovered features.
 			for (int idxTemplate = 0; idxTemplate < templates.length; ++idxTemplate) {
 				// Instantiate feature.
 				Feature ftr = templates[idxTemplate].newInstance(input,
-						idxPredictedHead, idxTkn, idxTemplate);
+						idxPredictedHead, idxTkn);
 				if (!updateMissedFeatures.remove(ftr))
 					/*
 					 * Include feature in the wrongly recovered list only if it
@@ -292,7 +267,7 @@ public class DPTemplateModel implements DPModel {
 			if (index != null) {
 				// Update active features.
 				Collection<Edge> edges = index.getExamplesWithFeatures(
-						templates[ftr.getTemplate()].getFeatures(),
+						templates[ftr.getTemplateIndex()].getFeatures(),
 						ftr.getValues());
 				if (edges != null) {
 					for (Edge e : edges) {

@@ -145,7 +145,7 @@ public class DPBasicModel implements DPModel {
 				continue;
 
 			// Misclassified head. Increment missed edges weights.
-			for (int ftr : input.getFeatureCodes(idxCorrectHead, idxTkn)) {
+			for (int ftr : input.getFeatures(idxCorrectHead, idxTkn)) {
 				AveragedParameter param = getFeatureWeightOrCreate(ftr);
 				param.update(learningRate);
 				updatedWeights.add(param);
@@ -157,7 +157,7 @@ public class DPBasicModel implements DPModel {
 			}
 
 			// Decrement mispredicted edges weights.
-			for (int ftr : input.getFeatureCodes(idxPredictedHead, idxTkn)) {
+			for (int ftr : input.getFeatures(idxPredictedHead, idxTkn)) {
 				AveragedParameter param = getFeatureWeightOrCreate(ftr);
 				param.update(-learningRate);
 				updatedWeights.add(param);
@@ -187,7 +187,7 @@ public class DPBasicModel implements DPModel {
 	public double getEdgeScore(DPInput input, int idxHead, int idxDependent) {
 		double score = 0d;
 		// Accumulate the parameter in the edge score.
-		int[] ftrs = input.getFeatureCodes(idxHead, idxDependent);
+		int[] ftrs = input.getFeatures(idxHead, idxDependent);
 		if (ftrs == null)
 			// Edge does not exist.
 			return Double.NaN;

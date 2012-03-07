@@ -3,21 +3,18 @@ package br.pucrio.inf.learn.structlearning.discriminative.application.dp;
 import java.io.PrintStream;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeSet;
 
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
-import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPEdgeCorpus;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.AveragedParameter;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
-import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.MapEncoding;
 
 /**
  * Represent a dependecy parsing model (head-dependent edge parameters) by means
@@ -38,32 +35,6 @@ import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.MapEncodi
 public class DPTemplateEvolutionModel implements DPModel {
 
 	/**
-	 * Number of template partitions.
-	 */
-	private int numberOfPartitions;
-
-	/**
-	 * Current partition.
-	 */
-	private int currentPartition;
-
-	/**
-	 * Feature templates organized into partitions.
-	 */
-	private final FeatureTemplate[][] templates;
-
-	/**
-	 * Training corpus.
-	 */
-	private DPEdgeCorpus corpus;
-
-	/**
-	 * Encode feature objects as integer codes. A feature object is the
-	 * instantiation of a template.
-	 */
-	private MapEncoding<Feature> encoding;
-
-	/**
 	 * Weight for each feature code (model parameters).
 	 */
 	private Map<Integer, AveragedParameter> parameters;
@@ -74,29 +45,9 @@ public class DPTemplateEvolutionModel implements DPModel {
 	private Set<AveragedParameter> updatedParameters;
 
 	/**
-	 * Features for the current partition.
-	 */
-	@SuppressWarnings("rawtypes")
-	private LinkedList[][][] activeFeatures;
-
-	/**
-	 * Accumulated weight for each edge in the training corpus.
-	 */
-	private double[][][] fixedWeights;
-
-	/**
 	 * Create a new model with the given template partitions.
-	 * 
-	 * @param templates
-	 *            Partitioned templates. This object is not cloned and, thus,
-	 *            must be untouched while it is used by this model.
-	 * 
 	 */
-	public DPTemplateEvolutionModel(FeatureTemplate[][] templates) {
-		this.numberOfPartitions = templates.length;
-		this.currentPartition = -1;
-		this.templates = templates;
-		encoding = new MapEncoding<Feature>();
+	public DPTemplateEvolutionModel() {
 		parameters = new HashMap<Integer, AveragedParameter>();
 		updatedParameters = new HashSet<AveragedParameter>();
 	}
@@ -110,12 +61,6 @@ public class DPTemplateEvolutionModel implements DPModel {
 	@SuppressWarnings("unchecked")
 	protected DPTemplateEvolutionModel(DPTemplateEvolutionModel other)
 			throws CloneNotSupportedException {
-		// Templates are shallow copied.
-		this.templates = other.templates;
-
-		// Encoding is shallow copied.
-		encoding = other.encoding;
-
 		// Shallow-copy parameters map.
 		this.parameters = (HashMap<Integer, AveragedParameter>) ((HashMap<Integer, AveragedParameter>) other.parameters)
 				.clone();
@@ -125,128 +70,6 @@ public class DPTemplateEvolutionModel implements DPModel {
 
 		// Updated parameters and features are NOT copied.
 		updatedParameters = new TreeSet<AveragedParameter>();
-
-		// Shallow-copy (explicit) active features and fixed weights.
-		activeFeatures = other.activeFeatures;
-		fixedWeights = other.fixedWeights;
-	}
-
-	/**
-	 * Initialize the internal data structures.
-	 * 
-	 * @param corpus
-	 */
-	public void init(DPEdgeCorpus corpus) {
-		this.corpus = corpus;
-
-		// Allocate active features lists and fixed weights matrix.
-		DPInput[] inputs = corpus.getInputs();
-		int numExs = inputs.length;
-		activeFeatures = new LinkedList[numExs][][];
-		fixedWeights = new double[numExs][][];
-		for (int idxEx = 0; idxEx < numExs; ++idxEx) {
-			DPInput input = inputs[idxEx];
-			int numTkns = input.getNumberOfTokens();
-			activeFeatures[idxEx] = new LinkedList[numTkns][numTkns];
-			fixedWeights[idxEx] = new double[numTkns][numTkns];
-			for (int idxHead = 0; idxHead < numTkns; ++idxHead)
-				for (int idxDep = 0; idxDep < numTkns; ++idxDep)
-					if (input.getFeatureCodes(idxHead, idxDep) != null)
-						activeFeatures[idxEx][idxHead][idxDep] = new LinkedList<Integer>();
-		}
-
-		// Generate feature lists for the first template partition.
-		currentPartition = 0;
-		generateFeatures();
-	}
-
-	/**
-	 * Store the accumulated weight of each edge for the current template
-	 * partition and generate the features for the next partition.
-	 * 
-	 * @return the next partition.
-	 */
-	public int nextPartition() {
-		// Input structures.
-		DPInput[] inputs = corpus.getInputs();
-		int numExs = inputs.length;
-
-		// Accumulate current partition feature weights.
-		for (int idxEx = 0; idxEx < numExs; ++idxEx) {
-			DPInput input = inputs[idxEx];
-			int numTkns = input.getNumberOfTokens();
-			for (int idxHead = 0; idxHead < numTkns; ++idxHead) {
-				for (int idxDep = 0; idxDep < numTkns; ++idxDep) {
-					double score = getEdgeScoreFromCurrentFeatures(input,
-							idxHead, idxDep);
-					if (!Double.isNaN(score))
-						fixedWeights[idxEx][idxHead][idxDep] += score;
-				}
-			}
-		}
-
-		// Go to next partition and generate new features.
-		++currentPartition;
-		if (currentPartition < numberOfPartitions)
-			generateFeatures();
-		return currentPartition;
-	}
-
-	/**
-	 * Generate features for the current template partition.
-	 */
-	protected void generateFeatures() {
-		// Current template evolution partition.
-		FeatureTemplate[] tpls = templates[currentPartition];
-		DPInput[] inputs = corpus.getInputs();
-		int numExs = inputs.length;
-		for (int idxEx = 0; idxEx < numExs; ++idxEx) {
-			DPInput input = inputs[idxEx];
-			int numTkns = input.getNumberOfTokens();
-			for (int head = 0; head < numTkns; ++head) {
-				for (int dependent = 0; dependent < numTkns; ++dependent) {
-					@SuppressWarnings("unchecked")
-					LinkedList<Integer> ftrs = activeFeatures[idxEx][head][dependent];
-					if (ftrs == null)
-						// Skip non-existent edge.
-						continue;
-					ftrs.clear();
-
-					/*
-					 * Instantiate edge features and add them to active features
-					 * list.
-					 */
-					for (int idxTpl = 0; idxTpl < tpls.length; ++idxTpl) {
-						int globalIdxTpl = currentPartition
-								* numberOfPartitions + idxTpl;
-						FeatureTemplate tpl = tpls[idxTpl];
-						// Get temporary feature instance.
-						Feature ftr = tpl.getInstance(input, head, dependent,
-								globalIdxTpl);
-						// Lookup the feature in the encoding.
-						int code = encoding.getCodeByValue(ftr);
-						/*
-						 * Instantiate a new feature, if it is not present in
-						 * the encoding.
-						 */
-						if (code == FeatureEncoding.UNSEEN_VALUE_CODE)
-							code = encoding.put(tpl.newInstance(input, head,
-									dependent, globalIdxTpl));
-						// Add feature code to active features list.
-						ftrs.add(code);
-					}
-				}
-			}
-
-			// Progess report.
-			if ((idxEx + 1) % 100 == 0) {
-				System.out.print('.');
-				System.out.flush();
-			}
-		}
-
-		System.out.println();
-		System.out.flush();
 	}
 
 	/**
@@ -260,17 +83,16 @@ public class DPTemplateEvolutionModel implements DPModel {
 	 */
 	protected double getEdgeScoreFromCurrentFeatures(DPInput input,
 			int idxHead, int idxDependent) {
-		int idxEx = input.getTrainingIndex();
-		@SuppressWarnings("unchecked")
-		LinkedList<Integer> activeFtrs = activeFeatures[idxEx][idxHead][idxDependent];
+		// Get list of feature codes in the given edge.
+		int[] features = input.getFeatures(idxHead, idxDependent);
 
 		// Check edge existence.
-		if (activeFtrs == null)
+		if (features == null)
 			return Double.NaN;
 
 		double score = 0d;
-		for (int code : activeFtrs) {
-			AveragedParameter param = parameters.get(code);
+		for (int idxFtr = 0; idxFtr < features.length; ++idxFtr) {
+			AveragedParameter param = parameters.get(features[idxFtr]);
 			if (param != null)
 				score += param.get();
 		}
@@ -280,10 +102,11 @@ public class DPTemplateEvolutionModel implements DPModel {
 
 	@Override
 	public double getEdgeScore(DPInput input, int idxHead, int idxDependent) {
-		int idxEx = input.getTrainingIndex();
+		// int idxEx = input.getTrainingIndex();
 		double score = getEdgeScoreFromCurrentFeatures(input, idxHead,
 				idxDependent);
-		return fixedWeights[idxEx][idxHead][idxDependent] + score;
+		return score;
+		// TODO return fixedWeights[idxEx][idxHead][idxDependent] + score;
 	}
 
 	@Override
@@ -303,7 +126,6 @@ public class DPTemplateEvolutionModel implements DPModel {
 	 * @param learningRate
 	 * @return
 	 */
-	@SuppressWarnings("unchecked")
 	private double update(DPInput input, DPOutput outputCorrect,
 			DPOutput outputPredicted, double learningRate) {
 		/*
@@ -311,8 +133,6 @@ public class DPTemplateEvolutionModel implements DPModel {
 		 * thus it has to be always correctly classified.
 		 */
 		assert outputCorrect.getHead(0) == outputPredicted.getHead(0);
-
-		int idxEx = input.getTrainingIndex();
 
 		// Per-token loss value for this example.
 		double loss = 0d;
@@ -335,14 +155,28 @@ public class DPTemplateEvolutionModel implements DPModel {
 				continue;
 
 			/*
-			 * Misclassified head for this token. Update parameters.
+			 * Misclassified head for this token. Thus, update edges parameters.
 			 */
 
-			// Generate missed correct features.
-			for (int code : (LinkedList<Integer>) activeFeatures[idxEx][idxCorrectHead][idxTkn])
-				updateFeatureParam(code, learningRate);
-			for (int code : (LinkedList<Integer>) activeFeatures[idxEx][idxPredictedHead][idxTkn])
-				updateFeatureParam(code, -learningRate);
+			// Increment parameter weights for correct edge features.
+			int[] correctFeatures = input.getFeatures(idxCorrectHead,
+					idxTkn);
+			if (correctFeatures != null)
+				for (int idxFtr = 0; idxFtr < correctFeatures.length; ++idxFtr)
+					updateFeatureParam(correctFeatures[idxFtr], learningRate);
+
+			if (idxPredictedHead == -1)
+				continue;
+
+			/*
+			 * Decrement parameter weights for incorrectly predicted edge
+			 * features.
+			 */
+			int[] predictedFeatures = input.getFeatures(idxPredictedHead,
+					idxTkn);
+			if (predictedFeatures != null)
+				for (int idxFtr = 0; idxFtr < predictedFeatures.length; ++idxFtr)
+					updateFeatureParam(predictedFeatures[idxFtr], -learningRate);
 
 			// Increment (per-token) loss value.
 			loss += 1d;
