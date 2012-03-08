@@ -43,7 +43,7 @@ public class Driver {
 				"Train using the Structural Perceptron algorithm."));
 
 		// Trainer for dependency parsers.
-		descriptions.add(new CommandDescription(new TrainDP(),
+		descriptions.add(new CommandDescription(new TrainCoreference(),
 				"TrainCoreference", "Train a coreference resolution model."));
 
 		if (args.length < 1) {

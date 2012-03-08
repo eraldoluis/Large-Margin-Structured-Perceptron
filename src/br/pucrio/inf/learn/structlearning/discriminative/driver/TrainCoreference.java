@@ -140,8 +140,7 @@ public class TrainCoreference implements Command {
 			LOG.info("Loading edge corpus...");
 			inDataset = new CorefColumnDataset((Collection<String>) null);
 			inDataset.load(inputCorpusFileNames[0]);
-
-			// Load templates.
+			LOG.info("Loading templates and generating features...");
 			inDataset.loadTemplates(templatesFileName, true);
 
 			// Generate explicit features from templates.
@@ -184,11 +183,9 @@ public class TrainCoreference implements Command {
 			try {
 
 				LOG.info("Loading and preparing test data...");
-				// Create
 				CorefColumnDataset testset = new CorefColumnDataset(inDataset);
 				testset.load(testCorpusFileName);
-
-				// Generate features from templates.
+				LOG.info("Generating features from templates...");
 				testset.generateFeatures();
 
 				alg.setListener(new EvaluateModelListener(eval, testset,
@@ -213,8 +210,7 @@ public class TrainCoreference implements Command {
 				LOG.info("Loading and preparing test data...");
 				CorefColumnDataset testset = new CorefColumnDataset(inDataset);
 				testset.load(testCorpusFileName);
-
-				// Generate explicit features from templates.
+				LOG.info("Generating features from templates...");
 				testset.generateFeatures();
 
 				// Allocate output sequences for predictions.
