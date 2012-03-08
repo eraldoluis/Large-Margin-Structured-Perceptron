@@ -491,6 +491,7 @@ public class TrainDP implements Command {
 					((DPColumnDataset) inDataset)
 							.setFileNamePunc(puncFileNameTrain);
 				inDataset.load(inputCorpusFileNames[0]);
+				LOG.info("Loading templates and generating features...");
 				((DPColumnDataset) inDataset).loadTemplates(templatesFileName,
 						true);
 			}

@@ -42,6 +42,10 @@ public class Driver {
 		descriptions.add(new CommandDescription(new TrainPQ2(), "TrainPQ2",
 				"Train using the Structural Perceptron algorithm."));
 
+		// Trainer for dependency parsers.
+		descriptions.add(new CommandDescription(new TrainDP(),
+				"TrainCoreference", "Train a coreference resolution model."));
+
 		if (args.length < 1) {
 			usage();
 			System.exit(1);

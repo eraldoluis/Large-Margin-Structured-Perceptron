@@ -2,6 +2,7 @@ package br.pucrio.inf.learn.structlearning.discriminative.application.dp.data;
 
 import java.io.Serializable;
 import java.util.Collection;
+import java.util.Iterator;
 
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
@@ -115,6 +116,30 @@ public class DPInput implements ExampleInput, Serializable {
 	}
 
 	/**
+	 * Create the input structure with a sparse list of features. Each element
+	 * in <code>basicFeaturesSparseCollection</code> contains an edge feature
+	 * list.
+	 * 
+	 * The two first values in each edge feature list are the head token index
+	 * and the dependent token index. The remaining values are the proper
+	 * feature values.
+	 * 
+	 * @param numberOfTokens
+	 * @param basicFeaturesSparseCollection
+	 * @param allocFixedWeightsMatrix
+	 */
+	public DPInput(
+			int numberOfTokens,
+			String id,
+			Collection<? extends Collection<Integer>> basicFeaturesSparseCollection,
+			boolean allocFixedWeightsMatrix) {
+		this.id = id;
+		this.trainingIndex = -1;
+		allocAndCopyBasicFeatures(numberOfTokens,
+				basicFeaturesSparseCollection, allocFixedWeightsMatrix);
+	}
+
+	/**
 	 * @return the number of tokens in this example.
 	 */
 	public int getNumberOfTokens() {
@@ -137,6 +162,8 @@ public class DPInput implements ExampleInput, Serializable {
 	 * @return
 	 */
 	public boolean isPunctuation(int token) {
+		if (punctuation == null)
+			return false;
 		return punctuation[token];
 	}
 
@@ -276,6 +303,70 @@ public class DPInput implements ExampleInput, Serializable {
 
 		// Copy feature values from collection to matrix.
 		copyFeatures(featuresCollection, basicFeatures);
+	}
+
+	/**
+	 * Allocate basic features matrix and fill its values with the given
+	 * *sparse* edge feature lists.
+	 * 
+	 * Each edge feature list in <code>edgeFeatures</code> contains the head
+	 * token index and the dependent token index as the first two values. The
+	 * remaining values are the proper feature values.
+	 * 
+	 * @param numberOfTokens
+	 * @param edgeFeatures
+	 * @param allocFixedWeightsMatrix
+	 */
+	private void allocAndCopyBasicFeatures(int numberOfTokens,
+			Collection<? extends Collection<Integer>> edgeFeatures,
+			boolean allocFixedWeightsMatrix) {
+		// Number of token within this input.
+		this.numberOfTokens = numberOfTokens;
+
+		// Allocate feature matrix (a matrix of arrays of feature codes).
+		basicFeatures = new int[numberOfTokens][numberOfTokens][];
+
+		if (allocFixedWeightsMatrix)
+			// Allocate fixed weights matrix.
+			fixedWeights = new double[numberOfTokens][numberOfTokens];
+
+		// Copy given values to basic features matrix.
+		copyBasicFeatures(edgeFeatures);
+	}
+
+	/**
+	 * Copy the given edge feature lists to the basic feature matrix.
+	 * 
+	 * Each edge feature list in <code>edgeFeatures</code> contains the head
+	 * token index and the dependent token index as the first two values. The
+	 * remaining values are the proper feature values.
+	 * 
+	 * @param edgeFeatures
+	 */
+	private void copyBasicFeatures(
+			Collection<? extends Collection<Integer>> edgeFeatures) {
+		for (Collection<Integer> ftrs : edgeFeatures) {
+			// Feature list iterator.
+			Iterator<Integer> itFtr = ftrs.iterator();
+
+			/*
+			 * The two first values are the head token index and the dependent
+			 * token index.
+			 */
+			int idxHead = itFtr.next();
+			int idxDep = itFtr.next();
+
+			// Number of features (remaining values).
+			int numFtrs = ftrs.size() - 2;
+
+			// Alloc feature vector.
+			int[] ftrVector = new int[numFtrs];
+			basicFeatures[idxHead][idxDep] = ftrVector;
+			// Copy feature vector.
+			int idxFtr = 0;
+			while (itFtr.hasNext())
+				ftrVector[idxFtr++] = itFtr.next();
+		}
 	}
 
 	/**

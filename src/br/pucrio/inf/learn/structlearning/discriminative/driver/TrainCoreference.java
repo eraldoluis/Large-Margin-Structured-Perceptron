@@ -1,8 +1,6 @@
 package br.pucrio.inf.learn.structlearning.discriminative.driver;
 
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.PrintStream;
+import java.util.Collection;
 import java.util.Map;
 
 import org.apache.commons.cli.CommandLine;
@@ -13,17 +11,18 @@ import org.apache.commons.cli.PosixParser;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import br.pucrio.inf.learn.structlearning.discriminative.algorithm.TrainingListener;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.OnlineStructuredAlgorithm.LearnRateUpdateStrategy;
+import br.pucrio.inf.learn.structlearning.discriminative.algorithm.TrainingListener;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.LossAugmentedPerceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.Perceptron;
-import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPBasicModel;
+import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CorefColumnDataset;
+import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPModel;
+import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPTemplateEvolutionModel;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.MaximumBranchingInference;
-import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPInput;
-import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPBasicDataset;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPDataset;
+import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPOutput;
-import br.pucrio.inf.learn.structlearning.discriminative.data.DatasetException;
+import br.pucrio.inf.learn.structlearning.discriminative.application.dp.evaluation.DPEvaluation;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.StringMapEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.driver.Driver.Command;
@@ -33,8 +32,8 @@ import br.pucrio.inf.learn.structlearning.discriminative.task.Model;
 import br.pucrio.inf.learn.util.CommandLineOptionsUtil;
 
 /**
- * Driver to discriminatively train a dependency parser using perceptron-based
- * algorithms.
+ * Driver to discriminatively train a coreference resolution model using
+ * perceptron-based algorithms.
  * 
  * @author eraldo
  * 
@@ -51,45 +50,51 @@ public class TrainCoreference implements Command {
 	public void run(String[] args) {
 		Options options = new Options();
 		options.addOption(OptionBuilder.withLongOpt("train").isRequired()
-				.withArgName("filename").hasArg().withDescription(
-						"Training dataset file name.").create());
-		options.addOption(OptionBuilder.withLongOpt("model").hasArg()
-				.withArgName("filename").withDescription(
-						"Name of the file to save the resulting model.")
-				.create());
-		options.addOption(OptionBuilder.withLongOpt("numepochs").withArgName(
-				"integer").hasArg().withDescription(
-				"Number of epochs: how many iterations over the"
-						+ " training set.").create());
-		options.addOption(OptionBuilder.withLongOpt("encoding").withArgName(
-				"filename").hasArg().withDescription(
-				"Filename that contains a list of considered feature"
-						+ " values. Any feature value not present in"
-						+ " this file is ignored.").create());
-		options.addOption(OptionBuilder.withLongOpt("test").withArgName(
-				"filename").hasArg().withDescription("Test corpus file name.")
-				.create());
-		options.addOption(OptionBuilder.withLongOpt("perepoch")
+				.withArgName("filename").hasArg()
+				.withDescription("Training dataset file name.").create());
+		options.addOption(OptionBuilder.withLongOpt("templates").isRequired()
+				.withArgName("filename").hasArg()
+				.withDescription("Feature templates file name.").create());
+		options.addOption(OptionBuilder
+				.withLongOpt("numepochs")
+				.withArgName("integer")
+				.hasArg()
+				.withDescription(
+						"Number of epochs: how many iterations over the"
+								+ " training set.").create());
+		options.addOption(OptionBuilder.withLongOpt("test")
+				.withArgName("filename").hasArg()
+				.withDescription("Test corpus file name.").create());
+		options.addOption(OptionBuilder
+				.withLongOpt("perepoch")
 				.withDescription(
 						"The evaluation on the test corpus will "
 								+ "be performed after each training epoch.")
 				.create());
-		options.addOption(OptionBuilder.withLongOpt("progress").withArgName(
-				"rate of examples").hasArg().withDescription(
-				"Rate to report the training progress within each" + " epoch.")
-				.create());
-		options.addOption(OptionBuilder.withLongOpt("seed").withArgName(
-				"integer").hasArg().withDescription(
-				"Random number generator seed.").create());
-		options.addOption(OptionBuilder.withLongOpt("lossweight").withArgName(
-				"double").hasArg().withDescription(
-				"Weight of the loss term in the inference objective"
-						+ " function.").create());
-		options.addOption(OptionBuilder.withLongOpt("noavg").withDescription(
-				"Turn off the weight vector averaging, i.e.,"
-						+ " the algorithm returns only the final weight "
-						+ "vector instead of the average of each step "
-						+ "vectors.").create());
+		options.addOption(OptionBuilder
+				.withLongOpt("progress")
+				.withArgName("rate of examples")
+				.hasArg()
+				.withDescription(
+						"Rate to report the training progress within each"
+								+ " epoch.").create());
+		options.addOption(OptionBuilder.withLongOpt("seed")
+				.withArgName("integer").hasArg()
+				.withDescription("Random number generator seed.").create());
+		options.addOption(OptionBuilder
+				.withLongOpt("lossweight")
+				.withArgName("double")
+				.hasArg()
+				.withDescription(
+						"Weight of the loss term in the inference objective"
+								+ " function.").create());
+		options.addOption(OptionBuilder
+				.withLongOpt("noavg")
+				.withDescription(
+						"Turn off the weight vector averaging, i.e.,"
+								+ " the algorithm returns only the final weight "
+								+ "vector instead of the average of each step "
+								+ "vectors.").create());
 
 		// Parse the command-line arguments.
 		CommandLine cmdLine = null;
@@ -108,13 +113,12 @@ public class TrainCoreference implements Command {
 		 * Get the options given in the command-line or the corresponding
 		 * default values.
 		 */
-		String inputCorpusFileName = cmdLine.getOptionValue("train");
-		String modelFileName = cmdLine.getOptionValue("model");
+		String[] inputCorpusFileNames = cmdLine.getOptionValues("train");
+		String templatesFileName = cmdLine.getOptionValue("templates");
 		int numEpochs = Integer.parseInt(cmdLine.getOptionValue("numepochs",
 				"10"));
 		String testCorpusFileName = cmdLine.getOptionValue("test");
 		boolean evalPerEpoch = cmdLine.hasOption("perepoch");
-		String encodingFile = cmdLine.getOptionValue("encoding");
 		Double reportProgressRate = Double.parseDouble(cmdLine.getOptionValue(
 				"progress", "0.1"));
 		String seedStr = cmdLine.getOptionValue("seed");
@@ -122,70 +126,44 @@ public class TrainCoreference implements Command {
 				"lossweight", "0d"));
 		boolean averageWeights = !cmdLine.hasOption("noavg");
 
-		DPDataset inDataset = null;
+		CorefColumnDataset inDataset = null;
 		FeatureEncoding<String> featureEncoding = null;
-
-		// Create (or load) the feature value encoding.
-		if (encodingFile != null) {
+		try {
 
 			/*
-			 * Load a map-based encoding from the given file. Thus, the feature
-			 * values present in this file will be encoded unambiguously but any
-			 * unknown value will be ignored.
-			 */
-			LOG.info("Loading encoding file...");
-			try {
-				featureEncoding = new StringMapEncoding(encodingFile);
-			} catch (IOException e) {
-				LOG.error("Loading encoding file", e);
-				System.exit(1);
-			}
-		}
-
-		if (featureEncoding == null) {
-
-			/*
-			 * No encoding given by the user. Create an empty and flexible
-			 * feature encoding that will encode unambiguously all feature
-			 * values. If the training dataset is big, this may not fit in
-			 * memory.
+			 * Create an empty and flexible feature encoding that will encode
+			 * unambiguously all feature values. If the training dataset is big,
+			 * this may not fit in memory.
 			 */
 			featureEncoding = new StringMapEncoding();
 
+			LOG.info("Loading edge corpus...");
+			inDataset = new CorefColumnDataset((Collection<String>) null);
+			inDataset.load(inputCorpusFileNames[0]);
+
+			// Load templates.
+			inDataset.loadTemplates(templatesFileName, true);
+
+			// Generate explicit features from templates.
+			inDataset.generateFeatures();
+
+		} catch (Exception e) {
+			LOG.error("Parsing command-line options", e);
+			System.exit(1);
 		}
 
-		inDataset = new DPBasicDataset(featureEncoding);
-		try {
-			inDataset.load(inputCorpusFileName);
-		} catch (IOException e1) {
-			LOG.error("Reading training file", e1);
-			System.exit(1);
-		} catch (DatasetException e1) {
-			LOG.error("Parsing training file", e1);
-			System.exit(1);
-		}
-
-		LOG.info("Feature encoding: "
-				+ featureEncoding.getClass().getSimpleName());
-
-		Model model;
-		Inference inference;
-		// Explicit-features model.
+		// Template-based model.
 		LOG.info("Allocating initial model...");
-		model = new DPBasicModel(inDataset.getFeatureEncoding().size());
+		DPModel model = new DPTemplateEvolutionModel();
 
 		// Inference algorithm.
-		inference = new MaximumBranchingInference(inDataset
-				.getMaxNumberOfTokens());
+		MaximumBranchingInference inference = new MaximumBranchingInference(
+				inDataset.getMaxNumberOfTokens());
 
 		// Create the chosen algorithm.
-		Perceptron alg = null;
-		/*
-		 * Loss-augumented implementation: considers customized loss function
-		 * (per-token misclassification loss).
-		 */
-		alg = new LossAugmentedPerceptron(inference, model, numEpochs, 1d,
-				lossWeight, true, averageWeights, LearnRateUpdateStrategy.NONE);
+		Perceptron alg = new LossAugmentedPerceptron(inference, model,
+				numEpochs, 1d, lossWeight, true, averageWeights,
+				LearnRateUpdateStrategy.NONE);
 
 		if (seedStr != null)
 			// User provided seed to random number generator.
@@ -196,8 +174,33 @@ public class TrainCoreference implements Command {
 			alg.setReportProgressRate(reportProgressRate);
 
 		// Ignore features not seen in the training corpus.
-		if (featureEncoding != null)
-			featureEncoding.setReadOnly(true);
+		featureEncoding.setReadOnly(true);
+
+		// Evaluation method.
+		DPEvaluation eval = new DPEvaluation(false);
+
+		// Evaluation after each training epoch.
+		if (testCorpusFileName != null && evalPerEpoch) {
+			try {
+
+				LOG.info("Loading and preparing test data...");
+				// Create
+				CorefColumnDataset testset = new CorefColumnDataset(inDataset);
+				testset.load(testCorpusFileName);
+
+				// Generate features from templates.
+				testset.generateFeatures();
+
+				alg.setListener(new EvaluateModelListener(eval, testset,
+						averageWeights));
+
+			} catch (Exception e) {
+				LOG.error("Loading testset " + testCorpusFileName, e);
+				System.exit(1);
+			}
+		} else {
+			alg.setListener(new EvaluateModelListener(eval, null, false));
+		}
 
 		LOG.info("Training model...");
 		// Train model.
@@ -208,9 +211,11 @@ public class TrainCoreference implements Command {
 			try {
 
 				LOG.info("Loading and preparing test data...");
-				DPDataset testset;
-				testset = new DPBasicDataset(inDataset.getFeatureEncoding());
+				CorefColumnDataset testset = new CorefColumnDataset(inDataset);
 				testset.load(testCorpusFileName);
+
+				// Generate explicit features from templates.
+				testset.generateFeatures();
 
 				// Allocate output sequences for predictions.
 				DPInput[] inputs = testset.getInputs();
@@ -225,8 +230,8 @@ public class TrainCoreference implements Command {
 					inference.inference(model, inputs[idx], predicteds[idx]);
 
 				// Evaluate the sequences.
-				Map<String, Double> results = null;
-				// eval.evaluateExamples(inputs, outputs, predicteds);
+				Map<String, Double> results = eval.evaluateExamples(inputs,
+						outputs, predicteds);
 
 				// Write results (precision, recall and F-1) per class.
 				printAccuracyResults("Final performance:", results);
@@ -237,20 +242,8 @@ public class TrainCoreference implements Command {
 			}
 		}
 
-		if (modelFileName != null) {
-			LOG.info("Saving final model...");
-			PrintStream ps;
-			try {
-				ps = new PrintStream(modelFileName);
-				/*
-				 * model.save(ps, inputCorpusA.getFeatureEncoding(),
-				 * inputCorpusA.getStateEncoding());
-				 */
-				ps.close();
-			} catch (FileNotFoundException e) {
-				LOG.error("Saving model " + modelFileName, e);
-			}
-		}
+		LOG.info(String.format("# updated parameters: %d",
+				model.getNonZeroParameters()));
 
 		LOG.info("Training done!");
 	}
@@ -313,8 +306,6 @@ public class TrainCoreference implements Command {
 
 		private AccuracyEvaluation eval;
 
-		private DPDataset testset;
-
 		private DPInput[] inputs;
 
 		private DPOutput[] outputs;
@@ -323,19 +314,14 @@ public class TrainCoreference implements Command {
 
 		private boolean averageWeights;
 
-		private boolean explicitFeatures;
-
 		public EvaluateModelListener(AccuracyEvaluation eval,
-				DPDataset testset, boolean averageWeights,
-				boolean explicitFeatures) {
-			this.testset = testset;
+				DPDataset testset, boolean averageWeights) {
 			if (testset != null) {
 				this.inputs = testset.getInputs();
 				this.outputs = testset.getOutputs();
 			}
 			this.eval = eval;
 			this.averageWeights = averageWeights;
-			this.explicitFeatures = explicitFeatures;
 			if (inputs != null) {
 				this.predicteds = new DPOutput[inputs.length];
 				// Allocate output sequences for predictions.
@@ -366,7 +352,7 @@ public class TrainCoreference implements Command {
 			if (inputs == null)
 				return true;
 
-			if (averageWeights || explicitFeatures) {
+			if (averageWeights) {
 				try {
 					// Clone the current model to average it, if necessary.
 					model = (Model) model.clone();

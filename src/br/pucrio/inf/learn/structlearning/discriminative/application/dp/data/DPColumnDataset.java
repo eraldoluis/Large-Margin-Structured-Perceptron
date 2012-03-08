@@ -10,8 +10,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
-import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
@@ -64,63 +64,63 @@ public class DPColumnDataset implements DPDataset {
 	/**
 	 * Regular expression pattern to parse spaces.
 	 */
-	private final Pattern REGEX_SPACE = Pattern.compile("[ ]");
+	protected final Pattern REGEX_SPACE = Pattern.compile("[ ]");
 
 	/**
 	 * Encoding for basic textual features.
 	 */
-	private FeatureEncoding<String> basicEncoding;
+	protected FeatureEncoding<String> basicEncoding;
 
 	/**
 	 * Template set partitions.
 	 */
-	private FeatureTemplate[][] templates;
+	protected FeatureTemplate[][] templates;
 
 	/**
 	 * Encoding for explicit features that are created from templates by
 	 * conjoining basic features.
 	 */
-	private MapEncoding<Feature> explicitEncoding;
+	protected MapEncoding<Feature> explicitEncoding;
 
 	/**
 	 * Number of template partitions.
 	 */
-	private int numberOfPartitions;
+	protected int numberOfPartitions;
 
 	/**
 	 * Current partition.
 	 */
-	private int currentPartition;
+	protected int currentPartition;
 
 	/**
 	 * Feature labels.
 	 */
-	private String[] featureLabels;
+	protected String[] featureLabels;
 
 	/**
 	 * Multi-valued features.
 	 */
-	private Set<String> multiValuedFeatures;
+	protected Set<String> multiValuedFeatures;
 
 	/**
 	 * Input sequences.
 	 */
-	private DPInput[] inputs;
+	protected DPInput[] inputs;
 
 	/**
 	 * Output branchings.
 	 */
-	private DPOutput[] outputs;
+	protected DPOutput[] outputs;
 
 	/**
 	 * Indicate if this dataset is a training set.
 	 */
-	private boolean training;
+	protected boolean training;
 
 	/**
 	 * Length of the longest sequence in this dataset.
 	 */
-	private int maxNumberOfTokens;
+	protected int maxNumberOfTokens;
 
 	/**
 	 * Optional inverted index representation to speedup some algorithms.
@@ -131,12 +131,12 @@ public class DPColumnDataset implements DPDataset {
 	/**
 	 * Punctuation file reader.
 	 */
-	private BufferedReader readerPunc;
+	protected BufferedReader readerPunc;
 
 	/**
 	 * Punctuation file name.
 	 */
-	private String fileNamePunc;
+	protected String fileNamePunc;
 
 	/**
 	 * Create edge corpus.
@@ -373,7 +373,7 @@ public class DPColumnDataset implements DPDataset {
 	 * @throws IOException
 	 * @throws DatasetException
 	 */
-	public boolean parseExample(BufferedReader reader,
+	protected boolean parseExample(BufferedReader reader,
 			Set<Integer> multiValuedFeatureIndexes, String valueSeparator,
 			List<DPInput> inputList, List<DPOutput> outputList)
 			throws IOException, DatasetException {
@@ -390,43 +390,41 @@ public class DPColumnDataset implements DPDataset {
 			return true;
 
 		// Skip first line of example, which contains the original sentence.
-		String id = readerPunc.readLine();
-		line = readerPunc.readLine();
-		readerPunc.readLine();
+		int numTokens = -1;
+		String id = null;
+		String[] puncs = null;
+		boolean[] punctuation = null;
+		if (readerPunc != null) {
+			id = readerPunc.readLine();
+			line = readerPunc.readLine();
+			readerPunc.readLine();
+			// Punctuation flags separated by space.
+			puncs = REGEX_SPACE.split(line);
 
-		// Punctuation flags separated by space.
-		String[] puncs = REGEX_SPACE.split(line);
-
-		// Number of tokens (including ROOT).
-		int numTokens = puncs.length;
-
-		/*
-		 * Mark which tokens are considered punctuation and thus are not
-		 * considered for evaluation.
-		 */
-		boolean[] punctuation = new boolean[numTokens];
-		for (int idxTkn = 0; idxTkn < numTokens; ++idxTkn)
-			punctuation[idxTkn] = puncs[idxTkn].equals("punc");
-
-		/*
-		 * List of dependent token edges. Each dependent token is a list of
-		 * edges. Each edge is a list of feature codes.
-		 */
-		ArrayList<ArrayList<LinkedList<Integer>>> features = new ArrayList<ArrayList<LinkedList<Integer>>>(
-				numTokens);
-		for (int idx = 0; idx < numTokens; ++idx) {
-			ArrayList<LinkedList<Integer>> depFtrs = new ArrayList<LinkedList<Integer>>(
-					numTokens);
-			features.add(depFtrs);
-			for (int idxHead = 0; idxHead < numTokens; ++idxHead)
-				depFtrs.add(null);
+			/*
+			 * Mark which tokens are considered punctuation and thus are not
+			 * considered for evaluation.
+			 */
+			numTokens = puncs.length;
+			punctuation = new boolean[numTokens];
+			for (int idxTkn = 0; idxTkn < numTokens; ++idxTkn)
+				punctuation[idxTkn] = puncs[idxTkn].equals("punc");
 		}
 
-		// Which dependent tokens has the correct edges been seen for.
-		boolean[] sawCorrectEdge = new boolean[numTokens];
+		/*
+		 * List of edges. Each edge is a list of feature codes. However, the two
+		 * first values in each list are the head token index and the dependent
+		 * token index, and the third value is 1, if the edge is correct, and 0,
+		 * otherwise.
+		 */
+		LinkedList<LinkedList<Integer>> features = new LinkedList<LinkedList<Integer>>();
 
-		// Allocate the output structure.
-		DPOutput output = new DPOutput(numTokens);
+		// Correct edges (head-dependent pairs).
+		LinkedList<Integer> correctDepTokens = new LinkedList<Integer>();
+		LinkedList<Integer> correctHeadTokens = new LinkedList<Integer>();
+
+		// Maximum token index.
+		int maxIndex = -1;
 
 		// Read next line.
 		while ((line = reader.readLine()) != null) {
@@ -441,27 +439,39 @@ public class DPColumnDataset implements DPDataset {
 
 			// Head and dependent tokens indexes.
 			String[] edgeId = ftrValues[0].split(">");
-			int head = Integer.parseInt(edgeId[0]);
-			int dependent = Integer.parseInt(edgeId[1]);
+			int idxHead = Integer.parseInt(edgeId[0]);
+			int idxDep = Integer.parseInt(edgeId[1]);
 
 			// Skip diagonal edges.
-			if (dependent == head)
+			if (idxDep == idxHead)
 				continue;
 
-			// First feature is, in fact, the flag of correct edge.
-			String isCorrectEdge = ftrValues[ftrValues.length - 1];
+			if (idxHead > maxIndex)
+				maxIndex = idxHead;
+			if (idxDep > maxIndex)
+				maxIndex = idxDep;
 
-			// If it is the correct edge.
+			// List of feature codes.
+			LinkedList<Integer> edgeFeatures = new LinkedList<Integer>();
+			features.add(edgeFeatures);
+
+			// The two first values are the head and the dependent indexes.
+			edgeFeatures.add(idxHead);
+			edgeFeatures.add(idxDep);
+
+			// Encode the edge features.
+			for (int idxFtr = 1; idxFtr < ftrValues.length - 1; ++idxFtr) {
+				String str = ftrValues[idxFtr];
+				// TODO deal with multi-valued features.
+				int code = basicEncoding.put(new String(str));
+				edgeFeatures.add(code);
+			}
+
+			// The last value is the correct edge flag (TRUE or FALSE).
+			String isCorrectEdge = ftrValues[ftrValues.length - 1];
 			if (isCorrectEdge.equals("TRUE")) {
-				if (sawCorrectEdge[dependent])
-					/*
-					 * If another correct edge has been seen before, throw an
-					 * execption.
-					 */
-					throw new DatasetException("Double correct edge for token "
-							+ dependent);
-				output.setHead(dependent, head);
-				sawCorrectEdge[dependent] = true;
+				correctDepTokens.add(idxDep);
+				correctHeadTokens.add(idxHead);
 			} else if (!isCorrectEdge.equals("FALSE")) {
 				/*
 				 * If it is not the correct edge, but the value is not 0, throw
@@ -470,43 +480,49 @@ public class DPColumnDataset implements DPDataset {
 				throw new DatasetException(
 						"Last feature value must be TRUE or FALSE to indicate "
 								+ "the correct edge. However, for token "
-								+ dependent + " and head " + head
+								+ idxDep + " and head " + idxHead
 								+ " this feature value is " + isCorrectEdge);
 			}
-
-			// Encode the edge features.
-			LinkedList<Integer> ftrCodes = new LinkedList<Integer>();
-			features.get(dependent).set(head, ftrCodes);
-			for (int idxFtr = 0; idxFtr < ftrValues.length; ++idxFtr) {
-				String str = ftrValues[idxFtr];
-				// TODO deal with multi-valued features.
-				int code = basicEncoding.put(new String(str));
-				ftrCodes.add(code);
-			}
 		}
 
-		try {
-			/*
-			 * Create a new string to store the input id to avoid memory leaks,
-			 * since the id string keeps a reference to the line string.
-			 */
-			DPInput input = new DPInput(new String(id), features, false);
+		if (numTokens == -1)
+			numTokens = maxIndex + 1;
+
+		if (id == null)
+			id = "" + inputList.size();
+
+		// Allocate the output structure.
+		DPOutput output = new DPOutput(numTokens);
+		// Fill the output structure.
+		Iterator<Integer> itDep = correctDepTokens.iterator();
+		Iterator<Integer> itHead = correctHeadTokens.iterator();
+		while (itDep.hasNext() && itHead.hasNext()) {
+			int idxDep = itDep.next();
+			int idxHead = itHead.next();
+			if (output.getHead(idxDep) != -1)
+				LOG.warn("Multiple correct incoming edges for token " + idxDep
+						+ " in example " + id);
+			output.setHead(idxDep, idxHead);
+		}
+
+		/*
+		 * Create a new string to store the input id to avoid memory leaks,
+		 * since the id string keeps a reference to the line string.
+		 */
+		DPInput input = new DPInput(numTokens, new String(id), features, false);
+		if (punctuation != null)
 			input.setPunctuation(punctuation);
 
-			// Keep the length of the longest sequence.
-			int len = input.getNumberOfTokens();
-			if (len > maxNumberOfTokens)
-				maxNumberOfTokens = len;
+		// Keep the length of the longest sequence.
+		int len = input.getNumberOfTokens();
+		if (len > maxNumberOfTokens)
+			maxNumberOfTokens = len;
 
-			inputList.add(input);
-			outputList.add(output);
+		inputList.add(input);
+		outputList.add(output);
 
-			// Return true if there are more lines.
-			return line != null;
-
-		} catch (DPInputException e) {
-			throw new DatasetException("Error constructing DPInput", e);
-		}
+		// Return true if there are more lines.
+		return line != null;
 	}
 
 	/**
