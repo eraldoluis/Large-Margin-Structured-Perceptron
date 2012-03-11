@@ -52,8 +52,9 @@ public class SimpleFeatureTemplate implements FeatureTemplate {
 		if (basicFeatures == null)
 			return null;
 		int[] values = tempFeature.getValues();
-		for (int idx = 0; idx < features.length; ++idx)
+		for (int idx = 0; idx < features.length; ++idx) {
 			values[idx] = basicFeatures[features[idx]];
+		}
 		tempFeature.setTemplateIndex(index);
 		return tempFeature;
 	}
