@@ -1,6 +1,7 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.coreference;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Iterator;
@@ -140,10 +141,10 @@ public class CorefColumnDataset extends DPColumnDataset {
 
 			// The last value is the correct edge flag (TRUE or FALSE).
 			String isCorrectEdge = ftrValues[ftrValues.length - 1];
-			if (isCorrectEdge.equals("TRUE")) {
+			if (isCorrectEdge.equals("Y")) {
 				correctDepTokens.add(idxDep);
 				correctHeadTokens.add(idxHead);
-			} else if (!isCorrectEdge.equals("FALSE")) {
+			} else if (!isCorrectEdge.equals("N")) {
 				/*
 				 * If it is not the correct edge, but the value is not 0, throw
 				 * an exception.
@@ -199,4 +200,61 @@ public class CorefColumnDataset extends DPColumnDataset {
 		return line != null;
 	}
 
+	/**
+	 * Save this dataset along with a new column with the given predicted
+	 * outputs.
+	 * 
+	 * @param writer
+	 * @param predictedOuputs
+	 * @throws IOException
+	 * @throws DatasetException
+	 */
+	public void save(BufferedWriter writer, DPOutput[] predictedOuputs)
+			throws IOException, DatasetException {
+		// Header.
+		writer.write("[features = id");
+		for (int idxFtr = 0; idxFtr < featureLabels.length; ++idxFtr)
+			writer.write(", " + featureLabels[idxFtr]);
+		writer.write(", correct, predicted]\n\n");
+
+		// Examples.
+		for (int idxEx = 0; idxEx < inputs.length; ++idxEx) {
+			DPInput input = inputs[idxEx];
+			DPOutput correctOutput = outputs[idxEx];
+			DPOutput predictedOutput = predictedOuputs[idxEx];
+
+			// Edge features.
+			int numTokens = input.getNumberOfTokens();
+			for (int idxDep = 1; idxDep < numTokens; ++idxDep) {
+				for (int idxHead = 1; idxHead < numTokens; ++idxHead) {
+					int[] ftrs = input.getBasicFeatures(idxHead, idxDep);
+					if (ftrs == null)
+						continue;
+					// Id.
+					writer.write(idxHead + ">" + idxDep);
+					// Features.
+					for (int idxFtr = 0; idxFtr < ftrs.length; ++idxFtr)
+						writer.write(" "
+								+ basicEncoding.getValueByCode(ftrs[idxFtr]));
+
+					// Correct feature.
+					if (correctOutput.getHead(idxDep) == idxHead)
+						writer.write(" Y");
+					else
+						writer.write(" N");
+
+					// Predicted feature.
+					if (predictedOutput.getHead(idxDep) == idxHead)
+						writer.write(" Y");
+					else
+						writer.write(" N");
+
+					writer.write("\n");
+				}
+			}
+
+			writer.write("\n");
+		}
+	}
+	
 }
