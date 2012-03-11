@@ -287,9 +287,11 @@ public class DPColumnDataset implements DPDataset {
 		int eq = line.indexOf('=');
 		int end = line.indexOf(']');
 		String[] labels = line.substring(eq + 1, end).split(",");
-		featureLabels = new String[labels.length];
-		for (int i = 0; i < labels.length; ++i)
-			featureLabels[i] = labels[i].trim();
+		
+		//the first feature label ("id") is not stored
+		featureLabels = new String[labels.length-1];
+		for (int i = 1; i < labels.length; ++i)
+			featureLabels[i-1] = labels[i].trim();
 
 		// Multi-valued features indexes.
 		Set<Integer> multiValuedFeaturesIndexes = new TreeSet<Integer>();
