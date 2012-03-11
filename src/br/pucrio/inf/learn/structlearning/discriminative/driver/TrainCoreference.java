@@ -138,7 +138,8 @@ public class TrainCoreference implements Command {
 			featureEncoding = new StringMapEncoding();
 
 			LOG.info("Loading edge corpus...");
-			inDataset = new CorefColumnDataset((Collection<String>) null);
+			inDataset = new CorefColumnDataset(featureEncoding,
+					(Collection<String>) null);
 			inDataset.load(inputCorpusFileNames[0]);
 			LOG.info("Loading templates and generating features...");
 			inDataset.loadTemplates(templatesFileName, true);
@@ -239,7 +240,7 @@ public class TrainCoreference implements Command {
 		}
 
 		LOG.info(String.format("# updated parameters: %d",
-				model.getNonZeroParameters()));
+				model.getNumberOfUpdatedParameters()));
 
 		LOG.info("Training done!");
 	}

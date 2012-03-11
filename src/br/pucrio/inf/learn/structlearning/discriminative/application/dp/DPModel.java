@@ -22,10 +22,10 @@ public interface DPModel extends Model {
 	public double getEdgeScore(DPInput input, int idxHead, int idxDependent);
 
 	/**
-	 * Return the number of non-zero parameters within this model.
+	 * Return the number of updated parameters within this model.
 	 * 
 	 * @return
 	 */
-	public int getNonZeroParameters();
+	public int getNumberOfUpdatedParameters();
 
 }

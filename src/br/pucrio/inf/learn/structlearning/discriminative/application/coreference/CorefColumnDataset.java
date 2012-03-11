@@ -15,6 +15,7 @@ import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPC
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.DatasetException;
+import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
 
 /**
  * Store a coreference dataset in column format and provide methods related to
@@ -33,10 +34,12 @@ public class CorefColumnDataset extends DPColumnDataset {
 	/**
 	 * Create an empty dataset and set the given multi-valued features.
 	 * 
+	 * @param basicEncoding
 	 * @param multiValuedFeatures
 	 */
-	public CorefColumnDataset(Collection<String> multiValuedFeatures) {
-		super(multiValuedFeatures);
+	public CorefColumnDataset(FeatureEncoding<String> basicEncoding,
+			Collection<String> multiValuedFeatures) {
+		super(basicEncoding, multiValuedFeatures);
 	}
 
 	/**
@@ -54,19 +57,8 @@ public class CorefColumnDataset extends DPColumnDataset {
 			Set<Integer> multiValuedFeatureIndexes, String valueSeparator,
 			List<DPInput> inputList, List<DPOutput> outputList)
 			throws IOException, DatasetException {
-		// Read next line.
-		String line = reader.readLine();
-
-		if (line == null)
-			// End of file.
-			return false;
-
-		line = line.trim();
-		if (line.length() == 0)
-			// Skip consecutive blank lines.
-			return true;
-
 		// Skip first line of example, which contains the original sentence.
+		String line;
 		int numTokens = -1;
 		String id = null;
 		String[] puncs = null;
@@ -74,18 +66,20 @@ public class CorefColumnDataset extends DPColumnDataset {
 		if (readerPunc != null) {
 			id = readerPunc.readLine();
 			line = readerPunc.readLine();
-			readerPunc.readLine();
-			// Punctuation flags separated by space.
-			puncs = REGEX_SPACE.split(line);
+			if (line != null) {
+				readerPunc.readLine();
+				// Punctuation flags separated by space.
+				puncs = REGEX_SPACE.split(line);
 
-			/*
-			 * Mark which tokens are considered punctuation and thus are not
-			 * considered for evaluation.
-			 */
-			numTokens = puncs.length;
-			punctuation = new boolean[numTokens];
-			for (int idxTkn = 0; idxTkn < numTokens; ++idxTkn)
-				punctuation[idxTkn] = puncs[idxTkn].equals("punc");
+				/*
+				 * Mark which tokens are considered punctuation and thus are not
+				 * considered for evaluation.
+				 */
+				numTokens = puncs.length;
+				punctuation = new boolean[numTokens];
+				for (int idxTkn = 0; idxTkn < numTokens; ++idxTkn)
+					punctuation[idxTkn] = puncs[idxTkn].equals("punc");
+			}
 		}
 
 		/*
@@ -161,6 +155,9 @@ public class CorefColumnDataset extends DPColumnDataset {
 								+ " this feature value is " + isCorrectEdge);
 			}
 		}
+
+		if (features.size() == 0)
+			return line != null;
 
 		if (numTokens == -1)
 			numTokens = maxIndex + 1;

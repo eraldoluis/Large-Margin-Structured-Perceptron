@@ -246,7 +246,6 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 
 	@Override
 	public void train(ExampleInput[] inputs, ExampleOutput[] outputs) {
-
 		// Training examples.
 		this.inputs = inputs;
 		this.outputs = outputs;

@@ -486,7 +486,8 @@ public class TrainDP implements Command {
 			} else {
 				// Load templates and edge corpus.
 				LOG.info("Loading edge corpus...");
-				inDataset = new DPColumnDataset((Collection<String>) null);
+				inDataset = new DPColumnDataset(featureEncoding,
+						(Collection<String>) null);
 				if (puncFileNameTrain != null)
 					((DPColumnDataset) inDataset)
 							.setFileNamePunc(puncFileNameTrain);
@@ -775,7 +776,7 @@ public class TrainDP implements Command {
 		}
 
 		LOG.info(String.format("# updated parameters: %d",
-				((DPModel) model).getNonZeroParameters()));
+				((DPModel) model).getNumberOfUpdatedParameters()));
 
 		LOG.info("Training done!");
 	}

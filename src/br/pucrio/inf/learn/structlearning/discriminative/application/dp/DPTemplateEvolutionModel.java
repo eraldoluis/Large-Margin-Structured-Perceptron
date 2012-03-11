@@ -237,7 +237,7 @@ public class DPTemplateEvolutionModel implements DPModel {
 	}
 
 	@Override
-	public int getNonZeroParameters() {
+	public int getNumberOfUpdatedParameters() {
 		return parameters.size();
 	}
 

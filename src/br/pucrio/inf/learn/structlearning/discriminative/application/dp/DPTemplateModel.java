@@ -127,33 +127,34 @@ public class DPTemplateModel implements DPModel {
 
 		double score = 0d;
 
-		if (activeFeatures == null) {
-			if (input.getFeatures(idxHead, idxDependent) != null) {
-				// Generate all features from templates.
-				for (int idxTemplate = 0; idxTemplate < templates.length; ++idxTemplate) {
-					AveragedParameter param = parameters
-							.get(templates[idxTemplate].getInstance(input,
-									idxHead, idxDependent));
-					if (param == null)
-						// Feature not instantiated yet, thus its value is zero.
-						continue;
-					// Accumulate the parameter in the edge score.
-					score += param.get();
-				}
-			}
-		} else {
-			// Use active features only.
-			LinkedList<Feature> activeFtrs = activeFeatures[input
-					.getTrainingIndex()][idxHead][idxDependent];
-			if (activeFtrs != null) {
-				for (Feature ftr : activeFtrs) {
-					AveragedParameter param = parameters.get(ftr);
-					if (param != null)
-						// Accumulate the parameter in the edge score.
-						score += param.get();
-				}
-			}
-		}
+// TODO remove comments
+//		if (activeFeatures == null) {
+//			if (input.getFeatures(idxHead, idxDependent) != null) {
+//				// Generate all features from templates.
+//				for (int idxTemplate = 0; idxTemplate < templates.length; ++idxTemplate) {
+//					AveragedParameter param = parameters
+//							.get(templates[idxTemplate].getInstance(input,
+//									idxHead, idxDependent));
+//					if (param == null)
+//						// Feature not instantiated yet, thus its value is zero.
+//						continue;
+//					// Accumulate the parameter in the edge score.
+//					score += param.get();
+//				}
+//			}
+//		} else {
+//			// Use active features only.
+//			LinkedList<Feature> activeFtrs = activeFeatures[input
+//					.getTrainingIndex()][idxHead][idxDependent];
+//			if (activeFtrs != null) {
+//				for (Feature ftr : activeFtrs) {
+//					AveragedParameter param = parameters.get(ftr);
+//					if (param != null)
+//						// Accumulate the parameter in the edge score.
+//						score += param.get();
+//				}
+//			}
+//		}
 
 		return score;
 	}
@@ -206,24 +207,24 @@ public class DPTemplateModel implements DPModel {
 			/*
 			 * Misclassified head for this token. Update parameters.
 			 */
-
-			// Generate missed correct features.
-			for (int idxTemplate = 0; idxTemplate < templates.length; ++idxTemplate)
-				updateMissedFeatures.add(templates[idxTemplate].newInstance(
-						input, idxCorrectHead, idxTkn));
-
-			// Generate wrongly misrecovered features.
-			for (int idxTemplate = 0; idxTemplate < templates.length; ++idxTemplate) {
-				// Instantiate feature.
-				Feature ftr = templates[idxTemplate].newInstance(input,
-						idxPredictedHead, idxTkn);
-				if (!updateMissedFeatures.remove(ftr))
-					/*
-					 * Include feature in the wrongly recovered list only if it
-					 * is not present in the missed feature list.
-					 */
-					updateWrongFeatures.add(ftr);
-			}
+// TODO remove comments
+//			// Generate missed correct features.
+//			for (int idxTemplate = 0; idxTemplate < templates.length; ++idxTemplate)
+//				updateMissedFeatures.add(templates[idxTemplate].newInstance(
+//						input, idxCorrectHead, idxTkn));
+//
+//			// Generate wrongly misrecovered features.
+//			for (int idxTemplate = 0; idxTemplate < templates.length; ++idxTemplate) {
+//				// Instantiate feature.
+//				Feature ftr = templates[idxTemplate].newInstance(input,
+//						idxPredictedHead, idxTkn);
+//				if (!updateMissedFeatures.remove(ftr))
+//					/*
+//					 * Include feature in the wrongly recovered list only if it
+//					 * is not present in the missed feature list.
+//					 */
+//					updateWrongFeatures.add(ftr);
+//			}
 
 			// Update missed features.
 			for (Feature ftr : updateMissedFeatures)
@@ -266,19 +267,20 @@ public class DPTemplateModel implements DPModel {
 
 			if (index != null) {
 				// Update active features.
-				Collection<Edge> edges = index.getExamplesWithFeatures(
-						templates[ftr.getTemplateIndex()].getFeatures(),
-						ftr.getValues());
-				if (edges != null) {
-					for (Edge e : edges) {
-						LinkedList<Feature> activeFtrs = activeFeatures[e.example][e.head][e.dependent];
-						if (activeFtrs == null) {
-							activeFtrs = new LinkedList<Feature>();
-							activeFeatures[e.example][e.head][e.dependent] = activeFtrs;
-						}
-						activeFtrs.add(ftr);
-					}
-				}
+// TODO remove comments
+//				Collection<Edge> edges = index.getExamplesWithFeatures(
+//						templates[ftr.getTemplateIndex()].getFeatures(),
+//						ftr.getValues());
+//				if (edges != null) {
+//					for (Edge e : edges) {
+//						LinkedList<Feature> activeFtrs = activeFeatures[e.example][e.head][e.dependent];
+//						if (activeFtrs == null) {
+//							activeFtrs = new LinkedList<Feature>();
+//							activeFeatures[e.example][e.head][e.dependent] = activeFtrs;
+//						}
+//						activeFtrs.add(ftr);
+//					}
+//				}
 			}
 		}
 
@@ -314,7 +316,7 @@ public class DPTemplateModel implements DPModel {
 	}
 
 	@Override
-	public int getNonZeroParameters() {
+	public int getNumberOfUpdatedParameters() {
 		return parameters.size();
 	}
 
