@@ -64,7 +64,14 @@ public class TrainCoreference implements Command {
 								+ " training set.").create());
 		options.addOption(OptionBuilder.withLongOpt("test")
 				.withArgName("filename").hasArg()
-				.withDescription("Test corpus file name.").create());
+				.withDescription("Test dataset file name.").create());
+		options.addOption(OptionBuilder
+				.withLongOpt("testout")
+				.withArgName("filename")
+				.hasArg()
+				.withDescription(
+						"File name to save the output of the test "
+								+ "dataset (with predicted feature).").create());
 		options.addOption(OptionBuilder
 				.withLongOpt("perepoch")
 				.withDescription(
@@ -117,7 +124,8 @@ public class TrainCoreference implements Command {
 		String templatesFileName = cmdLine.getOptionValue("templates");
 		int numEpochs = Integer.parseInt(cmdLine.getOptionValue("numepochs",
 				"10"));
-		String testCorpusFileName = cmdLine.getOptionValue("test");
+		String testDatasetFileName = cmdLine.getOptionValue("test");
+		String outputTestFileName = cmdLine.getOptionValue("testout");
 		boolean evalPerEpoch = cmdLine.hasOption("perepoch");
 		Double reportProgressRate = Double.parseDouble(cmdLine.getOptionValue(
 				"progress", "0.1"));
@@ -179,21 +187,21 @@ public class TrainCoreference implements Command {
 		// Evaluation method.
 		DPEvaluation eval = new DPEvaluation(false);
 
-		// Evaluation after each training epoch.
-		if (testCorpusFileName != null && evalPerEpoch) {
-			try {
+		CorefColumnDataset testset = null;
 
+		// Evaluation after each training epoch.
+		if (testDatasetFileName != null && evalPerEpoch) {
+			try {
 				LOG.info("Loading and preparing test data...");
-				CorefColumnDataset testset = new CorefColumnDataset(inDataset);
-				testset.load(testCorpusFileName);
+				testset = new CorefColumnDataset(inDataset);
+				testset.load(testDatasetFileName);
 				LOG.info("Generating features from templates...");
 				testset.generateFeatures();
 
 				alg.setListener(new EvaluateModelListener(eval, testset,
 						averageWeights));
-
 			} catch (Exception e) {
-				LOG.error("Loading testset " + testCorpusFileName, e);
+				LOG.error("Loading testset " + testDatasetFileName, e);
 				System.exit(1);
 			}
 		} else {
@@ -205,14 +213,16 @@ public class TrainCoreference implements Command {
 		alg.train(inDataset.getInputs(), inDataset.getOutputs());
 
 		// Evaluation only for the final model.
-		if (testCorpusFileName != null && !evalPerEpoch) {
+		if (testDatasetFileName != null
+				&& (!evalPerEpoch || outputTestFileName != null)) {
 			try {
-
-				LOG.info("Loading and preparing test data...");
-				CorefColumnDataset testset = new CorefColumnDataset(inDataset);
-				testset.load(testCorpusFileName);
-				LOG.info("Generating features from templates...");
-				testset.generateFeatures();
+				if (testset == null) {
+					LOG.info("Loading and preparing test data...");
+					testset = new CorefColumnDataset(inDataset);
+					testset.load(testDatasetFileName);
+					LOG.info("Generating features from templates...");
+					testset.generateFeatures();
+				}
 
 				// Allocate output sequences for predictions.
 				DPInput[] inputs = testset.getInputs();
@@ -226,15 +236,20 @@ public class TrainCoreference implements Command {
 					// Predict (tag the output sequence).
 					inference.inference(model, inputs[idx], predicteds[idx]);
 
-				// Evaluate the sequences.
-				Map<String, Double> results = eval.evaluateExamples(inputs,
-						outputs, predicteds);
+				if (outputTestFileName != null) {
+					LOG.info("Saving test file with predicted column.");
+					testset.save(outputTestFileName, predicteds);
+				}
 
-				// Write results (precision, recall and F-1) per class.
-				printAccuracyResults("Final performance:", results);
-
+				if (!evalPerEpoch) {
+					// Evaluate the sequences.
+					Map<String, Double> results = eval.evaluateExamples(inputs,
+							outputs, predicteds);
+					// Write results (precision, recall and F-1) per class.
+					printAccuracyResults("Final performance:", results);
+				}
 			} catch (Exception e) {
-				LOG.error("Loading testset " + testCorpusFileName, e);
+				LOG.error("Loading testset " + testDatasetFileName, e);
 				System.exit(1);
 			}
 		}

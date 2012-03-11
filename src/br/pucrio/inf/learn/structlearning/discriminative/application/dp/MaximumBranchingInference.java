@@ -55,7 +55,7 @@ public class MaximumBranchingInference implements Inference {
 		 * output inverted branching array with it.
 		 */
 		maxBranchingAlgorithm.findMaxBranching(input.getNumberOfTokens(),
-				graph, 0, output.getInvertedBranchingArray());
+				graph, output.getInvertedBranchingArray());
 	}
 
 	/**
@@ -125,7 +125,7 @@ public class MaximumBranchingInference implements Inference {
 		 * output inverted branching array with it.
 		 */
 		maxBranchingAlgorithm.findMaxBranching(input.getNumberOfTokens(),
-				graph, 0, predictedOutput.getInvertedBranchingArray());
+				graph, predictedOutput.getInvertedBranchingArray());
 	}
 
 	@Override

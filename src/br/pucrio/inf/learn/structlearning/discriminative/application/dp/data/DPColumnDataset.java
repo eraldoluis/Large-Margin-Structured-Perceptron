@@ -289,8 +289,7 @@ public class DPColumnDataset implements DPDataset {
 		int eq = line.indexOf('=');
 		int end = line.indexOf(']');
 		String[] labels = line.substring(eq + 1, end).split(",");
-
-		featureLabels = new String[labels.length];
+		featureLabels = new String[labels.length - 2];
 		for (int i = 1; i < labels.length - 1; ++i)
 			featureLabels[i - 1] = labels[i].trim();
 
@@ -338,6 +337,93 @@ public class DPColumnDataset implements DPDataset {
 	public void save(BufferedWriter writer) throws IOException,
 			DatasetException {
 		throw new NotImplementedException();
+	}
+
+	/**
+	 * Save this dataset along with a new column with the given predicted
+	 * outputs.
+	 * 
+	 * @param fileName
+	 * @param predictedOuputs
+	 * @throws IOException
+	 * @throws DatasetException
+	 */
+	public void save(String fileName, DPOutput[] predictedOuputs)
+			throws IOException, DatasetException {
+		BufferedWriter writer = new BufferedWriter(new FileWriter(fileName));
+		save(writer, predictedOuputs);
+		writer.close();
+	}
+
+	/**
+	 * Save this dataset along with a new column with the given predicted
+	 * outputs.
+	 * 
+	 * @param os
+	 * @param predictedOuputs
+	 * @throws IOException
+	 * @throws DatasetException
+	 */
+	public void save(OutputStream os, DPOutput[] predictedOuputs)
+			throws IOException, DatasetException {
+		save(new BufferedWriter(new OutputStreamWriter(os)), predictedOuputs);
+	}
+
+	/**
+	 * Save this dataset along with a new column with the given predicted
+	 * outputs.
+	 * 
+	 * @param writer
+	 * @param predictedOuputs
+	 * @throws IOException
+	 * @throws DatasetException
+	 */
+	public void save(BufferedWriter writer, DPOutput[] predictedOuputs)
+			throws IOException, DatasetException {
+		// Header.
+		writer.write("[features = id");
+		for (int idxFtr = 0; idxFtr < featureLabels.length; ++idxFtr)
+			writer.write(", " + featureLabels[idxFtr]);
+		writer.write(", correct, predicted]\n\n");
+
+		// Examples.
+		for (int idxEx = 0; idxEx < inputs.length; ++idxEx) {
+			DPInput input = inputs[idxEx];
+			DPOutput correctOutput = outputs[idxEx];
+			DPOutput predictedOutput = predictedOuputs[idxEx];
+
+			// Edge features.
+			int numTokens = input.getNumberOfTokens();
+			for (int idxDep = 0; idxDep < numTokens; ++idxDep) {
+				for (int idxHead = 0; idxHead < numTokens; ++idxHead) {
+					int[] ftrs = input.getBasicFeatures(idxHead, idxDep);
+					if (ftrs == null)
+						continue;
+					// Id.
+					writer.write(idxHead + ">" + idxDep);
+					// Features.
+					for (int idxFtr = 0; idxFtr < ftrs.length; ++idxFtr)
+						writer.write(" "
+								+ basicEncoding.getValueByCode(ftrs[idxFtr]));
+
+					// Correct feature.
+					if (correctOutput.getHead(idxDep) == idxHead)
+						writer.write(" TRUE");
+					else
+						writer.write(" FALSE");
+
+					// Predicted feature.
+					if (predictedOutput.getHead(idxDep) == idxHead)
+						writer.write(" TRUE");
+					else
+						writer.write(" FALSE");
+
+					writer.write("\n");
+				}
+			}
+
+			writer.write("\n");
+		}
 	}
 
 	/**
