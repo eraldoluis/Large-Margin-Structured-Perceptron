@@ -29,7 +29,6 @@ import br.pucrio.inf.learn.structlearning.discriminative.application.dp.SimpleFe
 import br.pucrio.inf.learn.structlearning.discriminative.data.DatasetException;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.MapEncoding;
-import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.StringMapEncoding;
 
 /**
  * Represent a dataset with dependency parsing examples. Each edge within a
@@ -141,16 +140,18 @@ public class DPColumnDataset implements DPDataset {
 	/**
 	 * Create edge corpus.
 	 * 
+	 * @param basicEncoding
 	 * @param multiValuedFeatures
 	 */
-	public DPColumnDataset(Collection<String> multiValuedFeatures) {
+	public DPColumnDataset(FeatureEncoding<String> basicEncoding,
+			Collection<String> multiValuedFeatures) {
+		this.basicEncoding = basicEncoding;
+		this.explicitEncoding = new MapEncoding<Feature>();
 		this.multiValuedFeatures = new TreeSet<String>();
 		if (multiValuedFeatures != null) {
 			for (String ftrLabel : multiValuedFeatures)
 				this.multiValuedFeatures.add(ftrLabel);
 		}
-		this.basicEncoding = new StringMapEncoding();
-		this.explicitEncoding = new MapEncoding<Feature>();
 	}
 
 	/**
@@ -284,18 +285,18 @@ public class DPColumnDataset implements DPDataset {
 
 		// Read feature labels in the first line of the file.
 		String line = reader.readLine();
+		reader.readLine();
 		int eq = line.indexOf('=');
 		int end = line.indexOf(']');
 		String[] labels = line.substring(eq + 1, end).split(",");
-		
-		//the first feature label ("id") is not stored
-		featureLabels = new String[labels.length-1];
-		for (int i = 1; i < labels.length; ++i)
-			featureLabels[i-1] = labels[i].trim();
+
+		featureLabels = new String[labels.length];
+		for (int i = 1; i < labels.length - 1; ++i)
+			featureLabels[i - 1] = labels[i].trim();
 
 		// Multi-valued features indexes.
 		Set<Integer> multiValuedFeaturesIndexes = new TreeSet<Integer>();
-		for (String label : featureLabels)
+		for (String label : multiValuedFeatures)
 			multiValuedFeaturesIndexes.add(getFeatureIndex(label));
 
 		// Examples.
@@ -379,19 +380,8 @@ public class DPColumnDataset implements DPDataset {
 			Set<Integer> multiValuedFeatureIndexes, String valueSeparator,
 			List<DPInput> inputList, List<DPOutput> outputList)
 			throws IOException, DatasetException {
-		// Read next line.
-		String line = reader.readLine();
-
-		if (line == null)
-			// End of file.
-			return false;
-
-		line = line.trim();
-		if (line.length() == 0)
-			// Skip consecutive blank lines.
-			return true;
-
 		// Skip first line of example, which contains the original sentence.
+		String line;
 		int numTokens = -1;
 		String id = null;
 		String[] puncs = null;
@@ -399,18 +389,20 @@ public class DPColumnDataset implements DPDataset {
 		if (readerPunc != null) {
 			id = readerPunc.readLine();
 			line = readerPunc.readLine();
-			readerPunc.readLine();
-			// Punctuation flags separated by space.
-			puncs = REGEX_SPACE.split(line);
+			if (line != null) {
+				readerPunc.readLine();
+				// Punctuation flags separated by space.
+				puncs = REGEX_SPACE.split(line);
 
-			/*
-			 * Mark which tokens are considered punctuation and thus are not
-			 * considered for evaluation.
-			 */
-			numTokens = puncs.length;
-			punctuation = new boolean[numTokens];
-			for (int idxTkn = 0; idxTkn < numTokens; ++idxTkn)
-				punctuation[idxTkn] = puncs[idxTkn].equals("punc");
+				/*
+				 * Mark which tokens are considered punctuation and thus are not
+				 * considered for evaluation.
+				 */
+				numTokens = puncs.length;
+				punctuation = new boolean[numTokens];
+				for (int idxTkn = 0; idxTkn < numTokens; ++idxTkn)
+					punctuation[idxTkn] = puncs[idxTkn].equals("punc");
+			}
 		}
 
 		/*
@@ -486,6 +478,9 @@ public class DPColumnDataset implements DPDataset {
 								+ " this feature value is " + isCorrectEdge);
 			}
 		}
+
+		if (features.size() == 0)
+			return line != null;
 
 		if (numTokens == -1)
 			numTokens = maxIndex + 1;

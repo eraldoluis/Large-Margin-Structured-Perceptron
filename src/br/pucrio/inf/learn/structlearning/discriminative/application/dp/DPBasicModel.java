@@ -145,7 +145,9 @@ public class DPBasicModel implements DPModel {
 				continue;
 
 			// Misclassified head. Increment missed edges weights.
-			for (int ftr : input.getFeatures(idxCorrectHead, idxTkn)) {
+			int[] correctFeatures = input.getFeatures(idxCorrectHead, idxTkn);
+			for (int idxFtr = 0; idxFtr < correctFeatures.length; ++idxFtr) {
+				int ftr = correctFeatures[idxFtr];
 				AveragedParameter param = getFeatureWeightOrCreate(ftr);
 				param.update(learningRate);
 				updatedWeights.add(param);
@@ -157,7 +159,9 @@ public class DPBasicModel implements DPModel {
 			}
 
 			// Decrement mispredicted edges weights.
-			for (int ftr : input.getFeatures(idxPredictedHead, idxTkn)) {
+			int[] predictedFeatures = input.getFeatures(idxPredictedHead, idxTkn);
+			for (int idxFtr = 0; idxFtr < predictedFeatures.length; ++idxFtr) {
+				int ftr = predictedFeatures[idxFtr];
 				AveragedParameter param = getFeatureWeightOrCreate(ftr);
 				param.update(-learningRate);
 				updatedWeights.add(param);
@@ -211,7 +215,7 @@ public class DPBasicModel implements DPModel {
 	}
 
 	@Override
-	public int getNonZeroParameters() {
+	public int getNumberOfUpdatedParameters() {
 		return featureWeights.size();
 	}
 
