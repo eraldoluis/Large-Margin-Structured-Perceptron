@@ -111,10 +111,9 @@ public class MaximumBranchingAlgorithm {
 	 * 
 	 * @param numberOfNodes
 	 * @param graph
-	 * @param root
 	 * @param invertedMaxBranching
 	 */
-	public void findMaxBranching(int numberOfNodes, double[][] graph, int root,
+	public void findMaxBranching(int numberOfNodes, double[][] graph,
 			int[] invertedMaxBranching) {
 
 		// Maximum branching is initially empth.
@@ -145,25 +144,20 @@ public class MaximumBranchingAlgorithm {
 			enterFromNode[scc] = -1;
 			enterToNode[scc] = -1;
 
-			if (scc == root) {
-				// No incoming edge is considered for the root node.
-				for (int from = 0; from < numberOfNodes; ++from)
-					incomingEdges[root][from] = -1;
-			} else {
-				/*
-				 * Add all incoming edges of <code>scc</code> to its SCC
-				 * priority queue.
-				 */
-				for (int from = 0; from < numberOfNodes; ++from) {
-					if (Double.isNaN(graph[from][scc]))
-						// Edge does not exist.
-						incomingEdges[scc][from] = -1;
-					else
-						incomingEdges[scc][from] = scc;
-				}
-				// Remove autocycle edges.
-				incomingEdges[scc][scc] = -1;
+			/*
+			 * Add all incoming edges of <code>scc</code> to its SCC priority
+			 * queue.
+			 */
+			for (int from = 0; from < numberOfNodes; ++from) {
+				if (Double.isNaN(graph[from][scc]))
+					// Edge does not exist.
+					incomingEdges[scc][from] = -1;
+				else
+					incomingEdges[scc][from] = scc;
 			}
+
+			// Remove autocycle edges.
+			incomingEdges[scc][scc] = -1;
 		}
 
 		// Root components with no available incoming edges.
@@ -373,7 +367,7 @@ public class MaximumBranchingAlgorithm {
 
 		MaximumBranchingAlgorithm eds = new MaximumBranchingAlgorithm(4);
 		int[] maxBranching = new int[weights.length];
-		eds.findMaxBranching(4, weights, 0, maxBranching);
+		eds.findMaxBranching(4, weights, maxBranching);
 
 		// Print maximum branching per node.
 		System.out.println("Maximum branching:");
