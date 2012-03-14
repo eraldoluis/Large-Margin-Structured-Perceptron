@@ -5,7 +5,10 @@ import java.util.Collection;
 import java.util.Iterator;
 
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
+import br.pucrio.inf.learn.structlearning.discriminative.application.dp.Feature;
+import br.pucrio.inf.learn.structlearning.discriminative.application.dp.FeatureTemplate;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
+import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
 
 /**
  * Input structure of a dependency parsing example. Represent a complete
@@ -30,12 +33,15 @@ public class DPInput implements ExampleInput, Serializable {
 	/**
 	 * List of features for each pair of tokens (edge). The diagonal
 	 * (self-loops) can be ignored. It is a matrix of arrays of feature codes.
+	 * If the array is <code>null</code> for a given edge, then this edges does
+	 * not exist.
 	 */
 	private int[][][] features;
 
 	/**
 	 * For template-based models, features are represented by basic features
-	 * that are combined to derive composed features.
+	 * that are combined to derive composed features. The composed features are
+	 * stored at <code>features</code>.
 	 */
 	private int[][][] basicFeatures;
 
@@ -249,6 +255,49 @@ public class DPInput implements ExampleInput, Serializable {
 		int idxFtr = 0;
 		for (int ftr : itFeatures)
 			edgeFeatures[idxFtr++] = ftr;
+	}
+
+	public void generateFeatures(FeatureTemplate[] templates,
+			FeatureEncoding<Feature> encoding) {
+		for (int idxHead = 0; idxHead < numberOfTokens; ++idxHead) {
+			for (int idxDep = 0; idxDep < numberOfTokens; ++idxDep) {
+				if (getBasicFeatures(idxHead, idxDep) == null)
+					continue;
+
+				// Create array of features.
+				// TODO this will be no constant when using multi-valued feats.
+				int[] ftrs = new int[templates.length];
+				features[idxHead][idxDep] = ftrs;
+				/*
+				 * Instantiate edge features and add them to active features
+				 * list.
+				 */
+				for (int idxTpl = 0; idxTpl < templates.length; ++idxTpl) {
+					FeatureTemplate tpl = templates[idxTpl];
+					// Get temporary feature instance.
+					Feature ftr = tpl.getInstance(this, idxHead, idxDep);
+					// Lookup the feature in the encoding.
+					int code = encoding.getCodeByValue(ftr);
+					/*
+					 * Instantiate a new feature, if it is not present in the
+					 * encoding.
+					 */
+					if (code == FeatureEncoding.UNSEEN_VALUE_CODE)
+						code = encoding.put(tpl.newInstance(this, idxHead,
+								idxDep));
+					// Add feature code to active features list.
+					ftrs[idxTpl] = code;
+				}
+			}
+		}
+	}
+
+	public void freeFeatureArrays() {
+		for (int idxHead = 0; idxHead < numberOfTokens; ++idxHead) {
+			for (int idxDep = 0; idxDep < numberOfTokens; ++idxDep) {
+				features[idxHead][idxDep] = null;
+			}
+		}
 	}
 
 	/**

@@ -7,10 +7,14 @@ import org.apache.commons.logging.LogFactory;
 
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.OnlineStructuredAlgorithm;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.TrainingListener;
+import br.pucrio.inf.learn.structlearning.discriminative.application.dp.Feature;
+import br.pucrio.inf.learn.structlearning.discriminative.application.dp.FeatureTemplate;
+import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
+import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Inference;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Model;
 import br.pucrio.inf.learn.util.DebugUtil;
@@ -23,6 +27,10 @@ import br.pucrio.inf.learn.util.DebugUtil;
  * 
  */
 public class Perceptron implements OnlineStructuredAlgorithm {
+
+	// TODO test
+	public FeatureTemplate[] templates;
+	public FeatureEncoding<Feature> encoding;
 
 	/**
 	 * Logging object.
@@ -45,7 +53,7 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 	protected double learningRate;
 
 	/**
-	 * Number of iterations.
+	 * Number of passes over the training set.
 	 */
 	protected int numberOfEpochs;
 
@@ -337,6 +345,10 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 
 			indexCurrentExample = indexTrainingOrder[idx];
 
+			// TODO test
+			((DPInput) inputs[indexCurrentExample]).generateFeatures(templates,
+					encoding);
+
 			/*
 			 * Update the current model weights according with the predicted
 			 * output for this training example.
@@ -344,6 +356,9 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 			loss += train(inputs[indexCurrentExample],
 					outputs[indexCurrentExample],
 					predicteds[indexCurrentExample]);
+
+			// TODO test
+			((DPInput) inputs[indexCurrentExample]).freeFeatureArrays();
 
 			// Progress report.
 			if (reportProgressInterval > 0

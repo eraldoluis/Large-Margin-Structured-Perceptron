@@ -91,4 +91,13 @@ public class Feature implements Cloneable {
 		return new Feature(templateIndex, values.clone());
 	}
 
+	/**
+	 * Return how many basic features this explicit (compound) feature uses.
+	 * 
+	 * @return
+	 */
+	public int getLength() {
+		return values.length;
+	}
+
 }

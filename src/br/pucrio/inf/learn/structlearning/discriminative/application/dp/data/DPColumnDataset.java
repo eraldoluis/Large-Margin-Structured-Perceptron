@@ -31,16 +31,16 @@ import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEn
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.MapEncoding;
 
 /**
- * Represent a dataset with dependency parsing examples. Each edge within a
- * sentence is represented by a fixed number of features (column-based
- * representation, also commonly used in CoNLL shared tasks). This class is
- * useful for template-based models.
+ * Represent a dataset with dependency parsing examples. Each examples consists
+ * of a sentence. Each edge within a sentence is represented by a fixed number
+ * of features (column-based representation, also commonly used in CoNLL shared
+ * tasks). This class is useful for template-based models.
  * 
  * In this representation, there are two types of features: basic and explicit.
  * Basic features come from dataset columns. Each column has a name and an
  * sequential id, and, for each example, there is a string value for each basic
  * feature (column). Explicit features are instantiated from templates. These
- * are the real features, that is the features used in the model. Generally,
+ * are the "real" features, that is, the features used in the model. Generally,
  * each template combines some basic features and generates an explicit feature
  * for each edge.
  * 
@@ -66,7 +66,7 @@ public class DPColumnDataset implements DPDataset {
 	protected final Pattern REGEX_SPACE = Pattern.compile("[ ]");
 
 	/**
-	 * Encoding for basic textual features.
+	 * Encoding for basic textual features (column-format features).
 	 */
 	protected FeatureEncoding<String> basicEncoding;
 
@@ -76,7 +76,7 @@ public class DPColumnDataset implements DPDataset {
 	protected FeatureTemplate[][] templates;
 
 	/**
-	 * Encoding for explicit features that are created from templates by
+	 * Encoding for explicit features, i.e., features created from templates by
 	 * conjoining basic features.
 	 */
 	protected MapEncoding<Feature> explicitEncoding;
@@ -205,6 +205,15 @@ public class DPColumnDataset implements DPDataset {
 	@Override
 	public boolean isTraining() {
 		return training;
+	}
+
+	/**
+	 * Return the explicit feature encoding of this dataset.
+	 * 
+	 * @return
+	 */
+	public MapEncoding<Feature> getExplicitFeatureEncoding() {
+		return explicitEncoding;
 	}
 
 	/**
@@ -427,63 +436,69 @@ public class DPColumnDataset implements DPDataset {
 	}
 
 	/**
-	 * Parse an example from the given line.
+	 * Parse an example from the given reader.
 	 * 
-	 * Each line is a sequence of information chunks separated by TAB
-	 * characters. The first chunk is a textual ID of the example. The second
-	 * chunk contains only an integer number with the number of tokens in the
-	 * sequence, including the root token. The third chunk contains the list of
-	 * POS tags of all sequence tokens. From the fourth chunk on, each chunk
-	 * comprises list of feature values, separated by space, representing an
-	 * edge of the sentence graph.
+	 * An example is a sequence of edges. Each edge is represented in one line.
+	 * Blank lines separate one example from the next one. Each line (edge) is a
+	 * sequence of feature values (in the order that was presented in the file
+	 * header).
 	 * 
 	 * The first feature of each edge comprises its ID that *must* obey the
-	 * format head_token_index>dependent_token_index to indicate, respectively,
-	 * the start and end points of the edge. The second feature is 1 (one) if
-	 * the edge is part of the dependecy tree of the example and 0 (zero)
-	 * otherwise. The remaining features represent the edge. Each edge connects
-	 * a head token to a dependent token.
+	 * format "[head token index]>[dependent token index]" to indicate end
+	 * points of the directed edge. The last feature is equal to "TRUE" if the
+	 * edge is part of the correct dependecy tree of this example and "FALSE"
+	 * otherwise. The remaining values are the ordinary basic features.
 	 * 
-	 * The edges must come in a specific order in the line. More specifically,
-	 * edges are order by dependent token and then by head token. Following this
-	 * order, the supposedly first edges should be the ones whose dependent
-	 * token is the zero token (root). Since there is no edge incoming to the
-	 * root node, this sequence is ommited. Conversely, the diagonal edges
-	 * (self-loops), which are also not used in the dependency tree, must not be
-	 * ommited but they are ignored. So they can just comprise an arbitrary
-	 * character sequence, not including TAB chars.
+	 * Edge can be ommited and then will be considered inexistent.
 	 * 
 	 * @param reader
+	 *            input file reader positioned at the beginning of an example or
+	 *            at the end of the file.
 	 * @param multiValuedFeatureIndexes
+	 *            which features are multi-valued features.
 	 * @param valueSeparator
+	 *            character sequence that separates values within a multi-valued
+	 *            feature.
 	 * @param inputList
+	 *            the list of input structures to store the read input.
 	 * @param outputList
+	 *            the list of output structures to store the read output.
 	 * @return
 	 * @throws IOException
+	 *             if there is a problem reading the input file.
 	 * @throws DatasetException
+	 *             if there is a syntax or semantic issue.
 	 */
 	protected boolean parseExample(BufferedReader reader,
 			Set<Integer> multiValuedFeatureIndexes, String valueSeparator,
 			List<DPInput> inputList, List<DPOutput> outputList)
 			throws IOException, DatasetException {
-		// Skip first line of example, which contains the original sentence.
-		String line;
+		// Global variables.
 		int numTokens = -1;
 		String id = null;
+
+		/*
+		 * Read the (optional) punctuation file. This file should contain two
+		 * lines for each example in the dataset input file (in the same order)
+		 * and one blank line separating examples. The first line contains the
+		 * example id and the second contains a sequence of values comprising
+		 * one value for each token in the corresponding example. For each
+		 * token, if this value is "punc", then this token will be ignored in
+		 * the evaluation. If the value is "no", then this token is considered
+		 * for evaluation matters.
+		 */
 		String[] puncs = null;
 		boolean[] punctuation = null;
 		if (readerPunc != null) {
+			// Example id.
 			id = readerPunc.readLine();
-			line = readerPunc.readLine();
-			if (line != null) {
+			// Sequence of punctuation indicators.
+			String puncLine = readerPunc.readLine();
+			if (puncLine != null) {
+				// Skip blank line.
 				readerPunc.readLine();
 				// Punctuation flags separated by space.
-				puncs = REGEX_SPACE.split(line);
-
-				/*
-				 * Mark which tokens are considered punctuation and thus are not
-				 * considered for evaluation.
-				 */
+				puncs = REGEX_SPACE.split(puncLine);
 				numTokens = puncs.length;
 				punctuation = new boolean[numTokens];
 				for (int idxTkn = 0; idxTkn < numTokens; ++idxTkn)
@@ -507,6 +522,7 @@ public class DPColumnDataset implements DPDataset {
 		int maxIndex = -1;
 
 		// Read next line.
+		String line;
 		while ((line = reader.readLine()) != null) {
 
 			line = line.trim();
@@ -662,9 +678,6 @@ public class DPColumnDataset implements DPDataset {
 		throw new NotImplementedException();
 	}
 
-	//
-	// TODO adapt next partition method
-	//
 	// /**
 	// * Store the accumulated weight of each edge for the current template
 	// * partition and generate the features for the next partition.
@@ -743,6 +756,25 @@ public class DPColumnDataset implements DPDataset {
 				templatesFileName));
 		loadTemplates(reader, generateFeatures);
 		reader.close();
+	}
+
+	public void allocFeatureMatrix() {
+		int numExs = inputs.length;
+		for (int idxEx = 0; idxEx < numExs; ++idxEx) {
+			// Current input structure.
+			DPInput input = inputs[idxEx];
+			// Allocate explicit features matrix.
+			input.allocFeatureMatrix();
+		}
+	}
+
+	/**
+	 * Return template set.
+	 * 
+	 * @return
+	 */
+	public FeatureTemplate[][] getTemplates() {
+		return templates;
 	}
 
 	/**

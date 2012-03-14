@@ -3,7 +3,9 @@ package br.pucrio.inf.learn.structlearning.discriminative.driver;
 import java.io.FileNotFoundException;
 import java.io.PrintStream;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.OptionBuilder;
@@ -31,6 +33,7 @@ import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPD
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.evaluation.DPEvaluation;
+import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.AveragedParameter;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.HybridStringEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.JavaHashCodeEncoding;
@@ -346,7 +349,7 @@ public class TrainDP implements Command {
 		boolean debug = cmdLine.hasOption("debug");
 		boolean serialDatasets = cmdLine.hasOption("serial");
 
-		DPDataset inDataset = null;
+		DPDataset trainset = null;
 		int sizeEncoding = -1;
 		FeatureEncoding<String> featureEncoding = null;
 		FeatureEncoding<String> additionalFeatureEncoding = null;
@@ -470,31 +473,33 @@ public class TrainDP implements Command {
 			}
 
 			if (templatesFileName == null) {
-				inDataset = new DPBasicDataset(featureEncoding);
+				trainset = new DPBasicDataset(featureEncoding);
 				if (serialDatasets) {
 					// Load a serialized dataset.
 					LOG.info("Loading input corpus from a serialized file...");
-					inDataset.deserialize(inputCorpusFileNames[0]);
+					trainset.deserialize(inputCorpusFileNames[0]);
 				} else {
 					// Load from a textual file.
 					LOG.info("Loading input corpus...");
-					if (inDataset.equals("stdin"))
-						inDataset.load(System.in);
+					if (trainset.equals("stdin"))
+						trainset.load(System.in);
 					else
-						inDataset.load(inputCorpusFileNames[0]);
+						trainset.load(inputCorpusFileNames[0]);
 				}
 			} else {
 				// Load templates and edge corpus.
 				LOG.info("Loading edge corpus...");
-				inDataset = new DPColumnDataset(featureEncoding,
+				trainset = new DPColumnDataset(featureEncoding,
 						(Collection<String>) null);
 				if (puncFileNameTrain != null)
-					((DPColumnDataset) inDataset)
+					((DPColumnDataset) trainset)
 							.setFileNamePunc(puncFileNameTrain);
-				inDataset.load(inputCorpusFileNames[0]);
+				trainset.load(inputCorpusFileNames[0]);
 				LOG.info("Loading templates and generating features...");
-				((DPColumnDataset) inDataset).loadTemplates(templatesFileName,
-						true);
+				((DPColumnDataset) trainset).loadTemplates(templatesFileName,
+						false); // TODO test
+				// TODO test
+				((DPColumnDataset) trainset).allocFeatureMatrix();
 			}
 
 		} catch (Exception e) {
@@ -543,7 +548,7 @@ public class TrainDP implements Command {
 			model = new DPTemplateModel();
 			// Template-based model with inverted index.
 			LOG.info("Creating inverted index...");
-			((DPColumnDataset) inDataset).createInvertedIndex();
+			((DPColumnDataset) trainset).createInvertedIndex();
 			// ((DPTemplateModel) model).init((DPColumnDataset) inDataset);
 		} else {
 			// Template-based model.
@@ -555,7 +560,7 @@ public class TrainDP implements Command {
 
 		// Inference algorithm.
 		inference = new MaximumBranchingInference(
-				inDataset.getMaxNumberOfTokens());
+				trainset.getMaxNumberOfTokens());
 
 		// Learning rate update strategy.
 		LearnRateUpdateStrategy learningRateUpdateStrategy = LearnRateUpdateStrategy.NONE;
@@ -642,6 +647,11 @@ public class TrainDP implements Command {
 
 		}
 
+		// TODO test
+		alg.encoding = ((DPColumnDataset) trainset)
+				.getExplicitFeatureEncoding();
+		alg.templates = ((DPColumnDataset) trainset).getTemplates()[0];
+
 		if (seedStr != null)
 			// User provided seed to random number generator.
 			alg.setSeed(Long.parseLong(seedStr));
@@ -675,9 +685,9 @@ public class TrainDP implements Command {
 				LOG.info("Loading and preparing test data...");
 				DPDataset testset;
 				if (templatesFileName == null)
-					testset = new DPBasicDataset(inDataset.getFeatureEncoding());
+					testset = new DPBasicDataset(trainset.getFeatureEncoding());
 				else {
-					testset = new DPColumnDataset((DPColumnDataset) inDataset);
+					testset = new DPColumnDataset((DPColumnDataset) trainset);
 					if (puncFileNameTest != null)
 						((DPColumnDataset) testset)
 								.setFileNamePunc(puncFileNameTest);
@@ -691,15 +701,16 @@ public class TrainDP implements Command {
 				if (templatesFileName != null)
 					((DPColumnDataset) testset).generateFeatures();
 
-				alg.setListener(new EvaluateModelListener(eval, testset,
-						averageWeights, testExplicitFeatures));
+				alg.setListener(new EvaluateModelListener(eval, trainset,
+						testset, averageWeights, testExplicitFeatures));
 
 			} catch (Exception e) {
 				LOG.error("Loading testset " + testCorpusFileName, e);
 				System.exit(1);
 			}
 		} else {
-			alg.setListener(new EvaluateModelListener(eval, null, false, false));
+			alg.setListener(new EvaluateModelListener(eval, trainset, null,
+					false, false));
 		}
 
 		// Debug information.
@@ -710,7 +721,7 @@ public class TrainDP implements Command {
 
 		LOG.info("Training model...");
 		// Train model.
-		alg.train(inDataset.getInputs(), inDataset.getOutputs());
+		alg.train(trainset.getInputs(), trainset.getOutputs());
 
 		// Evaluation only for the final model.
 		if (testCorpusFileName != null && !evalPerEpoch) {
@@ -719,9 +730,9 @@ public class TrainDP implements Command {
 				LOG.info("Loading and preparing test data...");
 				DPDataset testset;
 				if (templatesFileName == null)
-					testset = new DPBasicDataset(inDataset.getFeatureEncoding());
+					testset = new DPBasicDataset(trainset.getFeatureEncoding());
 				else {
-					testset = new DPColumnDataset((DPColumnDataset) inDataset);
+					testset = new DPColumnDataset((DPColumnDataset) trainset);
 					if (puncFileNameTest != null)
 						((DPColumnDataset) testset)
 								.setFileNamePunc(puncFileNameTest);
@@ -849,9 +860,12 @@ public class TrainDP implements Command {
 
 		private boolean explicitFeatures;
 
+		private DPDataset trainset;
+
 		public EvaluateModelListener(AccuracyEvaluation eval,
-				DPDataset testset, boolean averageWeights,
+				DPDataset trainset, DPDataset testset, boolean averageWeights,
 				boolean explicitFeatures) {
+			this.trainset = trainset;
 			if (testset != null) {
 				this.inputs = testset.getInputs();
 				this.outputs = testset.getOutputs();
@@ -883,8 +897,41 @@ public class TrainDP implements Command {
 		}
 
 		@Override
-		public boolean afterEpoch(Inference inferenceImpl, Model model,
+		public boolean afterEpoch(Inference inferenceImpl, Model curModel,
 				int epoch, double loss, int iteration) {
+
+			DPTemplateEvolutionModel model = ((DPTemplateEvolutionModel) curModel);
+			HashMap<Integer, Double> absValuesPerTemplateLength = new HashMap<Integer, Double>();
+			HashMap<Integer, Integer> countsPerTemplateLength = new HashMap<Integer, Integer>();
+			for (Entry<Integer, AveragedParameter> entry : model
+					.getParameters().entrySet()) {
+				// Feature code and weight.
+				int ftr = entry.getKey();
+				double weight = Math.abs(entry.getValue().get());
+				// Feature length.
+				int len = ((DPColumnDataset) trainset).getExplicitEncoding()
+						.getValueByCode(ftr).getLength();
+				// Update absolute value per feature length.
+				Double val = absValuesPerTemplateLength.get(len);
+				if (val == null)
+					val = 0d;
+				val = val.doubleValue() + weight;
+				absValuesPerTemplateLength.put(len, val);
+				// Update number of features per feature length.
+				Integer count = countsPerTemplateLength.get(len);
+				if (count == null)
+					count = 0;
+				count = count.intValue() + 1;
+				countsPerTemplateLength.put(len, count);
+			}
+
+			for (Integer len : absValuesPerTemplateLength.keySet()) {
+				double val = absValuesPerTemplateLength.get(len);
+				int count = countsPerTemplateLength.get(len);
+				LOG.info(String.format(
+						"length=%d\tabsolute value=%f\tcount=%d\tmean=%f", len,
+						val, count, val / count));
+			}
 
 			if (inputs == null)
 				return true;
@@ -892,7 +939,7 @@ public class TrainDP implements Command {
 			if (averageWeights || explicitFeatures) {
 				try {
 					// Clone the current model to average it, if necessary.
-					model = (Model) model.clone();
+					curModel = (Model) curModel.clone();
 				} catch (CloneNotSupportedException e) {
 					LOG.error("Cloning current model on epoch " + epoch
 							+ " and iteration " + iteration, e);
@@ -907,12 +954,12 @@ public class TrainDP implements Command {
 			 * (intermediary) performance.
 			 */
 			if (averageWeights)
-				model.average(iteration);
+				curModel.average(iteration);
 
 			// Fill the list of predicted outputs.
 			for (int idx = 0; idx < inputs.length; ++idx)
 				// Predict (tag the output sequence).
-				inferenceImpl.inference(model, inputs[idx], predicteds[idx]);
+				inferenceImpl.inference(curModel, inputs[idx], predicteds[idx]);
 
 			// Evaluate the sequences.
 			Map<String, Double> results = eval.evaluateExamples(inputs,

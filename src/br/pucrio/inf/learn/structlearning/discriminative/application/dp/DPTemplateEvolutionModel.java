@@ -73,6 +73,15 @@ public class DPTemplateEvolutionModel implements DPModel {
 	}
 
 	/**
+	 * Return the parameters map.
+	 * 
+	 * @return
+	 */
+	public Map<Integer, AveragedParameter> getParameters() {
+		return parameters;
+	}
+
+	/**
 	 * Return an edge weight based only on the current features in
 	 * <code>activeFeatures</code> list.
 	 * 
@@ -159,8 +168,7 @@ public class DPTemplateEvolutionModel implements DPModel {
 			 */
 
 			// Increment parameter weights for correct edge features.
-			int[] correctFeatures = input.getFeatures(idxCorrectHead,
-					idxTkn);
+			int[] correctFeatures = input.getFeatures(idxCorrectHead, idxTkn);
 			if (correctFeatures != null)
 				for (int idxFtr = 0; idxFtr < correctFeatures.length; ++idxFtr)
 					updateFeatureParam(correctFeatures[idxFtr], learningRate);
