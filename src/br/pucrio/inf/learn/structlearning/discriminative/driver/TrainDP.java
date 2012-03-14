@@ -647,10 +647,10 @@ public class TrainDP implements Command {
 
 		}
 
-		// TODO test
-		alg.encoding = ((DPColumnDataset) trainset)
-				.getExplicitFeatureEncoding();
-		alg.templates = ((DPColumnDataset) trainset).getTemplates()[0];
+		// // On demand feature generation.
+		// alg.encoding = ((DPColumnDataset) trainset)
+		// .getExplicitFeatureEncoding();
+		// alg.templates = ((DPColumnDataset) trainset).getTemplates()[0];
 
 		if (seedStr != null)
 			// User provided seed to random number generator.

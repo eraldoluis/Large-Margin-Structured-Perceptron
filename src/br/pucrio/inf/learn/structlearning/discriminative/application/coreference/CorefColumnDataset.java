@@ -150,7 +150,7 @@ public class CorefColumnDataset extends DPColumnDataset {
 				 * an exception.
 				 */
 				throw new DatasetException(
-						"Last feature value must be TRUE or FALSE to indicate "
+						"Last feature value must be Y or N to indicate "
 								+ "the correct edge. However, for token "
 								+ idxDep + " and head " + idxHead
 								+ " this feature value is " + isCorrectEdge);

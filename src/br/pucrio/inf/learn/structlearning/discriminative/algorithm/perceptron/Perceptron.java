@@ -7,14 +7,10 @@ import org.apache.commons.logging.LogFactory;
 
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.OnlineStructuredAlgorithm;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.TrainingListener;
-import br.pucrio.inf.learn.structlearning.discriminative.application.dp.Feature;
-import br.pucrio.inf.learn.structlearning.discriminative.application.dp.FeatureTemplate;
-import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
-import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Inference;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Model;
 import br.pucrio.inf.learn.util.DebugUtil;
@@ -28,9 +24,9 @@ import br.pucrio.inf.learn.util.DebugUtil;
  */
 public class Perceptron implements OnlineStructuredAlgorithm {
 
-	// TODO test
-	public FeatureTemplate[] templates;
-	public FeatureEncoding<Feature> encoding;
+	// // On demand feature generation.
+	// public FeatureTemplate[] templates;
+	// public FeatureEncoding<Feature> encoding;
 
 	/**
 	 * Logging object.
@@ -345,9 +341,9 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 
 			indexCurrentExample = indexTrainingOrder[idx];
 
-			// TODO test
-			((DPInput) inputs[indexCurrentExample]).generateFeatures(templates,
-					encoding);
+//			// On demand feature generation.
+//			((DPInput) inputs[indexCurrentExample]).generateFeatures(templates,
+//					encoding);
 
 			/*
 			 * Update the current model weights according with the predicted
@@ -357,8 +353,8 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 					outputs[indexCurrentExample],
 					predicteds[indexCurrentExample]);
 
-			// TODO test
-			((DPInput) inputs[indexCurrentExample]).freeFeatureArrays();
+			// // On demand feature generation.
+			// ((DPInput) inputs[indexCurrentExample]).freeFeatureArrays();
 
 			// Progress report.
 			if (reportProgressInterval > 0
