@@ -176,7 +176,7 @@ public class TrainCoreference implements Command {
 			 */
 			featureEncoding = new StringMapEncoding();
 
-			LOG.info("Loading edge corpus...");
+			LOG.info("Loading train dataset...");
 			inDataset = new CorefColumnDataset(featureEncoding,
 					(Collection<String>) null);
 			inDataset.load(inputCorpusFileNames[0]);
@@ -212,15 +212,16 @@ public class TrainCoreference implements Command {
 			alg.setReportProgressRate(reportProgressRate);
 
 		// Ignore features not seen in the training corpus.
-		featureEncoding.setReadOnly(true);
+		// featureEncoding.setReadOnly(true);
 
 		CorefColumnDataset testset = null;
 
 		// Evaluation after each training epoch.
 		if (testDatasetFileName != null && evalPerEpoch) {
 			try {
-				LOG.info("Loading and preparing test data...");
+				LOG.info("Loading and preparing test dataset...");
 				testset = new CorefColumnDataset(inDataset);
+				testset.setCheckMultipleTrueEdges(false);
 				testset.load(testDatasetFileName);
 				LOG.info("Generating features from templates...");
 				testset.generateFeatures();
@@ -244,8 +245,9 @@ public class TrainCoreference implements Command {
 		if (testDatasetFileName != null && !evalPerEpoch) {
 			try {
 
-				LOG.info("Loading and preparing test data...");
+				LOG.info("Loading and preparing test dataset...");
 				testset = new CorefColumnDataset(inDataset);
+				testset.setCheckMultipleTrueEdges(false);
 				testset.load(testDatasetFileName);
 				LOG.info("Generating features from templates...");
 				testset.generateFeatures();
@@ -434,6 +436,7 @@ public class TrainCoreference implements Command {
 			if (averageWeights) {
 				try {
 					// Clone the current model to average it, if necessary.
+					LOG.info("Cloning current model...");
 					model = (Model) model.clone();
 				} catch (CloneNotSupportedException e) {
 					LOG.error("Cloning current model on epoch " + epoch
@@ -457,16 +460,18 @@ public class TrainCoreference implements Command {
 				inferenceImpl.inference(model, inputs[idx], predicteds[idx]);
 
 			try {
+				String testPredictedOnEpochFileName = testPredictedFileName
+						+ ".epoch" + epoch;
 				LOG.info("Saving test file (" + testPredictedFileName
 						+ ") with predicted column...");
-				testset.save(testPredictedFileName + ".epoch" + epoch,
-						predicteds);
+				testset.save(testPredictedOnEpochFileName, predicteds);
 
 				try {
 					LOG.info("Evaluation after epoch " + epoch + ":");
 					// Execute CoNLL evaluation scripts.
 					evaluateWithConllScripts(conllBasePath,
-							testPredictedFileName, conllTestFileName, metric);
+							testPredictedOnEpochFileName, conllTestFileName,
+							metric);
 				} catch (Exception e) {
 					LOG.error("Running evaluation scripts", e);
 				}

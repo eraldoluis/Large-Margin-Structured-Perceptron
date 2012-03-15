@@ -33,6 +33,12 @@ public class CorefColumnDataset extends DPColumnDataset {
 	private static final Log LOG = LogFactory.getLog(CorefColumnDataset.class);
 
 	/**
+	 * Indicate whether the parsing algorithm will check multiple incoming edges
+	 * tagged as correct for the same token or not.
+	 */
+	private boolean checkMultipleTrueEdges;
+
+	/**
 	 * Create an empty dataset and set the given multi-valued features.
 	 * 
 	 * @param basicEncoding
@@ -41,6 +47,7 @@ public class CorefColumnDataset extends DPColumnDataset {
 	public CorefColumnDataset(FeatureEncoding<String> basicEncoding,
 			Collection<String> multiValuedFeatures) {
 		super(basicEncoding, multiValuedFeatures);
+		this.checkMultipleTrueEdges = true;
 	}
 
 	/**
@@ -51,6 +58,20 @@ public class CorefColumnDataset extends DPColumnDataset {
 	 */
 	public CorefColumnDataset(DPColumnDataset sibling) {
 		super(sibling);
+		if (sibling instanceof CorefColumnDataset)
+			this.checkMultipleTrueEdges = ((CorefColumnDataset) sibling).checkMultipleTrueEdges;
+		else
+			this.checkMultipleTrueEdges = true;
+	}
+
+	/**
+	 * Set whether the parsing algorithm will check if multiple incoming edges
+	 * are tagged as correct for the same token or not.
+	 * 
+	 * @param check
+	 */
+	public void setCheckMultipleTrueEdges(boolean check) {
+		this.checkMultipleTrueEdges = check;
 	}
 
 	@Override
@@ -174,7 +195,7 @@ public class CorefColumnDataset extends DPColumnDataset {
 		while (itDep.hasNext() && itHead.hasNext()) {
 			int idxDep = itDep.next();
 			int idxHead = itHead.next();
-			if (output.getHead(idxDep) != -1)
+			if (checkMultipleTrueEdges && output.getHead(idxDep) != -1)
 				LOG.warn("Multiple correct incoming edges for token " + idxDep
 						+ " in example " + id);
 			output.setHead(idxDep, idxHead);
@@ -256,5 +277,5 @@ public class CorefColumnDataset extends DPColumnDataset {
 			writer.write("\n");
 		}
 	}
-	
+
 }
