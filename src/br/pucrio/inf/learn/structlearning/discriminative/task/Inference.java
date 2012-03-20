@@ -86,7 +86,7 @@ public interface Inference {
 	 * @param lossNonAnnotatedWeight
 	 *            weight used for missing elements that are not annotated
 	 */
-	void lossAugmentedInferenceWithPartiallyLabeledReference(Model model,
+	void lossAugmentedInferenceWithNonAnnotatedWeight(Model model,
 			ExampleInput input, ExampleOutput partiallyLabeledOutput,
 			ExampleOutput referenceOutput, ExampleOutput predictedOutput,
 			double lossAnnotatedWeight, double lossNonAnnotatedWeight);

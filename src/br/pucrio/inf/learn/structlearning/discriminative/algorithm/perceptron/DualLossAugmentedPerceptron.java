@@ -103,7 +103,7 @@ public class DualLossAugmentedPerceptron extends LossAugmentedPerceptron {
 			 * using a loss-augmented objective function that uses different
 			 * weights for annotated and non-annotated tokens.
 			 */
-			inferenceImpl.lossAugmentedInferenceWithPartiallyLabeledReference(
+			inferenceImpl.lossAugmentedInferenceWithNonAnnotatedWeight(
 					model, input, correctOutput, referenceOutput,
 					predictedOutput, lossWeight,
 					lossNonAnnotatedWeight);

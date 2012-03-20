@@ -69,4 +69,12 @@ public class DPOutput implements ExampleOutput, Serializable {
 		heads[token] = head;
 	}
 
+	/**
+	 * Return the number of elements in this output structure.
+	 * 
+	 * @return
+	 */
+	public int size() {
+		return heads.length;
+	}
 }

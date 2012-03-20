@@ -57,7 +57,7 @@ public class PQInference implements Inference {
 	}
 
 	@Override
-	public void lossAugmentedInferenceWithPartiallyLabeledReference(
+	public void lossAugmentedInferenceWithNonAnnotatedWeight(
 			Model model, ExampleInput input,
 			ExampleOutput partiallyLabeledOutput,
 			ExampleOutput referenceOutput, ExampleOutput predictedOutput,

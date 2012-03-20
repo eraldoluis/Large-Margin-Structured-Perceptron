@@ -54,6 +54,11 @@ public class TrainCoreference implements Command {
 		options.addOption(OptionBuilder.withLongOpt("train").isRequired()
 				.withArgName("filename").hasArg()
 				.withDescription("Training dataset file name.").create());
+		options.addOption(OptionBuilder
+				.withLongOpt("latent")
+				.withDescription(
+						"Use latent structure within output structure.")
+				.create());
 		options.addOption(OptionBuilder.withLongOpt("templates").isRequired()
 				.withArgName("filename").hasArg()
 				.withDescription("Feature templates file name.").create());

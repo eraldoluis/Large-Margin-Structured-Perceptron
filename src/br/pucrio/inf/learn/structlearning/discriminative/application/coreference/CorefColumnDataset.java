@@ -188,7 +188,7 @@ public class CorefColumnDataset extends DPColumnDataset {
 			id = "" + inputList.size();
 
 		// Allocate the output structure.
-		DPOutput output = new DPOutput(numTokens);
+		CorefOutput output = new CorefOutput(numTokens);
 		// Fill the output structure.
 		Iterator<Integer> itDep = correctDepTokens.iterator();
 		Iterator<Integer> itHead = correctHeadTokens.iterator();
@@ -200,6 +200,8 @@ public class CorefColumnDataset extends DPColumnDataset {
 						+ " in example " + id);
 			output.setHead(idxDep, idxHead);
 		}
+		// Using mention 0 as the root (artificial mention).
+		output.computeClusteringFromTree(0);
 
 		/*
 		 * Create a new string to store the input id to avoid memory leaks,

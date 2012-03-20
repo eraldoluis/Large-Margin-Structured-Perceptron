@@ -96,7 +96,7 @@ public class Viterbi2ndOrderInference implements Inference {
 	}
 
 	@Override
-	public void lossAugmentedInferenceWithPartiallyLabeledReference(Model model, ExampleInput input,
+	public void lossAugmentedInferenceWithNonAnnotatedWeight(Model model, ExampleInput input,
 			ExampleOutput lossPartiallyLabeledOutput,
 			ExampleOutput referenceOutput, ExampleOutput inferedOutput,
 			double lossAnnotatedWeight, double lossNonAnnotatedWeight) {

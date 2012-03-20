@@ -76,7 +76,7 @@ public class TowardBetterPerceptron extends LossAugmentedPerceptron {
 			// Predict the best output structure to the current input structure
 			// using a loss-augmented objective function that uses different
 			// weights for annotated and non-annotated tokens.
-			inferenceImpl.lossAugmentedInferenceWithPartiallyLabeledReference(model, input, correctOutput,
+			inferenceImpl.lossAugmentedInferenceWithNonAnnotatedWeight(model, input, correctOutput,
 					referenceOutput, lossAugmentedPredictedOutput,
 					-lossWeight, -lossNonAnnotatedWeight);
 
