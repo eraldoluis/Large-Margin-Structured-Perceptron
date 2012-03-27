@@ -19,6 +19,7 @@ import br.pucrio.inf.learn.structlearning.discriminative.algorithm.TrainingListe
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.LossAugmentedPerceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.Perceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CorefColumnDataset;
+import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CoreferenceMaxBranchInference;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPModel;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPTemplateEvolutionModel;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.MaximumBranchingInference;
@@ -160,6 +161,7 @@ public class TrainCoreference implements Command {
 		double lossWeight = Double.parseDouble(cmdLine.getOptionValue(
 				"lossweight", "0d"));
 		boolean averageWeights = !cmdLine.hasOption("noavg");
+		boolean latent = cmdLine.hasOption("latent");
 
 		/*
 		 * If --test is provided, then --conlltest must be provided (and
@@ -200,13 +202,22 @@ public class TrainCoreference implements Command {
 		DPModel model = new DPTemplateEvolutionModel();
 
 		// Inference algorithm.
-		MaximumBranchingInference inference = new MaximumBranchingInference(
-				inDataset.getMaxNumberOfTokens());
+		Inference inference;
+
+		if (latent)
+			inference = new CoreferenceMaxBranchInference(
+					inDataset.getMaxNumberOfTokens(), 0);
+		else
+			inference = new MaximumBranchingInference(
+					inDataset.getMaxNumberOfTokens());
 
 		// Create the chosen algorithm.
 		Perceptron alg = new LossAugmentedPerceptron(inference, model,
 				numEpochs, 1d, lossWeight, true, averageWeights,
 				LearnRateUpdateStrategy.NONE);
+
+		if (latent)
+			alg.setPartiallyAnnotatedExamples(true);
 
 		if (seedStr != null)
 			// User provided seed to random number generator.

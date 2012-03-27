@@ -207,7 +207,8 @@ public class CorefColumnDataset extends DPColumnDataset {
 		 * Create a new string to store the input id to avoid memory leaks,
 		 * since the id string keeps a reference to the line string.
 		 */
-		DPInput input = new DPInput(numTokens, new String(id), features, false);
+		CorefInput input = new CorefInput(numTokens, new String(id), features,
+				false);
 		if (punctuation != null)
 			input.setPunctuation(punctuation);
 

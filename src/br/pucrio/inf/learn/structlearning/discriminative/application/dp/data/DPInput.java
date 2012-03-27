@@ -72,7 +72,9 @@ public class DPInput implements ExampleInput, Serializable {
 	 * Create the input structure of a training example.
 	 * 
 	 * @param trainingIndex
+	 * @para id
 	 * @param featuresCollection
+	 * 
 	 * @throws DPInputException
 	 */
 	public DPInput(
@@ -90,7 +92,9 @@ public class DPInput implements ExampleInput, Serializable {
 	 * example or just an input structure whose output structure need to be
 	 * predicted.
 	 * 
+	 * @param id
 	 * @param featuresCollection
+	 * 
 	 * @throws DPInputException
 	 */
 	public DPInput(
@@ -109,6 +113,7 @@ public class DPInput implements ExampleInput, Serializable {
 	 * @param id
 	 * @param basicFeaturesCollection
 	 * @param allocFixedWeightsMatrix
+	 * 
 	 * @throws DPInputException
 	 */
 	public DPInput(
@@ -131,6 +136,7 @@ public class DPInput implements ExampleInput, Serializable {
 	 * feature values.
 	 * 
 	 * @param numberOfTokens
+	 * @param id
 	 * @param basicFeaturesSparseCollection
 	 * @param allocFixedWeightsMatrix
 	 */
