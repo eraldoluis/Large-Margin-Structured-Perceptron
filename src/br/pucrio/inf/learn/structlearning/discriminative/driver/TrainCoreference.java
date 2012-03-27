@@ -334,14 +334,13 @@ public class TrainCoreference implements Command {
 				"python mentionPairsToConll.py %s %s %s predicted",
 				conllTestFileName, testPredictedFileName,
 				testConllPredictedFileName);
-		execCommandAndRedirectOutputAndError(cmd, new File(scriptBasePath,
-				"source"));
+		execCommandAndRedirectOutputAndError(cmd, scriptBasePath);
 
 		// Command to evaluate the predicted information.
 		cmd = String.format("perl scorer.pl %s %s %s none", metric,
 				conllTestFileName, testConllPredictedFileName);
 		execCommandAndRedirectOutputAndError(cmd, new File(scriptBasePath,
-				"source/scorer/v4"));
+				"scorer/v4"));
 	}
 
 	/**
