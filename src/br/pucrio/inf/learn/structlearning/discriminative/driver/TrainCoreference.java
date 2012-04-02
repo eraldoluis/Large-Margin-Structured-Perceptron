@@ -331,7 +331,7 @@ public class TrainCoreference implements Command {
 		String testConllPredictedFileName = testPredictedFileName + ".conll";
 		// Command to convert the predicted file to CoNLL format.
 		String cmd = String.format(
-				"python mentionPairsToConll.py %s %s %s predicted",
+				"python mentionPairsToConll2.py %s %s %s predicted",
 				conllTestFileName, testPredictedFileName,
 				testConllPredictedFileName);
 		execCommandAndRedirectOutputAndError(cmd, scriptBasePath);
