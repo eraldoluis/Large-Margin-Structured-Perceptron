@@ -15,7 +15,6 @@ import br.pucrio.inf.learn.structlearning.discriminative.evaluation.F1Measure;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.TrainingListener;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.OnlineStructuredAlgorithm.LearnRateUpdateStrategy;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.LossAugmentedPerceptron;
-import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.Perceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.application.pq.data.PQDataset2;
 import br.pucrio.inf.learn.structlearning.discriminative.application.pq.data.PQInput2;
 import br.pucrio.inf.learn.structlearning.discriminative.application.pq.data.PQOutput2;
@@ -172,9 +171,15 @@ public class TrainPQ2 implements Command {
 
 		F1Measure evalAverage = new F1Measure("Quotation-Person");
 		
-		int numOfAuthorsThatSayMoreThanOneQuote = 0;
-		int numOfQuotesSameAuthor = 0;
-
+		
+		/*
+		// TO REMOVE
+		ArrayList authors;
+		int moreThanThreeQuotationsThatBelongToSameAuthor = 0;
+		int numOfAuthorsThatHasMoreThanThreeQuotations = 0;
+		*/
+		
+		
 		// For each fold, train and evaluate the model.
 		for (int fold = 0; fold < numFolds; ++fold) {
 			// Count the number of training examples.
@@ -229,18 +234,44 @@ public class TrainPQ2 implements Command {
 				predicteds[idx]    = (PQOutput2) inputs[idx].createOutput();
 
 			F1Measure eval = new F1Measure("Quotation-Person");
-
 			// Fill the list of predicted outputs.
 			for (int idx = 0; idx < inputs.length; ++idx) {
 				// Predict (tag the output example).
 				inference.inference(model, inputs[idx], predicteds[idx]);
 				// Increment data for evaluation.
 				int outputsSize = outputs[idx].size();
+				
+				
+				/*
+				//TO REMOVE
+				authors = new ArrayList();
+				*/
+				
+				
 				for (int j = 0; j < outputsSize; ++j) {
 					// Total.
 					if (outputs[idx].getAuthor(j) != 0) {
 						eval.incNumObjects();
 						evalAverage.incNumObjects();
+						
+						
+						/*
+						//TO REMOVE
+						if(!authors.contains(outputs[idx].getAuthor(j))) {
+							authors.add(outputs[idx].getAuthor(j));
+							
+							int numOfQuotationsOfThisAuthor = 0;
+							for(int k = 0; k < outputsSize; ++k)
+								if (outputs[idx].getAuthor(k) == outputs[idx].getAuthor(j))
+									++numOfQuotationsOfThisAuthor;
+							if(numOfQuotationsOfThisAuthor > 3) {
+								moreThanThreeQuotationsThatBelongToSameAuthor += numOfQuotationsOfThisAuthor;
+								++numOfAuthorsThatHasMoreThanThreeQuotations;
+							}
+						}
+						*/
+						
+						
 					}
 
 					// Retrieved.
@@ -263,6 +294,16 @@ public class TrainPQ2 implements Command {
 			//printF1Results("Performance at fold " + fold + ": ", eval);
 			//System.out.println("-------------------------------------");
 		}
+		
+		
+		/*
+		//TO REMOVE
+		System.out.println("Quotations:                                                               " + evalAverage.getNumObjects());
+		System.out.println("Authors that have more than 3 quotations:                                 " + numOfAuthorsThatHasMoreThanThreeQuotations);
+		System.out.println("Quotations that belong to the group of more than 3 quotations per author: " + moreThanThreeQuotationsThatBelongToSameAuthor);
+		System.out.println("Lost quotations:                                                          " + (moreThanThreeQuotationsThatBelongToSameAuthor - numOfAuthorsThatHasMoreThanThreeQuotations));
+		*/
+		
 		
 		//printF1Results("Average Performance: ", evalAverage);
 	}

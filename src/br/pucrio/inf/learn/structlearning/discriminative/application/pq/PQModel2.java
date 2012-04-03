@@ -64,6 +64,12 @@ public class PQModel2 implements Model {
 				++numberOfErrors;
 				int featureIndex;
 
+				////This condition treats cases where the correct label is not available,
+				////because we removed some coreferences to make the classification
+				////task easier. Used by WIS
+				//if(labelCorrect >= input.getNumberOfCoreferences(i))
+				//	continue;
+				
 				if(labelCorrect >= 0) {
 					Iterator<Integer> it = input.getFeatureCodes(i, labelCorrect).iterator();
 					while(it.hasNext()) {

@@ -1,7 +1,5 @@
 package br.pucrio.inf.learn.structlearning.discriminative.driver;
 
-import java.util.Random;
-
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.OptionBuilder;
 import org.apache.commons.cli.Options;
@@ -11,10 +9,8 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import br.pucrio.inf.learn.structlearning.discriminative.evaluation.F1Measure;
-import br.pucrio.inf.learn.structlearning.discriminative.algorithm.TrainingListener;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.OnlineStructuredAlgorithm.LearnRateUpdateStrategy;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.LossAugmentedPerceptron;
-import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.Perceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.application.pq.data.PQDataset2;
 import br.pucrio.inf.learn.structlearning.discriminative.application.pq.data.PQInput2;
 import br.pucrio.inf.learn.structlearning.discriminative.application.pq.data.PQOutput2;
@@ -23,8 +19,6 @@ import br.pucrio.inf.learn.structlearning.discriminative.application.pq.PQInfere
 import br.pucrio.inf.learn.structlearning.discriminative.data.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.StringMapEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.driver.Driver.Command;
-import br.pucrio.inf.learn.structlearning.discriminative.task.Inference;
-import br.pucrio.inf.learn.structlearning.discriminative.task.Model;
 import br.pucrio.inf.learn.util.CommandLineOptionsUtil;
 
 public class TestPQ2 implements Command {
@@ -209,6 +203,37 @@ public class TestPQ2 implements Command {
 							&& (outputs[idx].getAuthor(j) == predicteds[idx]
 									.getAuthor(j)))
 						eval.incNumCorrectlyPredicted();
+					
+					
+					/*
+					//TO REMOVE
+					if ((outputs[idx].getAuthor(j) != 0)
+							&& (outputs[idx].getAuthor(j) != predicteds[idx]
+							        									.getAuthor(j))) {
+						String docId = inputs[idx].getDocId();
+						Quotation[] quotationArray = inputs[idx].getQuotationIndexes();
+						int[] mispredictedQuotationIndexes = quotationArray[j].getQuotationIndex();
+						
+						System.out.print("Recall ");
+						System.out.print(docId + " ");
+						System.out.print(mispredictedQuotationIndexes[0] + " ");
+						System.out.print(mispredictedQuotationIndexes[1]);
+						System.out.println();
+					}
+					else if ((predicteds[idx].getAuthor(j) != 0)
+							&& (outputs[idx].getAuthor(j) != predicteds[idx]
+							        									.getAuthor(j))) {
+						String docId = inputs[idx].getDocId();
+						Quotation[] quotationArray = inputs[idx].getQuotationIndexes();
+						int[] mispredictedQuotationIndexes = quotationArray[j].getQuotationIndex();
+						
+						System.out.print("Precision ");
+						System.out.print(docId + " ");
+						System.out.print(mispredictedQuotationIndexes[0] + " ");
+						System.out.print(mispredictedQuotationIndexes[1]);
+						System.out.println();
+					}
+					*/
 				}
 			}
 
