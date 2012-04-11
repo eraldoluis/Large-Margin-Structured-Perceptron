@@ -195,13 +195,19 @@ public class CorefColumnDataset extends DPColumnDataset {
 		while (itDep.hasNext() && itHead.hasNext()) {
 			int idxDep = itDep.next();
 			int idxHead = itHead.next();
-			if (checkMultipleTrueEdges && output.getHead(idxDep) != -1)
-				LOG.warn("Multiple correct incoming edges for token " + idxDep
-						+ " in example " + id);
-			output.setHead(idxDep, idxHead);
+			if (checkMultipleTrueEdges) {
+				if (output.getHead(idxDep) != -1)
+					LOG.warn("Multiple correct incoming edges for token "
+							+ idxDep + " in example " + id);
+				output.setHead(idxDep, idxHead);
+			} else if (idxDep != 0) {
+				output.connectClusters(idxDep, idxHead);
+			}
 		}
-		// Using mention 0 as the root (artificial mention).
-		output.computeClusteringFromTree(0);
+
+		if (checkMultipleTrueEdges)
+			// Using mention 0 as the root (artificial mention).
+			output.computeClusteringFromTree(0);
 
 		/*
 		 * Create a new string to store the input id to avoid memory leaks,
@@ -244,13 +250,13 @@ public class CorefColumnDataset extends DPColumnDataset {
 		// Examples.
 		for (int idxEx = 0; idxEx < inputs.length; ++idxEx) {
 			DPInput input = inputs[idxEx];
-			DPOutput correctOutput = outputs[idxEx];
-			DPOutput predictedOutput = predictedOuputs[idxEx];
+			CorefOutput correctOutput = (CorefOutput) outputs[idxEx];
+			CorefOutput predictedOutput = (CorefOutput) predictedOuputs[idxEx];
 
 			// Edge features.
 			int numTokens = input.getNumberOfTokens();
-			for (int idxDep = 1; idxDep < numTokens; ++idxDep) {
-				for (int idxHead = 1; idxHead < numTokens; ++idxHead) {
+			for (int idxDep = 0; idxDep < numTokens; ++idxDep) {
+				for (int idxHead = 0; idxHead < numTokens; ++idxHead) {
 					int[] ftrs = input.getBasicFeatures(idxHead, idxDep);
 					if (ftrs == null)
 						continue;
@@ -262,13 +268,15 @@ public class CorefColumnDataset extends DPColumnDataset {
 								+ basicEncoding.getValueByCode(ftrs[idxFtr]));
 
 					// Correct feature.
-					if (correctOutput.getHead(idxDep) == idxHead)
+					if (correctOutput.getClusterId(idxDep) == correctOutput
+							.getClusterId(idxHead))
 						writer.write(" Y");
 					else
 						writer.write(" N");
 
 					// Predicted feature.
-					if (predictedOutput.getHead(idxDep) == idxHead)
+					if (predictedOutput.getClusterId(idxDep) == predictedOutput
+							.getClusterId(idxHead))
 						writer.write(" Y");
 					else
 						writer.write(" N");

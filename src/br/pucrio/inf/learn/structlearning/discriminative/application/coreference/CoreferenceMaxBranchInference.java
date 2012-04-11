@@ -93,10 +93,15 @@ public class CoreferenceMaxBranchInference implements Inference {
 		// Number of tokens in the input structure.
 		int numTokens = input.getNumberOfTokens();
 		// Fill the weight matrix.
-		for (int head = 0; head < numTokens; ++head)
-			for (int dependent = 0; dependent < numTokens; ++dependent)
-				graph[head][dependent] = model.getEdgeScore(input, head,
-						dependent);
+		for (int leftMention = 0; leftMention < numTokens; ++leftMention) {
+			// Backward edges are not used.
+			for (int rightMention = 0; rightMention <= leftMention; ++rightMention)
+				graph[leftMention][rightMention] = Double.NaN;
+			// Forward edges.
+			for (int rightMention = leftMention + 1; rightMention < numTokens; ++rightMention)
+				graph[leftMention][rightMention] = model.getEdgeScore(input,
+						leftMention, rightMention);
+		}
 	}
 
 	@Override
@@ -112,22 +117,36 @@ public class CoreferenceMaxBranchInference implements Inference {
 		// Fill edge weights (not including incorrect edges).
 		fillPartialGraph(model, input, partiallyLabeledOutput);
 
+		maxBranchingAlgorithm.setCheckUniqueRoot(false);
+
+		int numTokens = input.getNumberOfTokens();
+
 		/*
 		 * Find the maximum branching and fill the output inverted branching
 		 * array with it.
 		 */
-		maxBranchingAlgorithm.findMaxBranching(input.getNumberOfTokens(),
-				graph, predictedOutput.getInvertedBranchingArray());
+		maxBranchingAlgorithm.findMaxBranching(numTokens, graph,
+				predictedOutput.getInvertedBranchingArray());
 
-		// Compute the clustering from the found rooted tree.
-		predictedOutput.computeClusteringFromTree(root);
+		maxBranchingAlgorithm.setCheckUniqueRoot(true);
+
+		// Connect root nodes of the branching to the artificial root node.
+		for (int tkn = 0; tkn < numTokens; ++tkn) {
+			if (tkn == root)
+				continue;
+			if (predictedOutput.getHead(tkn) < 0)
+				predictedOutput.setHead(tkn, root);
+		}
+
+		// Set the correct clustering for the predicted output structure.
+		predictedOutput.setClusteringEqualTo(partiallyLabeledOutput);
 	}
 
 	/**
 	 * Fill the graph using the given model and input sentence so that no
 	 * incorrect edge is included in the graph. The reference output indicates
-	 * which are the correct cluters and, thus, also indicates which are the
-	 * correct edges (intracluster edges).
+	 * which are the correct cluters and, thus, indicates which are the correct
+	 * edges (intracluster edges).
 	 * 
 	 * @param model
 	 * @param input
@@ -139,16 +158,21 @@ public class CoreferenceMaxBranchInference implements Inference {
 		// Number of tokens in the input structure.
 		int numTokens = input.getNumberOfTokens();
 		// Fill the weight matrix.
-		for (int mentionLeft = 0; mentionLeft < numTokens; ++mentionLeft)
-			for (int mentionRight = 0; mentionRight < numTokens; ++mentionRight) {
+		for (int mentionLeft = 0; mentionLeft < numTokens; ++mentionLeft) {
+			// Backward edges are not used.
+			for (int mentionRight = 0; mentionRight <= mentionLeft; ++mentionRight)
+				graph[mentionLeft][mentionRight] = Double.NaN;
+			// Forward edges.
+			for (int mentionRight = mentionLeft + 1; mentionRight < numTokens; ++mentionRight) {
+				// Only include correct edges (intracluster edges).
 				if (referenceOutput.getClusterId(mentionLeft) == referenceOutput
 						.getClusterId(mentionRight))
 					graph[mentionLeft][mentionRight] = model.getEdgeScore(
 							input, mentionLeft, mentionRight);
 				else
-					// Do not include incorrect edge (intercluster).
 					graph[mentionLeft][mentionRight] = Double.NaN;
 			}
+		}
 	}
 
 	@Override
@@ -170,23 +194,26 @@ public class CoreferenceMaxBranchInference implements Inference {
 		fillGraph(model, input);
 
 		// Add loss values.
-		for (int dependent = 0; dependent < numTokens; ++dependent) {
-			int correctHead = referenceOutput.getHead(dependent);
-			if (correctHead < 0)
-				/*
-				 * Skip tokens with no correct edge (due to pruning
-				 * preprocessing).
-				 */
-				continue;
+		if (lossWeight != 0d) {
+			for (int leftMention = 0; leftMention < numTokens; ++leftMention) {
+				// Skip the root node edges.
+				if (leftMention == root)
+					// TODO use reference root edges in margin.
+					continue;
 
-			for (int head = 0; head < numTokens; ++head) {
-				// Skip self-loops.
-				if (head == dependent)
-					continue;
-				// Skip correct labeled tokens.
-				if (head == correctHead)
-					continue;
-				graph[head][dependent] += lossWeight;
+				for (int rightMention = leftMention + 1; rightMention < numTokens; ++rightMention) {
+					int correctLeftCluster = referenceOutput
+							.getClusterId(leftMention);
+					int correctRightCluster = referenceOutput
+							.getClusterId(rightMention);
+
+					// Skip mentions in the same cluster (intracluster edges).
+					if (correctLeftCluster == correctRightCluster)
+						continue;
+
+					// Increment weight of incorrect edges (intercluster edges).
+					graph[leftMention][rightMention] += lossWeight;
+				}
 			}
 		}
 
@@ -197,8 +224,8 @@ public class CoreferenceMaxBranchInference implements Inference {
 		maxBranchingAlgorithm.findMaxBranching(input.getNumberOfTokens(),
 				graph, predictedOutput.getInvertedBranchingArray());
 
-		// Compute the clustering from the found rooted tree.
-		predictedOutput.computeClusteringFromTree(root);
+		// Set the correct clustering for the predicted output structure.
+		predictedOutput.setClusteringEqualTo(referenceOutput);
 	}
 
 	@Override

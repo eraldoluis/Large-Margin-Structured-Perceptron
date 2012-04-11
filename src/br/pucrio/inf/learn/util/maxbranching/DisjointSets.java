@@ -1,5 +1,6 @@
 package br.pucrio.inf.learn.util.maxbranching;
 
+
 /**
  * Disjoint set forests with path compression heuristic. Elements and sets are
  * represented by integers in the interval {0, ..., n-1}, where n is the number
@@ -18,6 +19,15 @@ public class DisjointSets {
 	 * Pointers to the parent of each element.
 	 */
 	private int[] trees;
+
+	/**
+	 * Create a copy of the given object.
+	 * 
+	 * @param copy
+	 */
+	public DisjointSets(DisjointSets copy) {
+		this.trees = copy.trees.clone();
+	}
 
 	/**
 	 * Create one set for each possible element.
@@ -64,4 +74,20 @@ public class DisjointSets {
 		for (int i = 0; i < numberOfElements; ++i)
 			trees[i] = i;
 	}
+
+	@Override
+	public DisjointSets clone() throws CloneNotSupportedException {
+		return new DisjointSets(this);
+	}
+
+	/**
+	 * Set this disjoint sets object with the same content of the given object.
+	 * 
+	 * @param copy
+	 */
+	public void setEqualTo(DisjointSets copy) {
+		for (int idx = 0; idx < trees.length; ++idx)
+			trees[idx] = copy.trees[idx];
+	}
+
 }

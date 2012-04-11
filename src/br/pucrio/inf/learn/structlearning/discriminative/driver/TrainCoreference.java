@@ -19,6 +19,7 @@ import br.pucrio.inf.learn.structlearning.discriminative.algorithm.TrainingListe
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.LossAugmentedPerceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.Perceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CorefColumnDataset;
+import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CorefModel;
 import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CoreferenceMaxBranchInference;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPModel;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPTemplateEvolutionModel;
@@ -186,6 +187,8 @@ public class TrainCoreference implements Command {
 			LOG.info("Loading train dataset...");
 			inDataset = new CorefColumnDataset(featureEncoding,
 					(Collection<String>) null);
+			if (latent)
+				inDataset.setCheckMultipleTrueEdges(false);
 			inDataset.load(inputCorpusFileNames[0]);
 			LOG.info("Loading templates and generating features...");
 			inDataset.loadTemplates(templatesFileName, true);
@@ -199,17 +202,20 @@ public class TrainCoreference implements Command {
 
 		// Template-based model.
 		LOG.info("Allocating initial model...");
-		DPModel model = new DPTemplateEvolutionModel();
+		DPModel model;
 
 		// Inference algorithm.
 		Inference inference;
 
-		if (latent)
+		if (latent) {
+			model = new CorefModel(0);
 			inference = new CoreferenceMaxBranchInference(
 					inDataset.getMaxNumberOfTokens(), 0);
-		else
+		} else {
+			model = new DPTemplateEvolutionModel(0);
 			inference = new MaximumBranchingInference(
 					inDataset.getMaxNumberOfTokens());
+		}
 
 		// Create the chosen algorithm.
 		Perceptron alg = new LossAugmentedPerceptron(inference, model,
@@ -341,6 +347,9 @@ public class TrainCoreference implements Command {
 				conllTestFileName, testConllPredictedFileName);
 		execCommandAndRedirectOutputAndError(cmd, new File(scriptBasePath,
 				"scorer/v4"));
+
+		// Remove temporary file.
+		new File(testConllPredictedFileName).delete();
 	}
 
 	/**
@@ -490,6 +499,10 @@ public class TrainCoreference implements Command {
 				} catch (Exception e) {
 					LOG.error("Running evaluation scripts", e);
 				}
+
+				// Delete temporary file.
+				new File(testPredictedOnEpochFileName).delete();
+
 			} catch (IOException e) {
 				LOG.error("Saving test file with predicted column", e);
 			} catch (DatasetException e) {

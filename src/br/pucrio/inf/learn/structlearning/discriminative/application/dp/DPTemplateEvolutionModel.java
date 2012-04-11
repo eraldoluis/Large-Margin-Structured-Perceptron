@@ -35,21 +35,30 @@ import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEn
 public class DPTemplateEvolutionModel implements DPModel {
 
 	/**
+	 * Special root node.
+	 */
+	protected int root;
+
+	/**
 	 * Weight for each feature code (model parameters).
 	 */
-	private Map<Integer, AveragedParameter> parameters;
+	protected Map<Integer, AveragedParameter> parameters;
 
 	/**
 	 * Set of parameters that have been updated in the current iteration.
 	 */
-	private Set<AveragedParameter> updatedParameters;
+	protected Set<AveragedParameter> updatedParameters;
 
 	/**
 	 * Create a new model with the given template partitions.
+	 * 
+	 * @param root
+	 *            index of the special node that is to be considered as root.
 	 */
-	public DPTemplateEvolutionModel() {
-		parameters = new HashMap<Integer, AveragedParameter>();
-		updatedParameters = new HashSet<AveragedParameter>();
+	public DPTemplateEvolutionModel(int root) {
+		this.root = root;
+		this.parameters = new HashMap<Integer, AveragedParameter>();
+		this.updatedParameters = new HashSet<AveragedParameter>();
 	}
 
 	/**
@@ -61,9 +70,13 @@ public class DPTemplateEvolutionModel implements DPModel {
 	@SuppressWarnings("unchecked")
 	protected DPTemplateEvolutionModel(DPTemplateEvolutionModel other)
 			throws CloneNotSupportedException {
+		// Root node.
+		this.root = other.root;
+
 		// Shallow-copy parameters map.
 		this.parameters = (HashMap<Integer, AveragedParameter>) ((HashMap<Integer, AveragedParameter>) other.parameters)
 				.clone();
+
 		// Clone each map value.
 		for (Entry<Integer, AveragedParameter> entry : parameters.entrySet())
 			entry.setValue(entry.getValue().clone());
@@ -135,7 +148,7 @@ public class DPTemplateEvolutionModel implements DPModel {
 	 * @param learningRate
 	 * @return
 	 */
-	private double update(DPInput input, DPOutput outputCorrect,
+	protected double update(DPInput input, DPOutput outputCorrect,
 			DPOutput outputPredicted, double learningRate) {
 		/*
 		 * The root token (zero) must always be ignored during the inference,
@@ -205,7 +218,7 @@ public class DPTemplateEvolutionModel implements DPModel {
 	 * @param value
 	 * @return
 	 */
-	private void updateFeatureParam(int code, double value) {
+	protected void updateFeatureParam(int code, double value) {
 		AveragedParameter param = parameters.get(code);
 		if (param == null) {
 			// Create a new parameter.

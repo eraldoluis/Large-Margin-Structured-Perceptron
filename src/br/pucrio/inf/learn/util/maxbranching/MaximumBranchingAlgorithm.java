@@ -90,6 +90,12 @@ public class MaximumBranchingAlgorithm {
 	private boolean[] visited;
 
 	/**
+	 * If <code>true</code>, then emit a warn whenever the predicted branching
+	 * comprises more than one root node.
+	 */
+	private boolean checkUniqueRoot;
+
+	/**
 	 * Allocate data structures to deal with the given maximum number of nodes.
 	 * 
 	 * @param maxNumberOfNodes
@@ -103,6 +109,19 @@ public class MaximumBranchingAlgorithm {
 		min = new int[maxNumberOfNodes];
 		maxBranching = new boolean[maxNumberOfNodes][maxNumberOfNodes];
 		visited = new boolean[maxNumberOfNodes];
+		checkUniqueRoot = true;
+	}
+
+	/**
+	 * Set whether the prediction algorithm checks if the predicted branching
+	 * comprises exactly one root node. If this flag is <code>true</code>, then
+	 * emit a warn whenever the predicted branching comprises more than one root
+	 * node.
+	 * 
+	 * @param check
+	 */
+	public void setCheckUniqueRoot(boolean check) {
+		checkUniqueRoot = check;
 	}
 
 	/**
@@ -297,8 +316,8 @@ public class MaximumBranchingAlgorithm {
 			rootComponents.add(sccTo);
 		}
 
-		if (doneRootComponents.size() > 1)
-			LOG.error("Final root components list contains more than one element");
+		if (checkUniqueRoot && doneRootComponents.size() > 1)
+			LOG.warn("Final root components list contains more than one element");
 
 		// Invert the maximum branching.
 		Arrays.fill(visited, 0, numberOfNodes, false);

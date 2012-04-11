@@ -555,7 +555,7 @@ public class TrainDP implements Command {
 			LOG.info("Allocating initial model...");
 			// model = new DPTemplateModel(templates[0]);
 			// ((DPTemplateModel) model).init((DPColumnDataset) inDataset);
-			model = new DPTemplateEvolutionModel();
+			model = new DPTemplateEvolutionModel(0);
 		}
 
 		// Inference algorithm.

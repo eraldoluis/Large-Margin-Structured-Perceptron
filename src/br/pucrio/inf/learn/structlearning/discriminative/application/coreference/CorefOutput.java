@@ -69,4 +69,23 @@ public class CorefOutput extends DPOutput {
 		return clustering.find(mention);
 	}
 
+	/**
+	 * Conect two clusters that, thus, will become one cluster.
+	 * 
+	 * @param mentionLeft
+	 * @param mentionRight
+	 */
+	public void connectClusters(int mentionLeft, int mentionRight) {
+		clustering.union(mentionLeft, mentionRight);
+	}
+
+	/**
+	 * Set the clustering of this object equal to the given objects's.
+	 * 
+	 * @param copy
+	 */
+	public void setClusteringEqualTo(CorefOutput copy) {
+		this.clustering.setEqualTo(copy.clustering);
+	}
+
 }
