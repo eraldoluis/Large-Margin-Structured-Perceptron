@@ -194,7 +194,7 @@ public class TrainCoreference implements Command {
 			inDataset.loadTemplates(templatesFileName, true);
 
 			// Generate explicit features from templates.
-			inDataset.generateFeatures();
+			// inDataset.generateFeatures();
 		} catch (Exception e) {
 			LOG.error("Parsing command-line options", e);
 			System.exit(1);

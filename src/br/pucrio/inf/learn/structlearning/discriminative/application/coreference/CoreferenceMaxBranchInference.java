@@ -196,23 +196,31 @@ public class CoreferenceMaxBranchInference implements Inference {
 		// Add loss values.
 		if (lossWeight != 0d) {
 			for (int leftMention = 0; leftMention < numTokens; ++leftMention) {
-				// Skip the root node edges.
-				if (leftMention == root)
-					// TODO use reference root edges in margin.
-					continue;
-
-				for (int rightMention = leftMention + 1; rightMention < numTokens; ++rightMention) {
-					int correctLeftCluster = referenceOutput
-							.getClusterId(leftMention);
-					int correctRightCluster = referenceOutput
-							.getClusterId(rightMention);
-
-					// Skip mentions in the same cluster (intracluster edges).
-					if (correctLeftCluster == correctRightCluster)
-						continue;
-
-					// Increment weight of incorrect edges (intercluster edges).
-					graph[leftMention][rightMention] += lossWeight;
+				if (leftMention == root) {
+					/*
+					 * Root edges (edges linking right mentions to artificial
+					 * root node.
+					 */
+					for (int rightMention = leftMention + 1; rightMention < numTokens; ++rightMention)
+						if (referenceOutput.getHead(rightMention) != root)
+							// Increment weight for incorrect root edge.
+							if (!Double.isNaN(graph[leftMention][rightMention]))
+								graph[leftMention][rightMention] += lossWeight;
+				} else {
+					// Ordinary edges, i.e., edges between real mentions.
+					for (int rightMention = leftMention + 1; rightMention < numTokens; ++rightMention) {
+						int correctLeftCluster = referenceOutput
+								.getClusterId(leftMention);
+						int correctRightCluster = referenceOutput
+								.getClusterId(rightMention);
+						if (correctLeftCluster != correctRightCluster)
+							/*
+							 * Increment weight of incorrect edges (intercluster
+							 * edges).
+							 */
+							if (!Double.isNaN(graph[leftMention][rightMention]))
+								graph[leftMention][rightMention] += lossWeight;
+					}
 				}
 			}
 		}
