@@ -113,8 +113,8 @@ public class CorefColumnDataset extends DPColumnDataset {
 		LinkedList<LinkedList<Integer>> features = new LinkedList<LinkedList<Integer>>();
 
 		// Correct edges (head-dependent pairs).
-		LinkedList<Integer> correctDepTokens = new LinkedList<Integer>();
-		LinkedList<Integer> correctHeadTokens = new LinkedList<Integer>();
+		LinkedList<Integer> correctRightMentions = new LinkedList<Integer>();
+		LinkedList<Integer> correctLeftMentions = new LinkedList<Integer>();
 
 		// Maximum token index.
 		int maxIndex = -1;
@@ -132,25 +132,25 @@ public class CorefColumnDataset extends DPColumnDataset {
 
 			// Head and dependent tokens indexes.
 			String[] edgeId = ftrValues[0].split(">");
-			int idxHead = Integer.parseInt(edgeId[0]);
-			int idxDep = Integer.parseInt(edgeId[1]);
+			int idxMentionLeft = Integer.parseInt(edgeId[0]);
+			int idxMentionRight = Integer.parseInt(edgeId[1]);
 
 			// Skip diagonal edges.
-			if (idxDep == idxHead)
+			if (idxMentionRight == idxMentionLeft)
 				continue;
 
-			if (idxHead > maxIndex)
-				maxIndex = idxHead;
-			if (idxDep > maxIndex)
-				maxIndex = idxDep;
+			if (idxMentionLeft > maxIndex)
+				maxIndex = idxMentionLeft;
+			if (idxMentionRight > maxIndex)
+				maxIndex = idxMentionRight;
 
 			// List of feature codes.
 			LinkedList<Integer> edgeFeatures = new LinkedList<Integer>();
 			features.add(edgeFeatures);
 
 			// The two first values are the head and the dependent indexes.
-			edgeFeatures.add(idxHead);
-			edgeFeatures.add(idxDep);
+			edgeFeatures.add(idxMentionLeft);
+			edgeFeatures.add(idxMentionRight);
 
 			// Encode the edge features.
 			for (int idxFtr = 1; idxFtr < ftrValues.length - 1; ++idxFtr) {
@@ -163,18 +163,15 @@ public class CorefColumnDataset extends DPColumnDataset {
 			// The last value is the correct edge flag (TRUE or FALSE).
 			String isCorrectEdge = ftrValues[ftrValues.length - 1];
 			if (isCorrectEdge.equals("Y")) {
-				correctDepTokens.add(idxDep);
-				correctHeadTokens.add(idxHead);
+				correctRightMentions.add(idxMentionRight);
+				correctLeftMentions.add(idxMentionLeft);
 			} else if (!isCorrectEdge.equals("N")) {
-				/*
-				 * If it is not the correct edge, but the value is not 0, throw
-				 * an exception.
-				 */
 				throw new DatasetException(
 						"Last feature value must be Y or N to indicate "
 								+ "the correct edge. However, for token "
-								+ idxDep + " and head " + idxHead
-								+ " this feature value is " + isCorrectEdge);
+								+ idxMentionRight + " and head "
+								+ idxMentionLeft + " this feature value is "
+								+ isCorrectEdge);
 			}
 		}
 
@@ -190,18 +187,18 @@ public class CorefColumnDataset extends DPColumnDataset {
 		// Allocate the output structure.
 		CorefOutput output = new CorefOutput(numTokens);
 		// Fill the output structure.
-		Iterator<Integer> itDep = correctDepTokens.iterator();
-		Iterator<Integer> itHead = correctHeadTokens.iterator();
-		while (itDep.hasNext() && itHead.hasNext()) {
-			int idxDep = itDep.next();
-			int idxHead = itHead.next();
+		Iterator<Integer> itRightMentions = correctRightMentions.iterator();
+		Iterator<Integer> itLeftMentions = correctLeftMentions.iterator();
+		while (itRightMentions.hasNext() && itLeftMentions.hasNext()) {
+			int idxRightMention = itRightMentions.next();
+			int idxLeftMention = itLeftMentions.next();
 			if (checkMultipleTrueEdges) {
-				if (output.getHead(idxDep) != -1)
+				if (output.getHead(idxRightMention) != -1)
 					LOG.warn("Multiple correct incoming edges for token "
-							+ idxDep + " in example " + id);
-				output.setHead(idxDep, idxHead);
-			} else if (idxDep != 0) {
-				output.connectClusters(idxDep, idxHead);
+							+ idxRightMention + " in example " + id);
+				output.setHead(idxRightMention, idxLeftMention);
+			} else if (idxLeftMention != 0) {
+				output.connectClusters(idxLeftMention, idxRightMention);
 			}
 		}
 

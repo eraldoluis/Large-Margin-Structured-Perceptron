@@ -1,5 +1,10 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.coreference;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
+
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPModel;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPInput;
@@ -242,6 +247,90 @@ public class CoreferenceMaxBranchInference implements Inference {
 			ExampleOutput referenceOutput, ExampleOutput predictedOutput,
 			double lossAnnotatedWeight, double lossNonAnnotatedWeight) {
 		throw new NotImplementedException();
+	}
+
+	public void printEdgesOfIncorrectMentions(CorefModel model,
+			CorefInput input, CorefOutput correct, CorefOutput predicted) {
+		// Fill graph weights.
+		fillGraph(model, input);
+
+		Map<Integer, ? extends Set<Integer>> explicitClusteringCorrect = createExplicitClustering(correct);
+		Map<Integer, ? extends Set<Integer>> explicitClusteringPredicted = createExplicitClustering(predicted);
+
+		System.out.print("Correct clustering: ");
+		for (Set<Integer> cluster : explicitClusteringCorrect.values()) {
+			// Skip completely correct clusters.
+			int oneMentionCorrect = cluster.iterator().next();
+			int idCorrect = correct.getClusterId(oneMentionCorrect);
+			int idPredicted = predicted.getClusterId(idCorrect);
+			Set<Integer> clusterPredicted = explicitClusteringPredicted
+					.get(idPredicted);
+			if (cluster.equals(clusterPredicted))
+				continue;
+
+			System.out.print("{");
+			for (int m : cluster)
+				System.out.print(m + ",");
+			System.out.print("} ");
+		}
+		System.out.println("\n");
+
+		System.out.print("Predicted clustering: ");
+		for (Set<Integer> cluster : explicitClusteringPredicted.values()) {
+			// Skip completely correct clusters.
+			int oneMentionPredicted = cluster.iterator().next();
+			int idPredicted = predicted.getClusterId(oneMentionPredicted);
+			int idCorrect = correct.getClusterId(idPredicted);
+			Set<Integer> clusterCorrect = explicitClusteringCorrect
+					.get(idCorrect);
+			if (cluster.equals(clusterCorrect))
+				continue;
+
+			System.out.print("{");
+			for (int m : cluster)
+				System.out.print(m + " ");
+			System.out.print("} ");
+		}
+		System.out.println("\n");
+
+		int numMentions = correct.size();
+		for (int idxMention = 0; idxMention < numMentions; ++idxMention) {
+			int clusterIdCorrect = correct.getClusterId(idxMention);
+			int clusterIdPredicted = predicted.getClusterId(idxMention);
+
+			Set<Integer> clusterCorrect = explicitClusteringCorrect
+					.get(clusterIdCorrect);
+			Set<Integer> clusterPredicted = explicitClusteringPredicted
+					.get(clusterIdPredicted);
+
+			if (!clusterCorrect.equals(clusterPredicted)) {
+				int leftMentionCorrect = correct.getHead(idxMention);
+				int leftMentionPredicted = predicted.getHead(idxMention);
+				System.out.println(String.format(
+						"Correct: %d>%d (%f) | Predicted: %d>%d (%f)",
+						leftMentionCorrect, idxMention,
+						graph[leftMentionCorrect][idxMention],
+						leftMentionPredicted, idxMention,
+						graph[leftMentionPredicted][idxMention]));
+			}
+		}
+		System.out.println("\n");
+	}
+
+	private Map<Integer, ? extends Set<Integer>> createExplicitClustering(
+			CorefOutput output) {
+		HashMap<Integer, TreeSet<Integer>> explicitClustering = new HashMap<Integer, TreeSet<Integer>>();
+		int numMentions = output.size();
+		for (int idxMention = 0; idxMention < numMentions; ++idxMention) {
+			int id = output.getClusterId(idxMention);
+			TreeSet<Integer> cluster = explicitClustering.get(id);
+			if (cluster == null) {
+				cluster = new TreeSet<Integer>();
+				explicitClustering.put(id, cluster);
+			}
+			cluster.add(idxMention);
+		}
+		return explicitClustering;
 	}
 
 }

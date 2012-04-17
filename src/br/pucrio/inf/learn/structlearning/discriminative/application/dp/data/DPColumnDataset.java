@@ -417,15 +417,15 @@ public class DPColumnDataset implements DPDataset {
 
 					// Correct feature.
 					if (correctOutput.getHead(idxDep) == idxHead)
-						writer.write(" TRUE");
+						writer.write(" Y");
 					else
-						writer.write(" FALSE");
+						writer.write(" N");
 
 					// Predicted feature.
 					if (predictedOutput.getHead(idxDep) == idxHead)
-						writer.write(" TRUE");
+						writer.write(" Y");
 					else
-						writer.write(" FALSE");
+						writer.write(" N");
 
 					writer.write("\n");
 				}
@@ -565,16 +565,12 @@ public class DPColumnDataset implements DPDataset {
 
 			// The last value is the correct edge flag (TRUE or FALSE).
 			String isCorrectEdge = ftrValues[ftrValues.length - 1];
-			if (isCorrectEdge.equals("TRUE")) {
+			if (isCorrectEdge.equals("Y")) {
 				correctDepTokens.add(idxDep);
 				correctHeadTokens.add(idxHead);
-			} else if (!isCorrectEdge.equals("FALSE")) {
-				/*
-				 * If it is not the correct edge, but the value is not 0, throw
-				 * an exception.
-				 */
+			} else if (!isCorrectEdge.equals("N")) {
 				throw new DatasetException(
-						"Last feature value must be TRUE or FALSE to indicate "
+						"Last feature value must be Y or N to indicate "
 								+ "the correct edge. However, for token "
 								+ idxDep + " and head " + idxHead
 								+ " this feature value is " + isCorrectEdge);

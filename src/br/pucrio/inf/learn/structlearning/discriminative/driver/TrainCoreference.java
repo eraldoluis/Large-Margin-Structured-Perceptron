@@ -19,7 +19,9 @@ import br.pucrio.inf.learn.structlearning.discriminative.algorithm.TrainingListe
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.LossAugmentedPerceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.Perceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CorefColumnDataset;
+import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CorefInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CorefModel;
+import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CorefOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CoreferenceMaxBranchInference;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPModel;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPTemplateEvolutionModel;
@@ -174,7 +176,7 @@ public class TrainCoreference implements Command {
 			System.exit(1);
 		}
 
-		CorefColumnDataset inDataset = null;
+		DPColumnDataset inDataset = null;
 		FeatureEncoding<String> featureEncoding = null;
 		try {
 			/*
@@ -185,11 +187,18 @@ public class TrainCoreference implements Command {
 			featureEncoding = new StringMapEncoding();
 
 			LOG.info("Loading train dataset...");
-			inDataset = new CorefColumnDataset(featureEncoding,
-					(Collection<String>) null);
-			if (latent)
-				inDataset.setCheckMultipleTrueEdges(false);
+			if (latent) {
+				inDataset = new CorefColumnDataset(featureEncoding,
+						(Collection<String>) null);
+				((CorefColumnDataset) inDataset)
+						.setCheckMultipleTrueEdges(false);
+			} else {
+				inDataset = new DPColumnDataset(featureEncoding,
+						(Collection<String>) null);
+			}
+
 			inDataset.load(inputCorpusFileNames[0]);
+
 			LOG.info("Loading templates and generating features...");
 			inDataset.loadTemplates(templatesFileName, true);
 
@@ -236,14 +245,19 @@ public class TrainCoreference implements Command {
 		// Ignore features not seen in the training corpus.
 		// featureEncoding.setReadOnly(true);
 
-		CorefColumnDataset testset = null;
+		DPColumnDataset testset = null;
 
 		// Evaluation after each training epoch.
 		if (testDatasetFileName != null && evalPerEpoch) {
 			try {
 				LOG.info("Loading and preparing test dataset...");
-				testset = new CorefColumnDataset(inDataset);
-				testset.setCheckMultipleTrueEdges(false);
+				if (latent) {
+					testset = new CorefColumnDataset(inDataset);
+					((CorefColumnDataset) testset)
+							.setCheckMultipleTrueEdges(false);
+				} else {
+					testset = new DPColumnDataset(inDataset);
+				}
 				testset.load(testDatasetFileName);
 				LOG.info("Generating features from templates...");
 				testset.generateFeatures();
@@ -268,8 +282,13 @@ public class TrainCoreference implements Command {
 			try {
 
 				LOG.info("Loading and preparing test dataset...");
-				testset = new CorefColumnDataset(inDataset);
-				testset.setCheckMultipleTrueEdges(false);
+				if (latent) {
+					testset = new CorefColumnDataset(inDataset);
+					((CorefColumnDataset) testset)
+							.setCheckMultipleTrueEdges(false);
+				} else {
+					testset = new DPColumnDataset(inDataset);
+				}
 				testset.load(testDatasetFileName);
 				LOG.info("Generating features from templates...");
 				testset.generateFeatures();
@@ -283,7 +302,7 @@ public class TrainCoreference implements Command {
 			DPInput[] inputs = testset.getInputs();
 			DPOutput[] predicteds = new DPOutput[inputs.length];
 			for (int idx = 0; idx < inputs.length; ++idx)
-				predicteds[idx] = (DPOutput) inputs[idx].createOutput();
+				predicteds[idx] = inputs[idx].createOutput();
 
 			// Fill the list of predicted outputs.
 			for (int idx = 0; idx < inputs.length; ++idx)
@@ -422,8 +441,7 @@ public class TrainCoreference implements Command {
 
 		public EvaluateModelListener(File conllBasePath,
 				String testPredictedFileName, String conllTestFileName,
-				String metric, CorefColumnDataset testset,
-				boolean averageWeights) {
+				String metric, DPColumnDataset testset, boolean averageWeights) {
 			this.conllBasePath = conllBasePath;
 			this.testPredictedFileName = testPredictedFileName;
 			this.conllTestFileName = conllTestFileName;
@@ -431,9 +449,9 @@ public class TrainCoreference implements Command {
 			this.testset = testset;
 			this.averageWeights = averageWeights;
 			int numExs = testset.getNumberOfExamples();
-			this.predicteds = new DPOutput[numExs];
 			// Allocate output sequences for predictions.
 			DPInput[] inputs = testset.getInputs();
+			this.predicteds = new DPOutput[numExs];
 			for (int idx = 0; idx < numExs; ++idx)
 				predicteds[idx] = (DPOutput) inputs[idx].createOutput();
 		}
@@ -479,9 +497,25 @@ public class TrainCoreference implements Command {
 
 			// Fill the list of predicted outputs.
 			DPInput[] inputs = testset.getInputs();
-			for (int idx = 0; idx < inputs.length; ++idx)
+			DPOutput[] outputs = testset.getOutputs();
+			for (int idx = 0; idx < inputs.length; ++idx) {
 				// Predict (tag the output sequence).
 				inferenceImpl.inference(model, inputs[idx], predicteds[idx]);
+
+				// if (predicteds[idx].size() < 80)
+				{
+					// Annotate latent structure for the correct output.
+					DPOutput completeCorrect = outputs[idx].createNewObject();
+					((CoreferenceMaxBranchInference) inferenceImpl)
+							.partialInference(model, inputs[idx], outputs[idx],
+									completeCorrect);
+					((CoreferenceMaxBranchInference) inferenceImpl)
+							.printEdgesOfIncorrectMentions((CorefModel) model,
+									(CorefInput) inputs[idx],
+									(CorefOutput) completeCorrect,
+									(CorefOutput) predicteds[idx]);
+				}
+			}
 
 			try {
 				String testPredictedOnEpochFileName = testPredictedFileName

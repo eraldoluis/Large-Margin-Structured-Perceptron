@@ -55,10 +55,20 @@ public class CorefModel extends DPTemplateEvolutionModel {
 			int correctLeftMention = outputCorrect.getHead(rightMention);
 
 			if (predictedLeftMention == root) {
+				/*
+				 * For edges from the root mention, use the latent structure as
+				 * reference. That is, if the right mention has been connected
+				 * to the root mention by the partial inference algorithm and
+				 * the right mention has not been connected to the root mention
+				 * by the *complete* inference algorithm, then update the model.
+				 */
 				if (correctLeftMention != root)
 					error = true;
 			} else {
-				// Clusters ids of the predicted edge end points.
+				/*
+				 * For ordinary edges (connecting two real mentions), use the
+				 * clustering definitions.
+				 */
 				int correctClusterOfRightMention = outputCorrect
 						.getClusterId(rightMention);
 				int correctClusterOfPredictedLeftMention = outputCorrect

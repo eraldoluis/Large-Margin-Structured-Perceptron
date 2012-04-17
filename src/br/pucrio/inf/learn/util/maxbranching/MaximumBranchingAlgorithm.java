@@ -194,7 +194,8 @@ public class MaximumBranchingAlgorithm {
 				if (inEdgeToNode == -1)
 					continue;
 				double w = graph[from][inEdgeToNode];
-				assert !Double.isNaN(w);
+				if (Double.isNaN(w))
+					LOG.warn("Using NaN edge: " + from + ">" + inEdgeToNode);
 
 				if (w > maxInEdgeWeight) {
 					maxInEdgeFromNode = from;
