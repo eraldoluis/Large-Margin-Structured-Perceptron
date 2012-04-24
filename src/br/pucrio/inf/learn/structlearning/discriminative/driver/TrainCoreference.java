@@ -19,9 +19,7 @@ import br.pucrio.inf.learn.structlearning.discriminative.algorithm.TrainingListe
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.LossAugmentedPerceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.Perceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CorefColumnDataset;
-import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CorefInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CorefModel;
-import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CorefOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CoreferenceMaxBranchInference;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPModel;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPTemplateEvolutionModel;
@@ -63,6 +61,8 @@ public class TrainCoreference implements Command {
 				.withDescription(
 						"Use latent structure within output structure.")
 				.create());
+		options.addOption(OptionBuilder.withLongOpt("updateallfn")
+				.withDescription("Update all false negative edges.").create());
 		options.addOption(OptionBuilder.withLongOpt("templates").isRequired()
 				.withArgName("filename").hasArg()
 				.withDescription("Feature templates file name.").create());
@@ -88,7 +88,7 @@ public class TrainCoreference implements Command {
 				.withArgName("")
 				.hasArg()
 				.withDescription(
-						"Evaluation metric:\n"
+						"Evaluation metric (use comma to separate multiple values):\n"
 								+ "  muc: MUCScorer (Vilain et al, 1995)\n"
 								+ "  bcub: B-Cubed (Bagga and Baldwin, 1998)\n"
 								+ "  ceafm: CEAF (Luo et al, 2005) using mention-based similarity\n"
@@ -165,6 +165,7 @@ public class TrainCoreference implements Command {
 				"lossweight", "0d"));
 		boolean averageWeights = !cmdLine.hasOption("noavg");
 		boolean latent = cmdLine.hasOption("latent");
+		boolean updateAllFalseNegatives = cmdLine.hasOption("updateallfn");
 
 		/*
 		 * If --test is provided, then --conlltest must be provided (and
@@ -218,10 +219,16 @@ public class TrainCoreference implements Command {
 
 		if (latent) {
 			model = new CorefModel(0);
+			if (updateAllFalseNegatives)
+				((CorefModel) model).setUpdateAllFalseNegatives(true);
 			inference = new CoreferenceMaxBranchInference(
 					inDataset.getMaxNumberOfTokens(), 0);
 		} else {
 			model = new DPTemplateEvolutionModel(0);
+			if (updateAllFalseNegatives) {
+				LOG.error("Option updateallfn requires option latent");
+				System.exit(1);
+			}
 			inference = new MaximumBranchingInference(
 					inDataset.getMaxNumberOfTokens());
 		}
@@ -356,16 +363,20 @@ public class TrainCoreference implements Command {
 		String testConllPredictedFileName = testPredictedFileName + ".conll";
 		// Command to convert the predicted file to CoNLL format.
 		String cmd = String.format(
-				"python mentionPairsToConll2.py %s %s %s predicted",
+				"python mentionPairsToConll.py %s %s %s predicted",
 				conllTestFileName, testPredictedFileName,
 				testConllPredictedFileName);
 		execCommandAndRedirectOutputAndError(cmd, scriptBasePath);
 
-		// Command to evaluate the predicted information.
-		cmd = String.format("perl scorer.pl %s %s %s none", metric,
-				conllTestFileName, testConllPredictedFileName);
-		execCommandAndRedirectOutputAndError(cmd, new File(scriptBasePath,
-				"scorer/v4"));
+		String[] metrics = metric.split(",");
+		for (String m : metrics) {
+			LOG.info(String.format("*** Results for %s ***", m));
+			// Command to evaluate the predicted information.
+			cmd = String.format("perl scorer.pl %s %s %s none", m,
+					conllTestFileName, testConllPredictedFileName);
+			execCommandAndRedirectOutputAndError(cmd, new File(scriptBasePath,
+					"scorer/v4"));
+		}
 
 		// Remove temporary file.
 		new File(testConllPredictedFileName).delete();
@@ -497,24 +508,25 @@ public class TrainCoreference implements Command {
 
 			// Fill the list of predicted outputs.
 			DPInput[] inputs = testset.getInputs();
-			DPOutput[] outputs = testset.getOutputs();
+			// DPOutput[] outputs = testset.getOutputs();
 			for (int idx = 0; idx < inputs.length; ++idx) {
 				// Predict (tag the output sequence).
 				inferenceImpl.inference(model, inputs[idx], predicteds[idx]);
 
-				// if (predicteds[idx].size() < 80)
-				{
-					// Annotate latent structure for the correct output.
-					DPOutput completeCorrect = outputs[idx].createNewObject();
-					((CoreferenceMaxBranchInference) inferenceImpl)
-							.partialInference(model, inputs[idx], outputs[idx],
-									completeCorrect);
-					((CoreferenceMaxBranchInference) inferenceImpl)
-							.printEdgesOfIncorrectMentions((CorefModel) model,
-									(CorefInput) inputs[idx],
-									(CorefOutput) completeCorrect,
-									(CorefOutput) predicteds[idx]);
-				}
+				// TODO test
+				// // if (predicteds[idx].size() < 80)
+				// {
+				// // Annotate latent structure for the correct output.
+				// DPOutput completeCorrect = outputs[idx].createNewObject();
+				// ((CoreferenceMaxBranchInference) inferenceImpl)
+				// .partialInference(model, inputs[idx], outputs[idx],
+				// completeCorrect);
+				// ((CoreferenceMaxBranchInference) inferenceImpl)
+				// .printEdgesOfIncorrectMentions((CorefModel) model,
+				// (CorefInput) inputs[idx],
+				// (CorefOutput) completeCorrect,
+				// (CorefOutput) predicteds[idx]);
+				// }
 			}
 
 			try {
