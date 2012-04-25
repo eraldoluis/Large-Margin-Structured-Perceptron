@@ -1,10 +1,11 @@
 package br.pucrio.inf.learn.structlearning.discriminative.task;
 
-import java.io.PrintStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 
+import br.pucrio.inf.learn.structlearning.discriminative.data.Dataset;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
-import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
 
 /**
  * Interface of a task-specific model.
@@ -42,14 +43,17 @@ public interface Model {
 	public void average(int numberOfIterations);
 
 	/**
-	 * Serialize the model to the given stream.
+	 * Save this model to the given filename.
 	 * 
-	 * @param ps
-	 * @param featureEncoding
-	 * @param stateEncoding
+	 * @param fileName
+	 *            name of the file where the model is to be saved.
+	 * @param dataset
+	 *            the dataset where the underlying encodings used by this model
+	 *            are. Usually, this is the training dataset used to generate
+	 *            this model.
 	 */
-	public void save(PrintStream ps, FeatureEncoding<String> featureEncoding,
-			FeatureEncoding<String> stateEncoding);
+	public void save(String fileName, Dataset dataset) throws IOException,
+			FileNotFoundException;
 
 	/**
 	 * Return an identical copy of this object.

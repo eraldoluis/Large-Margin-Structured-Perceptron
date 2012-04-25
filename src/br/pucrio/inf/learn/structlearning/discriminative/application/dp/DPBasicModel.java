@@ -1,5 +1,7 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.dp;
 
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -13,6 +15,7 @@ import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.AveragedParameter;
+import br.pucrio.inf.learn.structlearning.discriminative.data.Dataset;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
@@ -159,7 +162,8 @@ public class DPBasicModel implements DPModel {
 			}
 
 			// Decrement mispredicted edges weights.
-			int[] predictedFeatures = input.getFeatures(idxPredictedHead, idxTkn);
+			int[] predictedFeatures = input.getFeatures(idxPredictedHead,
+					idxTkn);
 			for (int idxFtr = 0; idxFtr < predictedFeatures.length; ++idxFtr) {
 				int ftr = predictedFeatures[idxFtr];
 				AveragedParameter param = getFeatureWeightOrCreate(ftr);
@@ -204,8 +208,8 @@ public class DPBasicModel implements DPModel {
 	}
 
 	@Override
-	public void save(PrintStream ps, FeatureEncoding<String> featureEncoding,
-			FeatureEncoding<String> stateEncoding) {
+	public void save(String fileName, Dataset dataset) throws IOException,
+			FileNotFoundException {
 		throw new NotImplementedException();
 	}
 

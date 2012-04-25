@@ -285,6 +285,16 @@ public class DPColumnDataset implements DPDataset {
 		return -1;
 	}
 
+	/**
+	 * Return the label for the given feature index.
+	 * 
+	 * @param index
+	 * @return
+	 */
+	public String getFeatureLabel(int index) {
+		return featureLabels[index];
+	}
+
 	@Override
 	public void load(BufferedReader reader) throws IOException,
 			DatasetException {
@@ -771,6 +781,13 @@ public class DPColumnDataset implements DPDataset {
 	 */
 	public FeatureTemplate[][] getTemplates() {
 		return templates;
+	}
+
+	/**
+	 * Set the template set of this dataset.
+	 */
+	public void setTemplates(FeatureTemplate[][] tpls) {
+		this.templates = tpls;
 	}
 
 	/**

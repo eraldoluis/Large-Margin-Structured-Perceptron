@@ -1,6 +1,10 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.dp;
 
-import java.io.PrintStream;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.Writer;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -8,10 +12,18 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeSet;
 
-import sun.reflect.generics.reflectiveObjects.NotImplementedException;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+import org.json.JSONTokener;
+import org.json.JSONWriter;
+
+import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CorefColumnDataset;
+import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPColumnDataset;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.AveragedParameter;
+import br.pucrio.inf.learn.structlearning.discriminative.data.Dataset;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
@@ -59,6 +71,88 @@ public class DPTemplateEvolutionModel implements DPModel {
 		this.root = root;
 		this.parameters = new HashMap<Integer, AveragedParameter>();
 		this.updatedParameters = new HashSet<AveragedParameter>();
+	}
+
+	/**
+	 * Load a model from the given file and using the encodings in the given
+	 * dataset. Usually, the loaded model will later be applied in this dataset.
+	 * The dataset encodins can be even empty and then they will be filled with
+	 * features from the loaded model.
+	 * 
+	 * @param fileName
+	 * @param dataset
+	 * @throws JSONException
+	 * @throws IOException
+	 */
+	public DPTemplateEvolutionModel(String fileName, CorefColumnDataset dataset)
+			throws JSONException, IOException {
+		this.updatedParameters = null;
+		this.parameters = new HashMap<Integer, AveragedParameter>();
+
+		// Model file input stream.
+		FileInputStream fis = new FileInputStream(fileName);
+
+		// Load JSON model object.
+		JSONObject jModel = new JSONObject(new JSONTokener(fis));
+
+		// Set dataset templates.
+		FeatureTemplate[][] templatesAllLevels = loadTemplatesFromJSON(jModel,
+				dataset);
+		dataset.setTemplates(templatesAllLevels);
+
+		// Set model parameters.
+		loadParametersFromJSON(jModel, dataset);
+
+		// Close model file input stream.
+		fis.close();
+
+		// Get root value.
+		this.root = jModel.getInt("root");
+	}
+
+	/**
+	 * Load model parameters from the given JSON model object
+	 * <code>jModel</code>.
+	 * 
+	 * @param jModel
+	 * @param dataset
+	 */
+	protected void loadParametersFromJSON(JSONObject jModel,
+			CorefColumnDataset dataset) {
+
+	}
+
+	/**
+	 * Load templates from the given JSON model object <code>jModel</code>.
+	 * 
+	 * @param jModel
+	 * @param dataset
+	 * @return
+	 * @throws JSONException
+	 */
+	protected FeatureTemplate[][] loadTemplatesFromJSON(JSONObject jModel,
+			CorefColumnDataset dataset) throws JSONException {
+		// Get template set.
+		JSONArray jTemplatesAllLevels = jModel.getJSONArray("templates");
+		FeatureTemplate[][] templatesAllLevels = new FeatureTemplate[jTemplatesAllLevels
+				.length()][];
+		for (int level = 0; level < templatesAllLevels.length; ++level) {
+			JSONArray jTemplates = jTemplatesAllLevels.getJSONArray(level);
+			FeatureTemplate[] templates = new FeatureTemplate[jTemplates
+					.length()];
+			for (int idxTpl = 0; idxTpl < templates.length; ++idxTpl) {
+				JSONArray jTemplate = jTemplates.getJSONArray(idxTpl);
+				int[] features = new int[jTemplate.length()];
+				for (int idxFtr = 0; idxFtr < features.length; ++idxFtr)
+					features[idxFtr] = dataset.getFeatureIndex(jTemplate
+							.getString(idxFtr));
+				SimpleFeatureTemplate tpl = new SimpleFeatureTemplate(idxTpl,
+						features);
+				templates[idxTpl] = tpl;
+			}
+			templatesAllLevels[level] = templates;
+		}
+		return templatesAllLevels;
 	}
 
 	/**
@@ -252,14 +346,87 @@ public class DPTemplateEvolutionModel implements DPModel {
 	}
 
 	@Override
-	public void save(PrintStream ps, FeatureEncoding<String> featureEncoding,
-			FeatureEncoding<String> stateEncoding) {
-		throw new NotImplementedException();
+	public int getNumberOfUpdatedParameters() {
+		return parameters.size();
 	}
 
 	@Override
-	public int getNumberOfUpdatedParameters() {
-		return parameters.size();
+	public void save(String fileName, Dataset dataset) throws IOException,
+			FileNotFoundException {
+		FileWriter fw = new FileWriter(fileName);
+		save(fw, (DPColumnDataset) dataset);
+		fw.close();
+	}
+
+	/**
+	 * Save this model in the given <code>FileWriter</code> object.
+	 * 
+	 * @param w
+	 * @param dataset
+	 * @throws IOException
+	 */
+	public void save(Writer w, DPColumnDataset dataset) throws IOException {
+		FeatureEncoding<String> basicEncoding = dataset.getFeatureEncoding();
+		FeatureEncoding<Feature> explicitEncoding = dataset
+				.getExplicitEncoding();
+		try {
+			// JSON objects writer.
+			JSONWriter jw = new JSONWriter(w);
+
+			// Model object.
+			jw.object();
+
+			// Root value.
+			jw.key("root").value(root);
+
+			// Templates array.
+			jw.key("templates");
+			jw.array();
+			FeatureTemplate[][] templatesAllLevels = dataset.getTemplates();
+			for (FeatureTemplate[] templates : templatesAllLevels) {
+				// Templates array of the current level.
+				jw.array();
+				for (FeatureTemplate template : templates) {
+					// Features array of the current template.
+					jw.array();
+					for (int idxFtr : template.getFeatures())
+						jw.value(dataset.getFeatureLabel(idxFtr));
+					// End of features array of the current template.
+					jw.endArray();
+				}
+				// End of templates array of the current level.
+				jw.endArray();
+			}
+			// End of templates array.
+			jw.endArray();
+
+			// Parameters array.
+			jw.key("parameters");
+			jw.array();
+			for (Entry<Integer, AveragedParameter> entry : parameters
+					.entrySet()) {
+				// Explicit features array: [template_index, [features_values]].
+				jw.array();
+				Feature ftr = explicitEncoding.getValueByCode(entry.getKey());
+				jw.value(ftr.getTemplateIndex());
+				// Feature values array.
+				jw.array();
+				for (int code : ftr.getValues())
+					jw.value(basicEncoding.getValueByCode(code));
+				// End of feature values array.
+				jw.endArray();
+				// End of explicit features array.
+				jw.endArray();
+			}
+			// End of parameters array.
+			jw.endArray();
+
+			// End of model object.
+			jw.endObject();
+
+		} catch (JSONException e) {
+			throw new IOException("JSON error", e);
+		}
 	}
 
 }

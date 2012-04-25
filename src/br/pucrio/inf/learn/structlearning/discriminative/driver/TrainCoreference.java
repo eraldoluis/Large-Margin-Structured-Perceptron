@@ -2,6 +2,7 @@ package br.pucrio.inf.learn.structlearning.discriminative.driver;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Collection;
@@ -73,6 +74,9 @@ public class TrainCoreference implements Command {
 				.withDescription(
 						"Number of epochs: how many iterations over the"
 								+ " training set.").create());
+		options.addOption(OptionBuilder.withLongOpt("model")
+				.withArgName("filename").hasArg()
+				.withDescription("File name to save final model.").create());
 		options.addOption(OptionBuilder.withLongOpt("test")
 				.withArgName("filename").hasArg()
 				.withDescription("Test dataset file name.").create());
@@ -148,6 +152,7 @@ public class TrainCoreference implements Command {
 		String templatesFileName = cmdLine.getOptionValue("templates");
 		int numEpochs = Integer.parseInt(cmdLine.getOptionValue("numepochs",
 				"10"));
+		String modelFileName = cmdLine.getOptionValue("model");
 		String testDatasetFileName = cmdLine.getOptionValue("test");
 		String scriptBasePathStr = cmdLine.getOptionValue("scriptpath");
 		File conllBasePath = null;
@@ -284,6 +289,17 @@ public class TrainCoreference implements Command {
 		// Train model.
 		alg.train(inDataset.getInputs(), inDataset.getOutputs());
 
+		if (modelFileName != null) {
+			try {
+				// Save model.
+				model.save(modelFileName, inDataset);
+			} catch (FileNotFoundException e) {
+				LOG.error(e);
+			} catch (IOException e) {
+				LOG.error(e);
+			}
+		}
+
 		// Evaluation only for the final model.
 		if (testDatasetFileName != null && !evalPerEpoch) {
 			try {
@@ -355,7 +371,7 @@ public class TrainCoreference implements Command {
 	 * @throws CommandException
 	 * @throws InterruptedException
 	 */
-	private static void evaluateWithConllScripts(File scriptBasePath,
+	public static void evaluateWithConllScripts(File scriptBasePath,
 			String testPredictedFileName, String conllTestFileName,
 			String metric) throws IOException, CommandException,
 			InterruptedException {
