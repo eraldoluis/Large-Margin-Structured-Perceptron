@@ -1,6 +1,5 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.sequence;
 
-
 /**
  * Model parameter that supports a voted perceptron implementation.
  * 
@@ -33,6 +32,21 @@ public final class AveragedParameter implements Comparable<AveragedParameter>,
 	 * summed into the <code>sum</code> value).
 	 */
 	private int lastSummedIteration;
+
+	/**
+	 * Default constructor.
+	 */
+	public AveragedParameter() {
+	}
+
+	/**
+	 * Create a parameter with the given value as weight.
+	 * 
+	 * @param value
+	 */
+	public AveragedParameter(double value) {
+		this.weight = value;
+	}
 
 	/**
 	 * Set the value of this weight.

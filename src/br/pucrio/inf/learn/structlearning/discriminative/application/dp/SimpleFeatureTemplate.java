@@ -51,12 +51,7 @@ public class SimpleFeatureTemplate implements FeatureTemplate {
 		int[] basicFeatures = input.getBasicFeatures(idxHead, idxDep);
 		if (basicFeatures == null)
 			return null;
-		int[] values = tempFeature.getValues();
-		for (int idx = 0; idx < features.length; ++idx) {
-			values[idx] = basicFeatures[features[idx]];
-		}
-		tempFeature.setTemplateIndex(index);
-		return tempFeature;
+		return getInstance(basicFeatures);
 	}
 
 	@Override
@@ -64,10 +59,22 @@ public class SimpleFeatureTemplate implements FeatureTemplate {
 		int[] basicFeatures = input.getBasicFeatures(idxHead, idxDep);
 		if (basicFeatures == null)
 			return null;
-		int[] values = new int[features.length];
-		for (int idx = 0; idx < features.length; ++idx)
-			values[idx] = basicFeatures[features[idx]];
-		return new Feature(index, values);
+		return newInstance(basicFeatures);
 	}
 
+	public Feature getInstance(int[] values) {
+		int[] tmpValues = tempFeature.getValues();
+		for (int idx = 0; idx < features.length; ++idx) {
+			tmpValues[idx] = values[features[idx]];
+		}
+		tempFeature.setTemplateIndex(index);
+		return tempFeature;
+	}
+
+	public Feature newInstance(int[] values) {
+		int[] newValues = new int[features.length];
+		for (int idx = 0; idx < features.length; ++idx)
+			newValues[idx] = values[features[idx]];
+		return new Feature(index, newValues);
+	}
 }

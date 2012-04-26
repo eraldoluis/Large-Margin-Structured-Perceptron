@@ -116,10 +116,36 @@ public class DPTemplateEvolutionModel implements DPModel {
 	 * 
 	 * @param jModel
 	 * @param dataset
+	 * @throws JSONException
 	 */
 	protected void loadParametersFromJSON(JSONObject jModel,
-			CorefColumnDataset dataset) {
-
+			CorefColumnDataset dataset) throws JSONException {
+		// Encodings.
+		FeatureEncoding<String> basicEncoding = dataset.getFeatureEncoding();
+		FeatureEncoding<Feature> explicitEncoding = dataset
+				.getExplicitEncoding();
+		// JSON array of parameters.
+		JSONArray jParams = jModel.getJSONArray("parameters");
+		int numParams = jParams.length();
+		for (int idxParam = 0; idxParam < numParams; ++idxParam) {
+			/*
+			 * JSON array that represents a complete parameter: its template
+			 * index, its feature values and its weight.
+			 */
+			JSONArray jParam = jParams.getJSONArray(idxParam);
+			// Template index.
+			int idxTpl = jParam.getInt(0);
+			// Copy basic features values.
+			JSONArray jValues = jParam.getJSONArray(1);
+			int[] values = new int[jValues.length()];
+			for (int idxVal = 0; idxVal < values.length; ++idxVal)
+				values[idxVal] = basicEncoding.put(jValues.getString(idxVal));
+			// Create a feature object and encode it.
+			Feature ftr = new Feature(idxTpl, values);
+			int code = explicitEncoding.put(ftr);
+			// Put the new feature weight in the parameters.
+			parameters.put(code, new AveragedParameter(jParam.getDouble(2)));
+		}
 	}
 
 	/**
@@ -405,7 +431,8 @@ public class DPTemplateEvolutionModel implements DPModel {
 			jw.array();
 			for (Entry<Integer, AveragedParameter> entry : parameters
 					.entrySet()) {
-				// Explicit features array: [template_index, [features_values]].
+				// Explicit features array:
+				// [template_index, [feature_values_array], weight].
 				jw.array();
 				Feature ftr = explicitEncoding.getValueByCode(entry.getKey());
 				jw.value(ftr.getTemplateIndex());
@@ -415,6 +442,8 @@ public class DPTemplateEvolutionModel implements DPModel {
 					jw.value(basicEncoding.getValueByCode(code));
 				// End of feature values array.
 				jw.endArray();
+				// Parameter weight.
+				jw.value(entry.getValue().get());
 				// End of explicit features array.
 				jw.endArray();
 			}
