@@ -1,10 +1,13 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.sequence;
 
+import java.io.FileNotFoundException;
 import java.io.PrintStream;
 import java.util.Arrays;
 
+import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceDataset;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceOutput;
+import br.pucrio.inf.learn.structlearning.discriminative.data.Dataset;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
@@ -229,8 +232,27 @@ public abstract class Hmm implements Model {
 				(SequenceOutput) outputPredicted, learningRate);
 	}
 
-	public void save(PrintStream ps, FeatureEncoding<String> featureEncoding,
-			FeatureEncoding<String> stateEncoding) {
+	@Override
+	public void save(String fileName, Dataset dataset)
+			throws FileNotFoundException {
+		PrintStream ps = new PrintStream(fileName);
+		save(ps, dataset);
+		ps.close();
+	}
+
+	/**
+	 * Save this HMM to the given <code>PrintStream</code>. The given
+	 * <code>Dataset</code> provides de underlying feature and state encodings.
+	 * Usually, this is the training dataset used to build this model.
+	 * 
+	 * @param ps
+	 * @param dataset
+	 */
+	public void save(PrintStream ps, Dataset dataset) {
+		FeatureEncoding<String> featureEncoding = ((SequenceDataset) dataset)
+				.getFeatureEncoding();
+		FeatureEncoding<String> stateEncoding = ((SequenceDataset) dataset)
+				.getStateEncoding();
 		ps.println("# initial state");
 		for (int state = 0; state < getNumberOfStates(); ++state)
 			ps.println(stateEncoding.getValueByCode(state) + "\t"

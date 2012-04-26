@@ -1,16 +1,16 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.pq;
 
-import java.io.PrintStream;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
 
+import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 import br.pucrio.inf.learn.structlearning.discriminative.application.pq.data.PQInput2;
 import br.pucrio.inf.learn.structlearning.discriminative.application.pq.data.PQOutput2;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.AveragedParameter;
+import br.pucrio.inf.learn.structlearning.discriminative.data.Dataset;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
-import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Model;
 
 /**
@@ -25,18 +25,18 @@ public class PQModel2 implements Model {
 	 * Feature weights.
 	 */
 	private AveragedParameter[] featureWeights;
-	
+
 	private Set<AveragedParameter> updatedParameters;
 
 	public PQModel2(int numberOfFeatures) {
 		featureWeights = new AveragedParameter[numberOfFeatures];
-		for(int i = 0; i < featureWeights.length; ++i) {
+		for (int i = 0; i < featureWeights.length; ++i) {
 			featureWeights[i] = new AveragedParameter();
 		}
-		
+
 		updatedParameters = new HashSet<AveragedParameter>();
 	}
-	
+
 	protected PQModel2(AveragedParameter[] featureWeights) {
 		this.featureWeights = featureWeights;
 		this.updatedParameters = new HashSet<AveragedParameter>();
@@ -53,29 +53,31 @@ public class PQModel2 implements Model {
 	 * @return the loss between the correct and the predicted output.
 	 */
 	public double update(PQInput2 input, PQOutput2 outputCorrect,
-						PQOutput2 outputPredicted, double learningRate) {
-		int outputCorrectSize   = outputCorrect.size();
+			PQOutput2 outputPredicted, double learningRate) {
+		int outputCorrectSize = outputCorrect.size();
 		int numberOfErrors = 0;
 		for (int i = 0; i < outputCorrectSize; ++i) {
-			int labelCorrect   = outputCorrect.getAuthor(i);
+			int labelCorrect = outputCorrect.getAuthor(i);
 			int labelPredicted = outputPredicted.getAuthor(i);
-			
+
 			if (labelCorrect != labelPredicted) {
 				++numberOfErrors;
 				int featureIndex;
 
-				if(labelCorrect >= 0) {
-					Iterator<Integer> it = input.getFeatureCodes(i, labelCorrect).iterator();
-					while(it.hasNext()) {
+				if (labelCorrect >= 0) {
+					Iterator<Integer> it = input.getFeatureCodes(i,
+							labelCorrect).iterator();
+					while (it.hasNext()) {
 						featureIndex = it.next();
 						this.featureWeights[featureIndex].update(learningRate);
 						updatedParameters.add(featureWeights[featureIndex]);
 					}
 				}
-				
-				if(labelPredicted >= 0) {
-					Iterator<Integer> it = input.getFeatureCodes(i, labelPredicted).iterator();
-					while(it.hasNext()) {
+
+				if (labelPredicted >= 0) {
+					Iterator<Integer> it = input.getFeatureCodes(i,
+							labelPredicted).iterator();
+					while (it.hasNext()) {
 						featureIndex = it.next();
 						this.featureWeights[featureIndex].update(-learningRate);
 						updatedParameters.add(featureWeights[featureIndex]);
@@ -83,10 +85,10 @@ public class PQModel2 implements Model {
 				}
 			}
 		}
-		
+
 		return numberOfErrors;
 	}
-	
+
 	public double update(ExampleInput input, ExampleOutput outputCorrect,
 			ExampleOutput outputPredicted, double learningRate) {
 		return update((PQInput2) input, (PQOutput2) outputCorrect,
@@ -106,6 +108,16 @@ public class PQModel2 implements Model {
 			parm.average(numberOfIterations);
 	}
 
+	/**
+	 * Return the weight for the given feature code.
+	 * 
+	 * @param featureIndex
+	 * @return
+	 */
+	public double getFeatureWeight(int featureIndex) {
+		return this.featureWeights[featureIndex].get();
+	}
+
 	@Override
 	public PQModel2 clone() throws CloneNotSupportedException {
 		AveragedParameter[] clones = new AveragedParameter[featureWeights.length];
@@ -115,14 +127,8 @@ public class PQModel2 implements Model {
 	}
 
 	@Override
-	public void save(PrintStream ps, FeatureEncoding<String> featureEncoding,
-			FeatureEncoding<String> stateEncoding) {
-		// TODO Auto-generated method stub
-
-	}
-
-	public double getFeatureWeight(int featureIndex) {
-		return this.featureWeights[featureIndex].get();
+	public void save(String fileName, Dataset dataset) {
+		throw new NotImplementedException();
 	}
 
 }

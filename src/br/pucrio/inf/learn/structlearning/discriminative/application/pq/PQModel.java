@@ -1,13 +1,13 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.pq;
 
-import java.io.PrintStream;
 import java.util.Iterator;
 
+import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 import br.pucrio.inf.learn.structlearning.discriminative.application.pq.data.PQInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.pq.data.PQOutput;
+import br.pucrio.inf.learn.structlearning.discriminative.data.Dataset;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
-import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Model;
 
 /**
@@ -41,28 +41,29 @@ public class PQModel implements Model {
 			PQOutput outputPredicted, double learningRate) {
 		int labelCorrect = outputCorrect.getPerson();
 		int labelPredicted = outputPredicted.getPerson();
-		
+
 		if (labelCorrect != labelPredicted) {
-			Iterator<Integer> i = input.getFeatureCodes(labelCorrect).iterator();
+			Iterator<Integer> i = input.getFeatureCodes(labelCorrect)
+					.iterator();
 			int featureIndex;
-			
-			while(i.hasNext()) {
+
+			while (i.hasNext()) {
 				featureIndex = i.next();
 				this.featureWeights[featureIndex] += learningRate;
 			}
-			
+
 			i = input.getFeatureCodes(labelPredicted).iterator();
-			while(i.hasNext()) {
+			while (i.hasNext()) {
 				featureIndex = i.next();
 				this.featureWeights[featureIndex] -= learningRate;
 			}
-			
+
 			return 1;
 		}
-		
+
 		return 0;
 	}
-	
+
 	public double update(ExampleInput input, ExampleOutput outputCorrect,
 			ExampleOutput outputPredicted, double learningRate) {
 		return update((PQInput) input, (PQOutput) outputCorrect,
@@ -81,20 +82,18 @@ public class PQModel implements Model {
 
 	}
 
+	public double getFeatureWeight(int featureIndex) {
+		return this.featureWeights[featureIndex];
+	}
+
 	@Override
 	public PQModel clone() throws CloneNotSupportedException {
 		return null;
 	}
 
 	@Override
-	public void save(PrintStream ps, FeatureEncoding<String> featureEncoding,
-			FeatureEncoding<String> stateEncoding) {
-		// TODO Auto-generated method stub
-
-	}
-	
-	public double getFeatureWeight(int featureIndex) {
-		return this.featureWeights[featureIndex];
+	public void save(String fileName, Dataset dataset) {
+		throw new NotImplementedException();
 	}
 
 }

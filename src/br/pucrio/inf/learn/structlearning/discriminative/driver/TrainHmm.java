@@ -1,7 +1,7 @@
 package br.pucrio.inf.learn.structlearning.discriminative.driver;
 
 import java.io.FileNotFoundException;
-import java.io.PrintStream;
+import java.io.IOException;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -982,13 +982,11 @@ public class TrainHmm implements Command {
 
 		if (modelFileName != null) {
 			LOG.info("Saving final model...");
-			PrintStream ps;
 			try {
-				ps = new PrintStream(modelFileName);
-				model.save(ps, inputCorpusA.getFeatureEncoding(),
-						inputCorpusA.getStateEncoding());
-				ps.close();
+				model.save(modelFileName, inputCorpusA);
 			} catch (FileNotFoundException e) {
+				LOG.error("Saving model " + modelFileName, e);
+			} catch (IOException e) {
 				LOG.error("Saving model " + modelFileName, e);
 			}
 		}

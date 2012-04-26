@@ -1,14 +1,11 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.sequence;
 
-import java.io.PrintStream;
-
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
-
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceOutput;
+import br.pucrio.inf.learn.structlearning.discriminative.data.Dataset;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
-import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Model;
 
 /**
@@ -229,8 +226,8 @@ public abstract class Hmm2ndOrder implements Model {
 				(SequenceOutput) outputPredicted, learningRate);
 	}
 
-	public void save(PrintStream ps, FeatureEncoding<String> featureEncoding,
-			FeatureEncoding<String> stateEncoding) {
+	@Override
+	public void save(String fileName, Dataset dataset) {
 		throw new NotImplementedException();
 	}
 
