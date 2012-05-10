@@ -44,6 +44,13 @@ public class CoreferenceMaxBranchInference implements Inference {
 	private double[][] graph;
 
 	/**
+	 * Multicative factor to be used only on edges that come from the artificial
+	 * root node. This factor can be used to bias the updates in order to
+	 * stimulate or distimulate the selection of these edges by the model.
+	 */
+	private double lossFactorForRootEdges;
+
+	/**
 	 * Create an inference implementation to deal with sentences that have the
 	 * given maximum number of tokens.
 	 * 
@@ -58,6 +65,7 @@ public class CoreferenceMaxBranchInference implements Inference {
 		this.root = root;
 		maxBranchingAlgorithm = new MaximumBranchingAlgorithm(maxNumberOfTokens);
 		graph = new double[maxNumberOfTokens][maxNumberOfTokens];
+		lossFactorForRootEdges = -1d;
 	}
 
 	@Override
@@ -97,6 +105,10 @@ public class CoreferenceMaxBranchInference implements Inference {
 	private void fillGraph(DPModel model, DPInput input) {
 		// Number of tokens in the input structure.
 		int numTokens = input.getNumberOfTokens();
+		if (graph.length < numTokens) {
+			graph = new double[numTokens][numTokens];
+			maxBranchingAlgorithm.realloc(numTokens);
+		}
 		// Fill the weight matrix.
 		for (int leftMention = 0; leftMention < numTokens; ++leftMention) {
 			// Backward edges are not used.
@@ -124,23 +136,23 @@ public class CoreferenceMaxBranchInference implements Inference {
 
 		maxBranchingAlgorithm.setCheckUniqueRoot(false);
 
-		int numTokens = input.getNumberOfTokens();
+		int numMentions = input.getNumberOfTokens();
 
 		/*
 		 * Find the maximum branching and fill the output inverted branching
 		 * array with it.
 		 */
-		maxBranchingAlgorithm.findMaxBranching(numTokens, graph,
+		maxBranchingAlgorithm.findMaxBranching(numMentions, graph,
 				predictedOutput.getInvertedBranchingArray());
 
 		maxBranchingAlgorithm.setCheckUniqueRoot(true);
 
 		// Connect root nodes of the branching to the artificial root node.
-		for (int tkn = 0; tkn < numTokens; ++tkn) {
-			if (tkn == root)
+		for (int mention = 0; mention < numMentions; ++mention) {
+			if (mention == root)
 				continue;
-			if (predictedOutput.getHead(tkn) < 0)
-				predictedOutput.setHead(tkn, root);
+			if (predictedOutput.getHead(mention) < 0)
+				predictedOutput.setHead(mention, root);
 		}
 
 		// Set the correct clustering for the predicted output structure.
@@ -162,15 +174,22 @@ public class CoreferenceMaxBranchInference implements Inference {
 			CorefOutput referenceOutput) {
 		// Number of tokens in the input structure.
 		int numTokens = input.getNumberOfTokens();
+		if (graph.length < numTokens) {
+			graph = new double[numTokens][numTokens];
+			maxBranchingAlgorithm.realloc(numTokens);
+		}
 		// Fill the weight matrix.
 		for (int mentionLeft = 0; mentionLeft < numTokens; ++mentionLeft) {
+			// Left mention cluster id.
+			int idClusterLeftMention = referenceOutput
+					.getClusterId(mentionLeft);
 			// Backward edges are not used.
 			for (int mentionRight = 0; mentionRight <= mentionLeft; ++mentionRight)
 				graph[mentionLeft][mentionRight] = Double.NaN;
 			// Forward edges.
 			for (int mentionRight = mentionLeft + 1; mentionRight < numTokens; ++mentionRight) {
 				// Only include correct edges (intracluster edges).
-				if (referenceOutput.getClusterId(mentionLeft) == referenceOutput
+				if (idClusterLeftMention == referenceOutput
 						.getClusterId(mentionRight))
 					graph[mentionLeft][mentionRight] = model.getEdgeScore(
 							input, mentionLeft, mentionRight);
@@ -200,6 +219,14 @@ public class CoreferenceMaxBranchInference implements Inference {
 
 		// Add loss values.
 		if (lossWeight != 0d) {
+			/*
+			 * Special loss weight for edges coming from the artificial root
+			 * node.
+			 */
+			double rootLossWeight = lossWeight;
+			if (lossFactorForRootEdges >= 0d)
+				rootLossWeight *= lossFactorForRootEdges;
+
 			for (int leftMention = 0; leftMention < numTokens; ++leftMention) {
 				if (leftMention == root) {
 					/*
@@ -210,7 +237,7 @@ public class CoreferenceMaxBranchInference implements Inference {
 						if (referenceOutput.getHead(rightMention) != root)
 							// Increment weight for incorrect root edge.
 							if (!Double.isNaN(graph[leftMention][rightMention]))
-								graph[leftMention][rightMention] += lossWeight;
+								graph[leftMention][rightMention] += rootLossWeight;
 				} else {
 					// Ordinary edges, i.e., edges between real mentions.
 					for (int rightMention = leftMention + 1; rightMention < numTokens; ++rightMention) {
@@ -238,7 +265,8 @@ public class CoreferenceMaxBranchInference implements Inference {
 				graph, predictedOutput.getInvertedBranchingArray());
 
 		// Set the correct clustering for the predicted output structure.
-		predictedOutput.setClusteringEqualTo(referenceOutput);
+		//predictedOutput.setClusteringEqualTo(referenceOutput);
+		predictedOutput.computeClusteringFromTree(root);
 	}
 
 	@Override
@@ -247,6 +275,15 @@ public class CoreferenceMaxBranchInference implements Inference {
 			ExampleOutput referenceOutput, ExampleOutput predictedOutput,
 			double lossAnnotatedWeight, double lossNonAnnotatedWeight) {
 		throw new NotImplementedException();
+	}
+
+	/**
+	 * Set the loss factor for edges that come from the artificial root node.
+	 * 
+	 * @param factor
+	 */
+	public void setLossFactorForRootEdges(double factor) {
+		this.lossFactorForRootEdges = factor;
 	}
 
 	public void printEdgesOfIncorrectMentions(CorefModel model,
@@ -317,17 +354,30 @@ public class CoreferenceMaxBranchInference implements Inference {
 		System.out.println("\n");
 	}
 
+	/**
+	 * For each cluster in <code>output</code>, create a set with its mentions.
+	 * Mentions are represented by their integer ids. The set of clusters are
+	 * represented by a map whose keys are the clusters ids, i.e., the id of one
+	 * specific mention in the cluster (the representant mention).
+	 * 
+	 * @param output
+	 * @return
+	 */
 	private Map<Integer, ? extends Set<Integer>> createExplicitClustering(
 			CorefOutput output) {
 		HashMap<Integer, TreeSet<Integer>> explicitClustering = new HashMap<Integer, TreeSet<Integer>>();
 		int numMentions = output.size();
 		for (int idxMention = 0; idxMention < numMentions; ++idxMention) {
+			// Get the current mention id.
 			int id = output.getClusterId(idxMention);
+			// Get the set of mentions in the current mention cluster.
 			TreeSet<Integer> cluster = explicitClustering.get(id);
 			if (cluster == null) {
+				// First mention of its cluster.
 				cluster = new TreeSet<Integer>();
 				explicitClustering.put(id, cluster);
 			}
+			// Add the current mention to its cluster set.
 			cluster.add(idxMention);
 		}
 		return explicitClustering;

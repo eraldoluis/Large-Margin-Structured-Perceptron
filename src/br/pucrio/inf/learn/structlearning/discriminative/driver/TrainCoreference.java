@@ -22,6 +22,7 @@ import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.Pe
 import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CorefColumnDataset;
 import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CorefModel;
 import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CoreferenceMaxBranchInference;
+import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CorefModel.UpdateStrategy;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPModel;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPTemplateEvolutionModel;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.MaximumBranchingInference;
@@ -62,8 +63,20 @@ public class TrainCoreference implements Command {
 				.withDescription(
 						"Use latent structure within output structure.")
 				.create());
-		options.addOption(OptionBuilder.withLongOpt("updateallfn")
-				.withDescription("Update all false negative edges.").create());
+		options.addOption(OptionBuilder
+				.withLongOpt("update")
+				.withArgName("strategy")
+				.hasArg()
+				.withDescription(
+						"Update strategy to train: "
+								+ "CLUSTER (default), TREE or ALL.").create());
+		options.addOption(OptionBuilder
+				.withLongOpt("rootlossfactor")
+				.withArgName("multiplicative factor")
+				.hasArg()
+				.withDescription(
+						"Multiplicative factor to be used for root edges.")
+				.create());
 		options.addOption(OptionBuilder.withLongOpt("templates").isRequired()
 				.withArgName("filename").hasArg()
 				.withDescription("Feature templates file name.").create());
@@ -170,7 +183,12 @@ public class TrainCoreference implements Command {
 				"lossweight", "0d"));
 		boolean averageWeights = !cmdLine.hasOption("noavg");
 		boolean latent = cmdLine.hasOption("latent");
-		boolean updateAllFalseNegatives = cmdLine.hasOption("updateallfn");
+		UpdateStrategy updateStrategy = null;
+		String updateStrategyStr = cmdLine.getOptionValue("update");
+		if (updateStrategyStr != null)
+			updateStrategy = UpdateStrategy.valueOf(updateStrategyStr);
+		double rootLossFactor = Double.valueOf(cmdLine.getOptionValue(
+				"rootlossfactor", "-1"));
 
 		/*
 		 * If --test is provided, then --conlltest must be provided (and
@@ -224,14 +242,17 @@ public class TrainCoreference implements Command {
 
 		if (latent) {
 			model = new CorefModel(0);
-			if (updateAllFalseNegatives)
-				((CorefModel) model).setUpdateAllFalseNegatives(true);
+			if (updateStrategy != null)
+				((CorefModel) model).setUpdateStrategy(updateStrategy);
 			inference = new CoreferenceMaxBranchInference(
 					inDataset.getMaxNumberOfTokens(), 0);
+			if (rootLossFactor >= 0d)
+				((CoreferenceMaxBranchInference) inference)
+						.setLossFactorForRootEdges(rootLossFactor);
 		} else {
 			model = new DPTemplateEvolutionModel(0);
-			if (updateAllFalseNegatives) {
-				LOG.error("Option updateallfn requires option latent");
+			if (updateStrategy != null) {
+				LOG.error("--update=<strategy> requires --latent");
 				System.exit(1);
 			}
 			inference = new MaximumBranchingInference(

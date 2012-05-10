@@ -101,6 +101,16 @@ public class MaximumBranchingAlgorithm {
 	 * @param maxNumberOfNodes
 	 */
 	public MaximumBranchingAlgorithm(int maxNumberOfNodes) {
+		realloc(maxNumberOfNodes);
+		checkUniqueRoot = true;
+	}
+
+	/**
+	 * Realloc internal data structures to fit the given maximum size needed.
+	 * 
+	 * @param maxNumberOfNodes
+	 */
+	public void realloc(int maxNumberOfNodes) {
 		sPartition = new DisjointSets(maxNumberOfNodes);
 		wPartition = new DisjointSets(maxNumberOfNodes);
 		incomingEdges = new int[maxNumberOfNodes][maxNumberOfNodes];
@@ -109,7 +119,6 @@ public class MaximumBranchingAlgorithm {
 		min = new int[maxNumberOfNodes];
 		maxBranching = new boolean[maxNumberOfNodes][maxNumberOfNodes];
 		visited = new boolean[maxNumberOfNodes];
-		checkUniqueRoot = true;
 	}
 
 	/**

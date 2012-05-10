@@ -68,6 +68,10 @@ public class MaximumBranchingInference implements Inference {
 	private void fillGraph(DPModel model, DPInput input) {
 		// Number of tokens in the input structure.
 		int numTokens = input.getNumberOfTokens();
+		if (graph.length < numTokens) {
+			graph = new double[numTokens][numTokens];
+			maxBranchingAlgorithm.realloc(numTokens);
+		}
 		// Fill the weight matrix.
 		for (int head = 0; head < numTokens; ++head)
 			for (int dependent = 0; dependent < numTokens; ++dependent)

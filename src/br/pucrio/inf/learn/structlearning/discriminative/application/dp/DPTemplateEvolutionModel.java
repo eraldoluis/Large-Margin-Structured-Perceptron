@@ -111,6 +111,30 @@ public class DPTemplateEvolutionModel implements DPModel {
 	}
 
 	/**
+	 * Copy constructor.
+	 * 
+	 * @param other
+	 * @throws CloneNotSupportedException
+	 */
+	@SuppressWarnings("unchecked")
+	protected DPTemplateEvolutionModel(DPTemplateEvolutionModel other)
+			throws CloneNotSupportedException {
+		// Root node.
+		this.root = other.root;
+
+		// Shallow-copy parameters map.
+		this.parameters = (HashMap<Integer, AveragedParameter>) ((HashMap<Integer, AveragedParameter>) other.parameters)
+				.clone();
+
+		// Clone each map value.
+		for (Entry<Integer, AveragedParameter> entry : parameters.entrySet())
+			entry.setValue(entry.getValue().clone());
+
+		// Updated parameters and features are NOT copied.
+		updatedParameters = new TreeSet<AveragedParameter>();
+	}
+
+	/**
 	 * Load model parameters from the given JSON model object
 	 * <code>jModel</code>.
 	 * 
@@ -179,30 +203,6 @@ public class DPTemplateEvolutionModel implements DPModel {
 			templatesAllLevels[level] = templates;
 		}
 		return templatesAllLevels;
-	}
-
-	/**
-	 * Copy constructor.
-	 * 
-	 * @param other
-	 * @throws CloneNotSupportedException
-	 */
-	@SuppressWarnings("unchecked")
-	protected DPTemplateEvolutionModel(DPTemplateEvolutionModel other)
-			throws CloneNotSupportedException {
-		// Root node.
-		this.root = other.root;
-
-		// Shallow-copy parameters map.
-		this.parameters = (HashMap<Integer, AveragedParameter>) ((HashMap<Integer, AveragedParameter>) other.parameters)
-				.clone();
-
-		// Clone each map value.
-		for (Entry<Integer, AveragedParameter> entry : parameters.entrySet())
-			entry.setValue(entry.getValue().clone());
-
-		// Updated parameters and features are NOT copied.
-		updatedParameters = new TreeSet<AveragedParameter>();
 	}
 
 	/**
@@ -278,7 +278,7 @@ public class DPTemplateEvolutionModel implements DPModel {
 
 		// Per-token loss value for this example.
 		double loss = 0d;
-		for (int idxTkn = 1; idxTkn < input.getNumberOfTokens(); ++idxTkn) {
+		for (int idxTkn = 0; idxTkn < input.getNumberOfTokens(); ++idxTkn) {
 			// Correct head token.
 			int idxCorrectHead = outputCorrect.getHead(idxTkn);
 
