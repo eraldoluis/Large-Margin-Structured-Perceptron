@@ -3,6 +3,7 @@ package br.pucrio.inf.learn.structlearning.discriminative.driver;
 import java.io.File;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Random;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.OptionBuilder;
@@ -129,7 +130,7 @@ public class ApplyCoreferenceModel implements Command {
 			 */
 			featureEncoding = new StringMapEncoding();
 
-			LOG.info("Loading train dataset...");
+			LOG.info("Loading dataset...");
 			testDataset = new CorefColumnDataset(featureEncoding,
 					(Collection<String>) null);
 			((CorefColumnDataset) testDataset).setCheckMultipleTrueEdges(false);
@@ -177,7 +178,8 @@ public class ApplyCoreferenceModel implements Command {
 		// Predicted test set filename.
 		String testPredictedFileName = outputFileName;
 		if (testPredictedFileName == null)
-			testPredictedFileName = testDatasetFileName + ".pred";
+			testPredictedFileName = testDatasetFileName + "."
+					+ new Random().nextInt() + ".pred";
 
 		try {
 			LOG.info("Saving test file (" + testPredictedFileName

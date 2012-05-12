@@ -458,4 +458,24 @@ public class DPTemplateEvolutionModel implements DPModel {
 		}
 	}
 
+	/**
+	 * Sum the parameters of the given model in this model. The given model
+	 * parameters are weighted by the given weight.
+	 * 
+	 * @param model
+	 * @param weight
+	 */
+	public void sumModel(DPTemplateEvolutionModel model, double weight) {
+		for (Entry<Integer, AveragedParameter> entry : model.parameters
+				.entrySet()) {
+			int code = entry.getKey();
+			double val = entry.getValue().get();
+			AveragedParameter param = parameters.get(code);
+			if (param == null) {
+				param = new AveragedParameter();
+				parameters.put(code, param);
+			}
+			param.increment(val * weight);
+		}
+	}
 }

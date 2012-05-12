@@ -39,6 +39,13 @@ public class CorefColumnDataset extends DPColumnDataset {
 	private boolean checkMultipleTrueEdges;
 
 	/**
+	 * Create an empty dataset.
+	 */
+	public CorefColumnDataset() {
+		super();
+	}
+
+	/**
 	 * Create an empty dataset and set the given multi-valued features.
 	 * 
 	 * @param basicEncoding

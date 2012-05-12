@@ -6,6 +6,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Collection;
+import java.util.Random;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.OptionBuilder;
@@ -18,11 +19,10 @@ import org.apache.commons.logging.LogFactory;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.OnlineStructuredAlgorithm.LearnRateUpdateStrategy;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.TrainingListener;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.LossAugmentedPerceptron;
-import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.Perceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CorefColumnDataset;
 import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CorefModel;
-import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CoreferenceMaxBranchInference;
 import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CorefModel.UpdateStrategy;
+import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CoreferenceMaxBranchInference;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPModel;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPTemplateEvolutionModel;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.MaximumBranchingInference;
@@ -241,27 +241,33 @@ public class TrainCoreference implements Command {
 		Inference inference;
 
 		if (latent) {
+			// Model and the update strategy.
 			model = new CorefModel(0);
 			if (updateStrategy != null)
 				((CorefModel) model).setUpdateStrategy(updateStrategy);
+			// Inference (prediction) algorithm and the root loss factor.
 			inference = new CoreferenceMaxBranchInference(
 					inDataset.getMaxNumberOfTokens(), 0);
 			if (rootLossFactor >= 0d)
 				((CoreferenceMaxBranchInference) inference)
 						.setLossFactorForRootEdges(rootLossFactor);
 		} else {
-			model = new DPTemplateEvolutionModel(0);
 			if (updateStrategy != null) {
 				LOG.error("--update=<strategy> requires --latent");
 				System.exit(1);
 			}
+			if (rootLossFactor >= 0d) {
+				LOG.error("--rootlossfactor=<factor> requires --latent");
+				System.exit(1);
+			}
+			model = new DPTemplateEvolutionModel(0);
 			inference = new MaximumBranchingInference(
 					inDataset.getMaxNumberOfTokens());
 		}
 
-		// Create the chosen algorithm.
-		Perceptron alg = new LossAugmentedPerceptron(inference, model,
-				numEpochs, 1d, lossWeight, true, averageWeights,
+		// Learning algorithm.
+		LossAugmentedPerceptron alg = new LossAugmentedPerceptron(inference,
+				model, numEpochs, 1d, lossWeight, true, averageWeights,
 				LearnRateUpdateStrategy.NONE);
 
 		if (latent)
@@ -295,7 +301,8 @@ public class TrainCoreference implements Command {
 				LOG.info("Generating features from templates...");
 				testset.generateFeatures();
 				// Predicted test set filename.
-				String testPredictedFileName = testDatasetFileName + ".pred";
+				String testPredictedFileName = testDatasetFileName + "."
+						+ new Random().nextInt() + ".pred";
 				// Set listener that perform evaluation after each epoch.
 				alg.setListener(new EvaluateModelListener(conllBasePath,
 						testPredictedFileName, conllTestFileName, metric,
@@ -354,7 +361,8 @@ public class TrainCoreference implements Command {
 				inference.inference(model, inputs[idx], predicteds[idx]);
 
 			// Predicted test set filename.
-			String testPredictedFileName = testDatasetFileName + ".pred";
+			String testPredictedFileName = testDatasetFileName + "."
+					+ new Random().nextInt() + ".pred";
 
 			try {
 				LOG.info("Saving test file (" + testPredictedFileName
@@ -373,6 +381,9 @@ public class TrainCoreference implements Command {
 				LOG.error("Running evaluation scripts", e);
 				System.exit(1);
 			}
+
+			// Remove temporary predicted file with mention pairs.
+			new File(testPredictedFileName).delete();
 		}
 
 		LOG.info(String.format("# updated parameters: %d",

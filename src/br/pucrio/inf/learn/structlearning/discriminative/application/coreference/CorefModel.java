@@ -44,7 +44,7 @@ public class CorefModel extends DPTemplateEvolutionModel {
 		 * determined by the given corrrect clusterings), use the latent edges
 		 * as correct edges.
 		 */
-		ALL
+		ALL,
 	}
 
 	/**
@@ -287,5 +287,4 @@ public class CorefModel extends DPTemplateEvolutionModel {
 	public void setUpdateStrategy(UpdateStrategy strategy) {
 		this.updateStrategy = strategy;
 	}
-
 }

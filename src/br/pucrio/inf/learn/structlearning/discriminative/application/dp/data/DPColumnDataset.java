@@ -29,6 +29,7 @@ import br.pucrio.inf.learn.structlearning.discriminative.application.dp.SimpleFe
 import br.pucrio.inf.learn.structlearning.discriminative.data.DatasetException;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.MapEncoding;
+import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.StringMapEncoding;
 
 /**
  * Represent a dataset with dependency parsing examples. Each examples consists
@@ -136,6 +137,15 @@ public class DPColumnDataset implements DPDataset {
 	 * Punctuation file name.
 	 */
 	protected String fileNamePunc;
+
+	/**
+	 * Create an empty dataset.
+	 */
+	public DPColumnDataset() {
+		this.basicEncoding = new StringMapEncoding();
+		this.explicitEncoding = new MapEncoding<Feature>();
+		this.multiValuedFeatures = new TreeSet<String>();
+	}
 
 	/**
 	 * Create edge corpus.

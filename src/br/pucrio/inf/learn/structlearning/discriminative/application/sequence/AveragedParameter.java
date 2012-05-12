@@ -71,6 +71,15 @@ public final class AveragedParameter implements Comparable<AveragedParameter>,
 	}
 
 	/**
+	 * Increment this parameter weight.
+	 * 
+	 * @param value
+	 */
+	public void increment(double value) {
+		weight += value;
+	}
+
+	/**
 	 * Return the current value of this weight.
 	 * 
 	 * @return
