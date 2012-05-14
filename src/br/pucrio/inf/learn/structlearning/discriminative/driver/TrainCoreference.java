@@ -143,6 +143,9 @@ public class TrainCoreference implements Command {
 								+ " the algorithm returns only the final weight "
 								+ "vector instead of the average of each step "
 								+ "vectors.").create());
+		options.addOption(OptionBuilder.withLongOpt("nosingletons")
+				.withDescription("Remove singleton metions before evaluation.")
+				.create());
 
 		// Parse the command-line arguments.
 		CommandLine cmdLine = null;
@@ -189,6 +192,7 @@ public class TrainCoreference implements Command {
 			updateStrategy = UpdateStrategy.valueOf(updateStrategyStr);
 		double rootLossFactor = Double.valueOf(cmdLine.getOptionValue(
 				"rootlossfactor", "-1"));
+		boolean considerSingletons = !cmdLine.hasOption("nosingletons");
 
 		/*
 		 * If --test is provided, then --conlltest must be provided (and
@@ -306,7 +310,7 @@ public class TrainCoreference implements Command {
 				// Set listener that perform evaluation after each epoch.
 				alg.setListener(new EvaluateModelListener(conllBasePath,
 						testPredictedFileName, conllTestFileName, metric,
-						testset, averageWeights));
+						testset, averageWeights, considerSingletons));
 			} catch (Exception e) {
 				LOG.error("Loading testset " + testDatasetFileName, e);
 				System.exit(1);
@@ -376,7 +380,7 @@ public class TrainCoreference implements Command {
 			try {
 				LOG.info("Final evaluation:");
 				evaluateWithConllScripts(conllBasePath, testPredictedFileName,
-						conllTestFileName, metric);
+						conllTestFileName, metric, null, considerSingletons);
 			} catch (Exception e) {
 				LOG.error("Running evaluation scripts", e);
 				System.exit(1);
@@ -399,21 +403,27 @@ public class TrainCoreference implements Command {
 	 * @param testPredictedFileName
 	 * @param conllTestFileName
 	 * @param metric
+	 * @param outputConll
+	 * @param considerSingletons
 	 * @throws IOException
 	 * @throws CommandException
 	 * @throws InterruptedException
 	 */
 	public static void evaluateWithConllScripts(File scriptBasePath,
 			String testPredictedFileName, String conllTestFileName,
-			String metric) throws IOException, CommandException,
-			InterruptedException {
+			String metric, String outputConll, boolean considerSingletons)
+			throws IOException, CommandException, InterruptedException {
 		// File name of CoNLL-format predicted file.
-		String testConllPredictedFileName = testPredictedFileName + ".conll";
+		String testConllPredictedFileName = outputConll;
+		if (testConllPredictedFileName == null)
+			testConllPredictedFileName = testPredictedFileName + ".conll";
 		// Command to convert the predicted file to CoNLL format.
 		String cmd = String.format(
 				"python mentionPairsToConll.py %s %s %s predicted",
 				conllTestFileName, testPredictedFileName,
 				testConllPredictedFileName);
+		if (!considerSingletons)
+			cmd += " NOSINGLETONS";
 		execCommandAndRedirectOutputAndError(cmd, scriptBasePath);
 
 		String[] metrics = metric.split(",");
@@ -427,7 +437,8 @@ public class TrainCoreference implements Command {
 		}
 
 		// Remove temporary file.
-		new File(testConllPredictedFileName).delete();
+		if (outputConll == null)
+			new File(testConllPredictedFileName).delete();
 	}
 
 	/**
@@ -498,15 +509,19 @@ public class TrainCoreference implements Command {
 
 		private boolean averageWeights;
 
+		private boolean considerSingletons;
+
 		public EvaluateModelListener(File conllBasePath,
 				String testPredictedFileName, String conllTestFileName,
-				String metric, DPColumnDataset testset, boolean averageWeights) {
+				String metric, DPColumnDataset testset, boolean averageWeights,
+				boolean considerSingletons) {
 			this.conllBasePath = conllBasePath;
 			this.testPredictedFileName = testPredictedFileName;
 			this.conllTestFileName = conllTestFileName;
 			this.metric = metric;
 			this.testset = testset;
 			this.averageWeights = averageWeights;
+			this.considerSingletons = considerSingletons;
 			int numExs = testset.getNumberOfExamples();
 			// Allocate output sequences for predictions.
 			DPInput[] inputs = testset.getInputs();
@@ -557,25 +572,9 @@ public class TrainCoreference implements Command {
 			// Fill the list of predicted outputs.
 			DPInput[] inputs = testset.getInputs();
 			// DPOutput[] outputs = testset.getOutputs();
-			for (int idx = 0; idx < inputs.length; ++idx) {
+			for (int idx = 0; idx < inputs.length; ++idx)
 				// Predict (tag the output sequence).
 				inferenceImpl.inference(model, inputs[idx], predicteds[idx]);
-
-				// TODO test
-				// // if (predicteds[idx].size() < 80)
-				// {
-				// // Annotate latent structure for the correct output.
-				// DPOutput completeCorrect = outputs[idx].createNewObject();
-				// ((CoreferenceMaxBranchInference) inferenceImpl)
-				// .partialInference(model, inputs[idx], outputs[idx],
-				// completeCorrect);
-				// ((CoreferenceMaxBranchInference) inferenceImpl)
-				// .printEdgesOfIncorrectMentions((CorefModel) model,
-				// (CorefInput) inputs[idx],
-				// (CorefOutput) completeCorrect,
-				// (CorefOutput) predicteds[idx]);
-				// }
-			}
 
 			try {
 				String testPredictedOnEpochFileName = testPredictedFileName
@@ -589,7 +588,7 @@ public class TrainCoreference implements Command {
 					// Execute CoNLL evaluation scripts.
 					evaluateWithConllScripts(conllBasePath,
 							testPredictedOnEpochFileName, conllTestFileName,
-							metric);
+							metric, null, considerSingletons);
 				} catch (Exception e) {
 					LOG.error("Running evaluation scripts", e);
 				}

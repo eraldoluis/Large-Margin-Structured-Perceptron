@@ -62,6 +62,9 @@ public class ApplyCoreferenceModel implements Command {
 				.withArgName("filename").hasArg()
 				.withDescription("Output edge (mention pairs) dataset.")
 				.create());
+		options.addOption(OptionBuilder.withLongOpt("outputconll")
+				.withArgName("filename").hasArg()
+				.withDescription("Output CoNLL-format dataset.").create());
 		options.addOption(OptionBuilder
 				.withLongOpt("conllmetric")
 				.withArgName("")
@@ -74,6 +77,10 @@ public class ApplyCoreferenceModel implements Command {
 								+ "  ceafe: CEAF (Luo et al, 2005) using entity-based similarity\n"
 								+ "  blanc: BLANC (Recasens and Hovy, to appear)\n"
 								+ "  all: uses all the metrics to score")
+				.create());
+		options.addOption(OptionBuilder
+				.withLongOpt("nosingletons")
+				.withDescription("Remove singleton mentions before evaluation.")
 				.create());
 
 		// Parse the command-line arguments.
@@ -98,10 +105,13 @@ public class ApplyCoreferenceModel implements Command {
 		String scriptBasePathStr = cmdLine.getOptionValue("scriptpath");
 		String conllTestFileName = cmdLine.getOptionValue("conlltest");
 		String outputFileName = cmdLine.getOptionValue("output");
+		String outputConllFileName = cmdLine.getOptionValue("outputconll");
 		String metric = cmdLine.getOptionValue("conllmetric");
+		boolean considerSingletons = !cmdLine.hasOption("nosingleton");
 
-		if (outputFileName == null && metric == null) {
-			LOG.error("At least one of --output and --conllmetric must be provided");
+		if (outputFileName == null && outputConllFileName == null
+				&& metric == null) {
+			LOG.error("At least one of --output, --outputconll or --conllmetric must be provided");
 			System.exit(1);
 		}
 
@@ -194,7 +204,8 @@ public class ApplyCoreferenceModel implements Command {
 			try {
 				LOG.info("Evaluating model...");
 				TrainCoreference.evaluateWithConllScripts(conllBasePath,
-						testPredictedFileName, conllTestFileName, metric);
+						testPredictedFileName, conllTestFileName, metric,
+						outputConllFileName, considerSingletons);
 			} catch (Exception e) {
 				LOG.error("Running evaluation scripts", e);
 				System.exit(1);
