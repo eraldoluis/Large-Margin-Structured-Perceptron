@@ -22,10 +22,13 @@ import br.pucrio.inf.learn.structlearning.discriminative.task.Model;
 public class PQModel2 implements Model {
 
 	/**
-	 * Feature weights.
+	 * Feature parameters.
 	 */
 	private AveragedParameter[] featureWeights;
 
+	/**
+	 * Store the parameters updated in each training iteration.
+	 */
 	private Set<AveragedParameter> updatedParameters;
 
 	public PQModel2(int numberOfFeatures) {
@@ -63,6 +66,14 @@ public class PQModel2 implements Model {
 			if (labelCorrect != labelPredicted) {
 				++numberOfErrors;
 				int featureIndex;
+
+				/*
+				 * This condition treats cases where the correct label is not
+				 * available, because we removed some coreferences to make the
+				 * classification task easier. Used by WIS
+				 */
+				// if(labelCorrect >= input.getNumberOfCoreferences(i))
+				// continue;
 
 				if (labelCorrect >= 0) {
 					Iterator<Integer> it = input.getFeatureCodes(i,

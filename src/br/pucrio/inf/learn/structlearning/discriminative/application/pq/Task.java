@@ -5,10 +5,26 @@ public class Task {
 	private int end;
 	private double prize;
 	private int predecessorIndex;
+	//Atributes below refer to the Quotation Extraction problem.
+	//Do not need to be used
 	private int quotationPosition;
 	private int coreferencePosition;
 	private int[] quotationIndex;
 	private int[] coreferenceIndex;
+	
+	public Task(int start, int end, double prize) {
+		this.start = start;
+		this.end   = end;
+		this.prize = prize;
+		
+		this.predecessorIndex = -1;
+		
+		this.quotationPosition   = -1;
+		this.coreferencePosition = -1;
+		
+		this.quotationIndex    = null;
+		this.coreferenceIndex    = null;
+	}
 	
 	public Task(int start, int end, double prize, int quotationPosition, int coreferencePosition, int[] quotationIndex, int[] coreferenceIndex) {
 		this.start = start;

@@ -2,7 +2,6 @@ package br.pucrio.inf.learn.structlearning.discriminative.application.dp;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.PrintStream;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map.Entry;
@@ -18,7 +17,6 @@ import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.Av
 import br.pucrio.inf.learn.structlearning.discriminative.data.Dataset;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
-import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
 
 /**
  * Store the weight of each feature (indexed by feature code).

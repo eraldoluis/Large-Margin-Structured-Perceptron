@@ -19,12 +19,6 @@ public class PQInput2 implements ExampleInput {
 	private String docId;
 
 	/**
-	 * Index of this sequence input within the array of training examples, when
-	 * it is a training example. Otherwise, this value is -1.
-	 */
-	private int trainingIndex;
-
-	/**
 	 * Quotation index information. Each quotation has a list of coreference
 	 * indexes, which are the candidates to be the quotation author.
 	 */
@@ -50,7 +44,6 @@ public class PQInput2 implements ExampleInput {
 			Collection<? extends Collection<? extends Collection<Integer>>> quotations,
 			Collection<Quotation> quotationIndexes) {
 		this.docId = docId;
-		this.trainingIndex = -1;
 
 		// Array of quotation indexes.
 		this.quotationIndexes = new Quotation[quotationIndexes.size()];
@@ -89,23 +82,6 @@ public class PQInput2 implements ExampleInput {
 		}
 	}
 
-	/**
-	 * Create a new PQ input using the given docID and the given list of feature
-	 * codes.
-	 * 
-	 * @param docId
-	 * @param trainingIndex
-	 * @param tokens
-	 */
-	public PQInput2(
-			String docId,
-			int trainingIndex,
-			Collection<? extends Collection<? extends Collection<Integer>>> quotations,
-			Collection<Quotation> quotationIndexes) {
-		this(docId, quotations, quotationIndexes);
-		this.trainingIndex = trainingIndex;
-	}
-
 	@Override
 	public String getId() {
 		return null;
@@ -124,6 +100,10 @@ public class PQInput2 implements ExampleInput {
 	@Override
 	public void sortFeatures() {
 		// TODO only to use kernel functions
+	}
+
+	public String getDocId() {
+		return docId;
 	}
 
 	@Override

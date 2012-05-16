@@ -1,9 +1,6 @@
 package br.pucrio.inf.learn.structlearning.discriminative.driver;
 
-import java.io.File;
 import java.io.IOException;
-import java.util.Collection;
-import java.util.Random;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.OptionBuilder;
@@ -15,15 +12,8 @@ import org.apache.commons.logging.LogFactory;
 import org.json.JSONException;
 
 import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CorefColumnDataset;
-import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CoreferenceMaxBranchInference;
-import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPModel;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPTemplateEvolutionModel;
-import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPInput;
-import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPOutput;
-import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
-import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.StringMapEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.driver.Driver.Command;
-import br.pucrio.inf.learn.structlearning.discriminative.task.Inference;
 import br.pucrio.inf.learn.util.CommandLineOptionsUtil;
 
 /**
