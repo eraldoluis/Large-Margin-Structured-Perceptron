@@ -86,10 +86,11 @@ public class CorefColumnDataset extends DPColumnDataset {
 			Set<Integer> multiValuedFeatureIndexes, String valueSeparator,
 			List<DPInput> inputList, List<DPOutput> outputList)
 			throws IOException, DatasetException {
-		// Skip first line of example, which contains the original sentence.
 		String line;
 		int numTokens = -1;
 		String id = null;
+
+		// Read punctuation file when given.
 		String[] puncs = null;
 		boolean[] punctuation = null;
 		if (readerPunc != null) {
@@ -132,6 +133,10 @@ public class CorefColumnDataset extends DPColumnDataset {
 			line = line.trim();
 			if (line.length() == 0)
 				// Stop on blank lines.
+				break;
+
+			if (line.equals("-"))
+				// Empty (no edge) document.
 				break;
 
 			// Split edge in feature values.
@@ -182,7 +187,7 @@ public class CorefColumnDataset extends DPColumnDataset {
 			}
 		}
 
-		if (features.size() == 0)
+		if (features.size() == 0 && (line == null || !line.equals("-")))
 			return line != null;
 
 		if (numTokens == -1)
@@ -258,29 +263,29 @@ public class CorefColumnDataset extends DPColumnDataset {
 			CorefOutput predictedOutput = (CorefOutput) predictedOuputs[idxEx];
 
 			// Edge features.
-			int numTokens = input.getNumberOfTokens();
-			for (int idxDep = 0; idxDep < numTokens; ++idxDep) {
-				for (int idxHead = 0; idxHead < numTokens; ++idxHead) {
-					int[] ftrs = input.getBasicFeatures(idxHead, idxDep);
+			int numMentions = input.getNumberOfTokens();
+			for (int idxLeft = 0; idxLeft < numMentions; ++idxLeft) {
+				for (int idxRight = 0; idxRight < numMentions; ++idxRight) {
+					int[] ftrs = input.getBasicFeatures(idxRight, idxLeft);
 					if (ftrs == null)
 						continue;
 					// Id.
-					writer.write(idxHead + ">" + idxDep);
+					writer.write(idxRight + ">" + idxLeft);
 					// Features.
 					for (int idxFtr = 0; idxFtr < ftrs.length; ++idxFtr)
 						writer.write(" "
 								+ basicEncoding.getValueByCode(ftrs[idxFtr]));
 
 					// Correct feature.
-					if (correctOutput.getClusterId(idxDep) == correctOutput
-							.getClusterId(idxHead))
+					if (correctOutput.getClusterId(idxLeft) == correctOutput
+							.getClusterId(idxRight))
 						writer.write(" Y");
 					else
 						writer.write(" N");
 
 					// Predicted feature.
-					if (predictedOutput.getClusterId(idxDep) == predictedOutput
-							.getClusterId(idxHead))
+					if (predictedOutput.getClusterId(idxLeft) == predictedOutput
+							.getClusterId(idxRight))
 						writer.write(" Y");
 					else
 						writer.write(" N");
@@ -288,6 +293,9 @@ public class CorefColumnDataset extends DPColumnDataset {
 					writer.write("\n");
 				}
 			}
+			
+			if (numMentions == 0)
+				writer.write("-\n");
 
 			writer.write("\n");
 		}

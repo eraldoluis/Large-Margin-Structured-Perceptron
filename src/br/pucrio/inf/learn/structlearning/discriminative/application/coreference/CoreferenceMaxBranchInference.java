@@ -265,7 +265,7 @@ public class CoreferenceMaxBranchInference implements Inference {
 				graph, predictedOutput.getInvertedBranchingArray());
 
 		// Set the correct clustering for the predicted output structure.
-		//predictedOutput.setClusteringEqualTo(referenceOutput);
+		// predictedOutput.setClusteringEqualTo(referenceOutput);
 		predictedOutput.computeClusteringFromTree(root);
 	}
 
@@ -286,11 +286,8 @@ public class CoreferenceMaxBranchInference implements Inference {
 		this.lossFactorForRootEdges = factor;
 	}
 
-	public void printEdgesOfIncorrectMentions(CorefModel model,
+	public static void printIncorrectClusters(CorefModel model,
 			CorefInput input, CorefOutput correct, CorefOutput predicted) {
-		// Fill graph weights.
-		fillGraph(model, input);
-
 		Map<Integer, ? extends Set<Integer>> explicitClusteringCorrect = createExplicitClustering(correct);
 		Map<Integer, ? extends Set<Integer>> explicitClusteringPredicted = createExplicitClustering(predicted);
 
@@ -329,6 +326,16 @@ public class CoreferenceMaxBranchInference implements Inference {
 			System.out.print("} ");
 		}
 		System.out.println("\n");
+	}
+
+	public void printEdgesOfIncorrectMentions(CorefModel model,
+			CorefInput input, CorefOutput correct, CorefOutput predicted) {
+		// Explicit clusters.
+		Map<Integer, ? extends Set<Integer>> explicitClusteringCorrect = createExplicitClustering(correct);
+		Map<Integer, ? extends Set<Integer>> explicitClusteringPredicted = createExplicitClustering(predicted);
+
+		// Fill graph weights.
+		fillGraph(model, input);
 
 		int numMentions = correct.size();
 		for (int idxMention = 0; idxMention < numMentions; ++idxMention) {
@@ -363,7 +370,7 @@ public class CoreferenceMaxBranchInference implements Inference {
 	 * @param output
 	 * @return
 	 */
-	private Map<Integer, ? extends Set<Integer>> createExplicitClustering(
+	public static Map<Integer, ? extends Set<Integer>> createExplicitClustering(
 			CorefOutput output) {
 		HashMap<Integer, TreeSet<Integer>> explicitClustering = new HashMap<Integer, TreeSet<Integer>>();
 		int numMentions = output.size();

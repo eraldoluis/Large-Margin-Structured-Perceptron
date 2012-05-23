@@ -54,6 +54,13 @@ public class Driver {
 		descriptions.add(new CommandDescription(new ApplyCoreferenceModel(),
 				"ApplyCoreference", "Apply a coreference resolution model."));
 
+		// Apply coreference resolution model.
+		descriptions
+				.add(new CommandDescription(
+						new PrintCorefNonSingularClusters(),
+						"PrintCorefNonSingularClusters",
+						"Print clusters whose latent tree is more complex than a chain."));
+
 		if (args.length < 1) {
 			usage();
 			System.exit(1);

@@ -423,7 +423,7 @@ public class TrainCoreference implements Command {
 				conllTestFileName, testPredictedFileName,
 				testConllPredictedFileName);
 		if (!considerSingletons)
-			cmd += " NOSINGLETONS";
+			cmd += " NOSINGLETON";
 		execCommandAndRedirectOutputAndError(cmd, scriptBasePath);
 
 		String[] metrics = metric.split(",");
