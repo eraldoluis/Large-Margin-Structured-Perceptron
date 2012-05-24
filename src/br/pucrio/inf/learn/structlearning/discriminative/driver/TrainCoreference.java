@@ -423,7 +423,7 @@ public class TrainCoreference implements Command {
 				conllTestFileName, testPredictedFileName,
 				testConllPredictedFileName);
 		if (!considerSingletons)
-			cmd += " NOSINGLETONS";
+			cmd += " NOSINGLETON";
 		execCommandAndRedirectOutputAndError(cmd, scriptBasePath);
 
 		String[] metrics = metric.split(",");
@@ -455,7 +455,9 @@ public class TrainCoreference implements Command {
 			File path) throws IOException, CommandException,
 			InterruptedException {
 		String line;
+
 		// Execute command.
+		LOG.info("Running command: " + command);
 		Process p = Runtime.getRuntime().exec(command, null, path);
 
 		// Redirect standard output of process.

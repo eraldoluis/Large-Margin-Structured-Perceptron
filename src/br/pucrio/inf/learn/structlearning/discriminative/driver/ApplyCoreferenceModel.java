@@ -107,7 +107,7 @@ public class ApplyCoreferenceModel implements Command {
 		String outputFileName = cmdLine.getOptionValue("output");
 		String outputConllFileName = cmdLine.getOptionValue("outputconll");
 		String metric = cmdLine.getOptionValue("conllmetric");
-		boolean considerSingletons = !cmdLine.hasOption("nosingleton");
+		boolean considerSingletons = !cmdLine.hasOption("nosingletons");
 
 		if (outputFileName == null && outputConllFileName == null
 				&& metric == null) {
