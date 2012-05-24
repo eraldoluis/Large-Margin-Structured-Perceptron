@@ -42,6 +42,10 @@ public class Driver {
 		descriptions.add(new CommandDescription(new TrainPQ2(), "TrainPQ2",
 				"Train using the Structural Perceptron algorithm."));
 
+		// Test for the Structural Perceptron.
+		descriptions.add(new CommandDescription(new TestPQ2(), "TestPQ2",
+				"Test using the Structural Perceptron algorithm."));
+
 		// Trainer for coreference resolution systems.
 		descriptions.add(new CommandDescription(new TrainCoreference(),
 				"TrainCoreference", "Train a coreference resolution model."));
@@ -49,6 +53,13 @@ public class Driver {
 		// Apply coreference resolution model.
 		descriptions.add(new CommandDescription(new ApplyCoreferenceModel(),
 				"ApplyCoreference", "Apply a coreference resolution model."));
+
+		// Apply coreference resolution model.
+		descriptions
+				.add(new CommandDescription(
+						new PrintCorefNonSingularClusters(),
+						"PrintCorefNonSingularClusters",
+						"Print clusters whose latent tree is more complex than a chain."));
 
 		if (args.length < 1) {
 			usage();

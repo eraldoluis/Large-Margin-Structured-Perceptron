@@ -323,7 +323,7 @@ public class PQDataset2 {
 			// Right coreference index.
 			if (firstField[2].trim().length() == 0)
 				return false;
-			int rightCoref = Integer.parseInt(firstField[2]);
+			int rightCoref = Integer.parseInt(firstField[2]) + 1;
 
 			// Walk into the coreference feature list.
 			LinkedList<LinkedList<Integer>> corefFeatureList = new LinkedList<LinkedList<Integer>>();
@@ -370,8 +370,8 @@ public class PQDataset2 {
 			 * Training examples must store internally their indexes in the
 			 * array of training examples.
 			 */
-			exampleInputs.add(new PQInput2(docId, exampleInputs.size(),
-					exampleInputAsList, quotationsAsList));
+			exampleInputs.add(new PQInput2(docId, exampleInputAsList,
+					quotationsAsList));
 			exampleOutputs.add(new PQOutput2(exampleOutputAsList));
 		} else {
 			exampleInputs.add(new PQInput2(docId, exampleInputAsList,
