@@ -3,9 +3,7 @@ package br.pucrio.inf.learn.structlearning.discriminative.driver;
 import java.io.FileNotFoundException;
 import java.io.PrintStream;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.Map;
-import java.util.Map.Entry;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.OptionBuilder;
@@ -33,7 +31,6 @@ import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPD
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.evaluation.DPEvaluation;
-import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.AveragedParameter;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.HybridStringEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.JavaHashCodeEncoding;
@@ -497,9 +494,7 @@ public class TrainDP implements Command {
 				trainset.load(inputCorpusFileNames[0]);
 				LOG.info("Loading templates and generating features...");
 				((DPColumnDataset) trainset).loadTemplates(templatesFileName,
-						false); // TODO test
-				// TODO test
-				((DPColumnDataset) trainset).allocFeatureMatrix();
+						true);
 			}
 
 		} catch (Exception e) {
@@ -646,11 +641,6 @@ public class TrainDP implements Command {
 			break;
 
 		}
-
-		// // On demand feature generation.
-		// alg.encoding = ((DPColumnDataset) trainset)
-		// .getExplicitFeatureEncoding();
-		// alg.templates = ((DPColumnDataset) trainset).getTemplates()[0];
 
 		if (seedStr != null)
 			// User provided seed to random number generator.
@@ -860,12 +850,9 @@ public class TrainDP implements Command {
 
 		private boolean explicitFeatures;
 
-		private DPDataset trainset;
-
 		public EvaluateModelListener(AccuracyEvaluation eval,
 				DPDataset trainset, DPDataset testset, boolean averageWeights,
 				boolean explicitFeatures) {
-			this.trainset = trainset;
 			if (testset != null) {
 				this.inputs = testset.getInputs();
 				this.outputs = testset.getOutputs();
@@ -899,39 +886,6 @@ public class TrainDP implements Command {
 		@Override
 		public boolean afterEpoch(Inference inferenceImpl, Model curModel,
 				int epoch, double loss, int iteration) {
-
-			DPTemplateEvolutionModel model = ((DPTemplateEvolutionModel) curModel);
-			HashMap<Integer, Double> absValuesPerTemplateLength = new HashMap<Integer, Double>();
-			HashMap<Integer, Integer> countsPerTemplateLength = new HashMap<Integer, Integer>();
-			for (Entry<Integer, AveragedParameter> entry : model
-					.getParameters().entrySet()) {
-				// Feature code and weight.
-				int ftr = entry.getKey();
-				double weight = Math.abs(entry.getValue().get());
-				// Feature length.
-				int len = ((DPColumnDataset) trainset).getExplicitEncoding()
-						.getValueByCode(ftr).getLength();
-				// Update absolute value per feature length.
-				Double val = absValuesPerTemplateLength.get(len);
-				if (val == null)
-					val = 0d;
-				val = val.doubleValue() + weight;
-				absValuesPerTemplateLength.put(len, val);
-				// Update number of features per feature length.
-				Integer count = countsPerTemplateLength.get(len);
-				if (count == null)
-					count = 0;
-				count = count.intValue() + 1;
-				countsPerTemplateLength.put(len, count);
-			}
-
-			for (Integer len : absValuesPerTemplateLength.keySet()) {
-				double val = absValuesPerTemplateLength.get(len);
-				int count = countsPerTemplateLength.get(len);
-				LOG.info(String.format(
-						"length=%d\tabsolute value=%f\tcount=%d\tmean=%f", len,
-						val, count, val / count));
-			}
 
 			if (inputs == null)
 				return true;
