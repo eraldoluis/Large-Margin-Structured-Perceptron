@@ -1,4 +1,4 @@
-package br.pucrio.inf.learn.structlearning.discriminative.application.dp;
+package br.pucrio.inf.learn.structlearning.discriminative.application.dpgs;
 
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -19,32 +19,26 @@ import org.json.JSONTokener;
 import org.json.JSONWriter;
 
 import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CorefColumnDataset;
+import br.pucrio.inf.learn.structlearning.discriminative.application.dp.Feature;
+import br.pucrio.inf.learn.structlearning.discriminative.application.dp.FeatureTemplate;
+import br.pucrio.inf.learn.structlearning.discriminative.application.dp.SimpleFeatureTemplate;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPColumnDataset;
-import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPInput;
-import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.AveragedParameter;
 import br.pucrio.inf.learn.structlearning.discriminative.data.Dataset;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
+import br.pucrio.inf.learn.structlearning.discriminative.task.Model;
 
 /**
- * Represent a dependecy parsing model (head-dependent edge parameters) by means
- * of a set of templates that conjoing basic features within the input
+ * Represent a dependecy parsing model with gradparent and modifiers paramenters
+ * by means of a set of templates that conjoing basic features within the input
  * structure.
- * 
- * In this version, templates are partitioned and each partition is used once at
- * a time. For each partition, some learning iterations are performed
- * considering only the features from this template partition. Then, the current
- * weights for these features are fixed and the corresponding accumulated
- * weights for each edge is stored for efficiency matter and the next template
- * partition is used for the next learning iterations.
- * 
  * 
  * @author eraldo
  * 
  */
-public class DPTemplateEvolutionModel implements DPModel {
+public class DPGSModel implements Model {
 
 	/**
 	 * Special root node.
@@ -52,22 +46,52 @@ public class DPTemplateEvolutionModel implements DPModel {
 	protected int root;
 
 	/**
-	 * Weight for each feature code (model parameters).
+	 * Weight for each generated feature code (model parameters).
 	 */
 	protected Map<Integer, AveragedParameter> parameters;
 
 	/**
-	 * Set of parameters that have been updated in the current iteration.
+	 * Set of parameters that have been updated in the current iteration. It is
+	 * used by the averaged perceptron.
 	 */
 	protected Set<AveragedParameter> updatedParameters;
 
 	/**
-	 * Create a new model with the given template partitions.
+	 * Grandparent templates that comprise three parameters: head token,
+	 * modifier token and head of the head token (grandparent of modifier
+	 * token).
+	 */
+	protected FeatureTemplate[] grandparentTemplates;
+
+	/**
+	 * Siblings templates for modifiers on the left side of the head token.
+	 * These templates comprise three parameters: head token, modifier token (on
+	 * the left side of the head token) and the closest modifier token before
+	 * the modifier token. The first sibling token is always START and the last
+	 * is END. Both of them are represented by index N, where N is the number of
+	 * tokens in the sentence.
+	 */
+	protected FeatureTemplate[] leftSiblingsTemplates;
+
+	/**
+	 * Siblings templates for modifiers on the right side of the head token.
+	 * These templates comprise three parameters: head token, modifier token (on
+	 * the right side of the head token) and the closest modifier token before
+	 * the modifier token. The first sibling token is always START and the last
+	 * is END. Both of them are represented by index N, where N is the number of
+	 * tokens in the sentence.
+	 */
+	protected FeatureTemplate[] rightSiblingsTemplates;
+
+	/**
+	 * Create a new model with the given root node.
 	 * 
 	 * @param root
-	 *            index of the special node that is to be considered as root.
+	 *            index of the special node that is to be considered as the
+	 *            fixed root node that is always chosen by the prediction
+	 *            algorithm.
 	 */
-	public DPTemplateEvolutionModel(int root) {
+	public DPGSModel(int root) {
 		this.root = root;
 		this.parameters = new HashMap<Integer, AveragedParameter>();
 		this.updatedParameters = new HashSet<AveragedParameter>();
@@ -84,7 +108,7 @@ public class DPTemplateEvolutionModel implements DPModel {
 	 * @throws JSONException
 	 * @throws IOException
 	 */
-	public DPTemplateEvolutionModel(String fileName, CorefColumnDataset dataset)
+	public DPGSModel(String fileName, CorefColumnDataset dataset)
 			throws JSONException, IOException {
 		this.updatedParameters = null;
 		this.parameters = new HashMap<Integer, AveragedParameter>();
@@ -117,8 +141,7 @@ public class DPTemplateEvolutionModel implements DPModel {
 	 * @throws CloneNotSupportedException
 	 */
 	@SuppressWarnings("unchecked")
-	protected DPTemplateEvolutionModel(DPTemplateEvolutionModel other)
-			throws CloneNotSupportedException {
+	protected DPGSModel(DPGSModel other) throws CloneNotSupportedException {
 		// Root node.
 		this.root = other.root;
 
@@ -215,47 +238,60 @@ public class DPTemplateEvolutionModel implements DPModel {
 	}
 
 	/**
-	 * Return an edge weight based only on the current features in
-	 * <code>activeFeatures</code> list.
+	 * Return the sum of the scores of the given list of features.
 	 * 
-	 * @param input
-	 * @param idxHead
-	 * @param idxDependent
+	 * @param features
 	 * @return
 	 */
-	protected double getEdgeScoreFromCurrentFeatures(DPInput input,
-			int idxHead, int idxDependent) {
-		// Get list of feature codes in the given edge.
-		int[] features = input.getFeatures(idxHead, idxDependent);
-
-		// Check edge existence.
+	public double getFeatureListScore(int[] features) {
 		if (features == null)
 			return Double.NaN;
-
 		double score = 0d;
-		for (int idxFtr = 0; idxFtr < features.length; ++idxFtr) {
-			AveragedParameter param = parameters.get(features[idxFtr]);
+		for (int code : features) {
+			AveragedParameter param = parameters.get(code);
 			if (param != null)
 				score += param.get();
 		}
-
 		return score;
 	}
 
-	@Override
-	public double getEdgeScore(DPInput input, int idxHead, int idxDependent) {
-		// int idxEx = input.getTrainingIndex();
-		double score = getEdgeScoreFromCurrentFeatures(input, idxHead,
-				idxDependent);
-		return score;
-		// TODO return fixedWeights[idxEx][idxHead][idxDependent] + score;
+	/**
+	 * Return the score of the grandparent factor specified by the given
+	 * parameters.
+	 * 
+	 * @param input
+	 * @param idxHead
+	 * @param idxModifier
+	 * @param idxGrandparent
+	 * @return
+	 */
+	public double getGrandparentFactorScore(DPGSInput input, int idxHead,
+			int idxModifier, int idxGrandparent) {
+		return getFeatureListScore(input.getGrandParentFeatures(idxHead,
+				idxModifier, idxGrandparent));
+	}
+
+	/**
+	 * Return the score of the modifiers factor specified by the given
+	 * parameters.
+	 * 
+	 * @param input
+	 * @param idxHead
+	 * @param idxModifier
+	 * @param idxSibling
+	 * @return
+	 */
+	public double getSiblingsFactorScore(DPGSInput input, int idxHead,
+			int idxModifier, int idxSibling) {
+		return getFeatureListScore(input.getSiblingsFeatures(idxHead,
+				idxModifier, idxSibling));
 	}
 
 	@Override
 	public double update(ExampleInput input, ExampleOutput outputCorrect,
 			ExampleOutput outputPredicted, double learningRate) {
-		return update((DPInput) input, (DPOutput) outputCorrect,
-				(DPOutput) outputPredicted, learningRate);
+		return update((DPGSInput) input, (DPGSOutput) outputCorrect,
+				(DPGSOutput) outputPredicted, learningRate);
 	}
 
 	/**
@@ -268,75 +304,170 @@ public class DPTemplateEvolutionModel implements DPModel {
 	 * @param learningRate
 	 * @return
 	 */
-	protected double update(DPInput input, DPOutput outputCorrect,
-			DPOutput outputPredicted, double learningRate) {
-		/*
-		 * The root token must always be ignored during the inference, thus it
-		 * has to be always correctly classified.
-		 */
-		assert outputCorrect.getHead(root) == outputPredicted.getHead(root);
-
-		// Per-token loss value for this example.
+	protected double update(DPGSInput input, DPGSOutput outputCorrect,
+			DPGSOutput outputPredicted, double learningRate) {
+		// Per-edge loss value for this example.
 		double loss = 0d;
-		for (int idxTkn = 0; idxTkn < input.getNumberOfTokens(); ++idxTkn) {
-			// Correct head token.
-			int idxCorrectHead = outputCorrect.getHead(idxTkn);
+		int numTkns = input.size();
+		for (int idxHead = 0; idxHead < numTkns; ++idxHead) {
+			// Correct and predicted grandparent heads.
+			int correctGrandparent = outputCorrect.getHead(idxHead);
+			int predictedGrandparent = outputPredicted.getGrandparent(idxHead);
 
-			// Predicted head token.
-			int idxPredictedHead = outputPredicted.getHead(idxTkn);
-
-			// Skip. Correctly predicted head.
-			if (idxCorrectHead == idxPredictedHead)
-				continue;
-
-			if (idxCorrectHead == -1)
+			/*
+			 * Correct and predicted previous modifier. The numTkns index (i.e.,
+			 * the not-in-range last token) is the special index to indicate
+			 * START and END symbols.
+			 */
+			int correctPreviousModifier = numTkns;
+			int predictedPreviousModifier = numTkns;
+			for (int idxModifier = 0; idxModifier < numTkns; ++idxModifier) {
 				/*
-				 * Skip tokens with missing CORRECT edge (this is due to prune
-				 * preprocessing).
+				 * Is this modifier included in the correct or in the predicted
+				 * structures for the current head.
 				 */
-				continue;
+				boolean isCorrectModifier = (outputCorrect.getHead(idxModifier) == idxHead);
+				boolean isPredictedModifier = outputPredicted.isModifier(
+						idxHead, idxModifier);
 
-			/*
-			 * Misclassified head for this token. Thus, update edges parameters.
-			 */
+				if (!isCorrectModifier && !isPredictedModifier)
+					/*
+					 * Modifier token is included in neither the correct
+					 * structure nor the predicted structure. Thus, skip it.
+					 */
+					continue;
 
-			// Increment parameter weights for correct edge features.
-			int[] correctFeatures = input.getFeatures(idxCorrectHead, idxTkn);
-			if (correctFeatures != null)
-				for (int idxFtr = 0; idxFtr < correctFeatures.length; ++idxFtr)
-					updateFeatureParam(correctFeatures[idxFtr], learningRate);
+				if (isCorrectModifier != isPredictedModifier) {
+					if (isCorrectModifier) {
+						/*
+						 * Current modifier is correct but the predicted
+						 * structure does not set it as a modifier of the
+						 * current head (false negative). Thus, increment the
+						 * weight of both (grandparent and siblings) correct,
+						 * but missed, factors.
+						 */
+						updateSiblingsFactorParams(input, idxHead, idxModifier,
+								correctPreviousModifier, learningRate);
+						updateGrandparentFactorParams(input, idxHead,
+								idxModifier, correctGrandparent, learningRate);
+					} else {
+						/*
+						 * Current modifier is not correct but the predicted
+						 * structure does set it as a modifier of the current
+						 * head (false positive). Thus, decrement the weight of
+						 * both (grandparent and siblings) incorrectly predicted
+						 * factors.
+						 */
+						updateSiblingsFactorParams(input, idxHead, idxModifier,
+								predictedPreviousModifier, -learningRate);
+						updateGrandparentFactorParams(input, idxHead,
+								idxModifier, predictedGrandparent,
+								-learningRate);
+					}
+				} else {
+					/*
+					 * The current modifier has been correctly predicted for the
+					 * current head. Then, addtionally check the previous
+					 * modifier and the grandparent head.
+					 */
 
-			if (idxPredictedHead == -1)
-				continue;
+					if (correctPreviousModifier != predictedPreviousModifier) {
+						/*
+						 * Modifier is correctly predited but previous modifier
+						 * is NOT. Thus, the corresponding correct siblings
+						 * factor is missing (false negative) and the predicted
+						 * one is incorrectly predicted (false positive).
+						 */
+						updateSiblingsFactorParams(input, idxHead, idxModifier,
+								correctPreviousModifier, learningRate);
+						updateSiblingsFactorParams(input, idxHead, idxModifier,
+								predictedPreviousModifier, -learningRate);
+					}
 
-			/*
-			 * Decrement parameter weights for incorrectly predicted edge
-			 * features.
-			 */
-			int[] predictedFeatures = input.getFeatures(idxPredictedHead,
-					idxTkn);
-			if (predictedFeatures != null)
-				for (int idxFtr = 0; idxFtr < predictedFeatures.length; ++idxFtr)
-					updateFeatureParam(predictedFeatures[idxFtr], -learningRate);
+					if (correctGrandparent != predictedGrandparent) {
+						/*
+						 * Predicted modifier is correct but grandparent head is
+						 * NOT. Thus, the corresponding correct grandparent
+						 * factor is missing (false negative) and the predicted
+						 * one is incorrectly predicted (false positive).
+						 */
+						updateGrandparentFactorParams(input, idxHead,
+								idxModifier, correctGrandparent, learningRate);
+						updateGrandparentFactorParams(input, idxHead,
+								idxModifier, predictedGrandparent,
+								-learningRate);
+					}
+				}
 
-			// Increment (per-token) loss value.
-			loss += 1d;
+				// Update previous modifiers.
+				if (isCorrectModifier)
+					correctPreviousModifier = idxModifier;
+				if (isPredictedModifier)
+					predictedPreviousModifier = idxModifier;
+			}
+
+			if (correctPreviousModifier != predictedPreviousModifier) {
+				/*
+				 * The last modifiers of correct and predicted structures are
+				 * different. Thus, update the factors from the last modifiers
+				 * to the special END symbol (numTkns index).
+				 */
+				updateSiblingsFactorParams(input, idxHead, numTkns,
+						correctPreviousModifier, learningRate);
+				updateSiblingsFactorParams(input, idxHead, numTkns,
+						predictedPreviousModifier, -learningRate);
+			}
 		}
 
 		return loss;
 	}
 
 	/**
-	 * Recover the parameter associated with the given feature.
+	 * Update all feature parameters in the given grandparent factor of the
+	 * given input.
 	 * 
-	 * If the parameter has not been initialized yet, then create it. If the
-	 * inverted index is activated and the parameter has not been initialized
-	 * yet, then update the active features lists for each edge where the
-	 * feature occurs.
+	 * @param input
+	 * @param idxHead
+	 * @param idxModifier
+	 * @param idxGrandparent
+	 * @param learnRate
+	 */
+	protected void updateGrandparentFactorParams(DPGSInput input, int idxHead,
+			int idxModifier, int idxGrandparent, double learnRate) {
+		int[] ftrs = input.getGrandParentFeatures(idxHead, idxModifier,
+				idxGrandparent);
+		for (int code : ftrs)
+			updateFeatureParam(code, learnRate);
+	}
+
+	/**
+	 * Update all feature parameters in the given grandparent factor of the
+	 * given input.
 	 * 
-	 * @param ftr
+	 * @param input
+	 * @param idxHead
+	 * @param idxModifier
+	 * @param idxSibling
+	 * @param learnRate
+	 */
+	protected void updateSiblingsFactorParams(DPGSInput input, int idxHead,
+			int idxModifier, int idxSibling, double learnRate) {
+		int[] ftrs = input
+				.getSiblingsFeatures(idxHead, idxModifier, idxSibling);
+		for (int code : ftrs)
+			updateFeatureParam(code, learnRate);
+	}
+
+	/**
+	 * Update the weight of the given parameter with the given value (sum this
+	 * value to the given parameter weight). If this parameter has not been
+	 * instantiated yet, then instantiate it and initialize its weight to the
+	 * given value.
+	 * 
+	 * @param code
+	 *            is the parameter (feature) code to be updated.
 	 * @param value
-	 * @return
+	 *            is the value to be added to the parameter weight.
 	 */
 	protected void updateFeatureParam(int code, double value) {
 		AveragedParameter param = parameters.get(code);
@@ -367,12 +498,16 @@ public class DPTemplateEvolutionModel implements DPModel {
 	}
 
 	@Override
-	public DPTemplateEvolutionModel clone() throws CloneNotSupportedException {
-		return new DPTemplateEvolutionModel(this);
+	public DPGSModel clone() throws CloneNotSupportedException {
+		return new DPGSModel(this);
 	}
 
-	@Override
-	public int getNumberOfUpdatedParameters() {
+	/**
+	 * Return the number of non-zero parameters.
+	 * 
+	 * @return
+	 */
+	public int getNumberOfNonZeroParameters() {
 		return parameters.size();
 	}
 
@@ -465,7 +600,7 @@ public class DPTemplateEvolutionModel implements DPModel {
 	 * @param model
 	 * @param weight
 	 */
-	public void sumModel(DPTemplateEvolutionModel model, double weight) {
+	public void sumModel(DPGSModel model, double weight) {
 		for (Entry<Integer, AveragedParameter> entry : model.parameters
 				.entrySet()) {
 			int code = entry.getKey();
