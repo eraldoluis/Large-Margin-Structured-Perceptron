@@ -306,8 +306,14 @@ public class DPGSModel implements Model {
 	 */
 	protected double update(DPGSInput input, DPGSOutput outputCorrect,
 			DPGSOutput outputPredicted, double learningRate) {
-		// Per-edge loss value for this example.
+		// Per-factor loss value for this example.
 		double loss = 0d;
+
+		/*
+		 * For each head and modifier, check whether the predicted factor does
+		 * not correspond to the correct one and, then, update the current model
+		 * properly.
+		 */
 		int numTkns = input.size();
 		for (int idxHead = 0; idxHead < numTkns; ++idxHead) {
 			// Correct and predicted grandparent heads.
@@ -338,6 +344,9 @@ public class DPGSModel implements Model {
 					continue;
 
 				if (isCorrectModifier != isPredictedModifier) {
+					// One error.
+					loss += 1;
+
 					if (isCorrectModifier) {
 						/*
 						 * Current modifier is correct but the predicted
@@ -365,6 +374,9 @@ public class DPGSModel implements Model {
 								-learningRate);
 					}
 				} else {
+					// Error flag.
+					boolean error = false;
+
 					/*
 					 * The current modifier has been correctly predicted for the
 					 * current head. Then, addtionally check the previous
@@ -382,6 +394,7 @@ public class DPGSModel implements Model {
 								correctPreviousModifier, learningRate);
 						updateSiblingsFactorParams(input, idxHead, idxModifier,
 								predictedPreviousModifier, -learningRate);
+						error = true;
 					}
 
 					if (correctGrandparent != predictedGrandparent) {
@@ -396,7 +409,11 @@ public class DPGSModel implements Model {
 						updateGrandparentFactorParams(input, idxHead,
 								idxModifier, predictedGrandparent,
 								-learningRate);
+						error = true;
 					}
+
+					if (error)
+						loss += 1;
 				}
 
 				// Update previous modifiers.
@@ -416,6 +433,8 @@ public class DPGSModel implements Model {
 						correctPreviousModifier, learningRate);
 				updateSiblingsFactorParams(input, idxHead, numTkns,
 						predictedPreviousModifier, -learningRate);
+
+				loss += 1;
 			}
 		}
 
