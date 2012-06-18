@@ -140,10 +140,10 @@ public class MaximumBranchingAlgorithm {
 	 * @param numberOfNodes
 	 * @param graph
 	 * @param invertedMaxBranching
+	 * @return the weight of the built solution.
 	 */
-	public void findMaxBranching(int numberOfNodes, double[][] graph,
+	public double findMaxBranching(int numberOfNodes, double[][] graph,
 			int[] invertedMaxBranching) {
-
 		// Maximum branching is initially empth.
 		for (int from = 0; from < numberOfNodes; ++from)
 			Arrays.fill(maxBranching[from], 0, numberOfNodes, false);
@@ -329,11 +329,15 @@ public class MaximumBranchingAlgorithm {
 		if (checkUniqueRoot && doneRootComponents.size() > 1)
 			LOG.warn("Final root components list contains more than one element");
 
-		// Invert the maximum branching.
+		// Invert the maximum branching and compute its weight.
+		double weight = 0d;
 		Arrays.fill(visited, 0, numberOfNodes, false);
 		for (int scc : doneRootComponents)
-			invertBranching(numberOfNodes, min[scc], maxBranching, visited,
-					invertedMaxBranching);
+			weight += invertBranching(numberOfNodes, graph, min[scc],
+					maxBranching, visited, invertedMaxBranching);
+
+		// Return the weight of the built solution.
+		return weight;
 	}
 
 	// /**
@@ -365,21 +369,27 @@ public class MaximumBranchingAlgorithm {
 	 * <code>visited</code> and disconsider the last edges of each cycle.
 	 * 
 	 * @param numberOfNodes
-	 * @param node
+	 * @param from
 	 * @param branching
 	 * @param visited
 	 * @param invertedBranching
+	 * @return the weight of the subtree under <code>node</code>.
 	 */
-	private void invertBranching(final int numberOfNodes, int node,
-			boolean[][] branching, boolean[] visited, int[] invertedBranching) {
-		visited[node] = true;
+	private double invertBranching(final int numberOfNodes,
+			final double[][] graph, int from, boolean[][] branching,
+			boolean[] visited, int[] invertedBranching) {
+		double weight = 0d;
+		visited[from] = true;
 		for (int to = 0; to < numberOfNodes; ++to) {
-			if (!branching[node][to] || visited[to])
+			if (!branching[from][to] || visited[to])
 				continue;
-			invertedBranching[to] = node;
-			invertBranching(numberOfNodes, to, branching, visited,
-					invertedBranching);
+			invertedBranching[to] = from;
+			weight += graph[from][to];
+			weight += invertBranching(numberOfNodes, graph, to, branching,
+					visited, invertedBranching);
 		}
+
+		return weight;
 	}
 
 	/**

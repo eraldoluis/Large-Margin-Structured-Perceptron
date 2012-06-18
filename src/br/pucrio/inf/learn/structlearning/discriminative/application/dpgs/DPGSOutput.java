@@ -6,11 +6,12 @@ import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
  * Output structure for dependency parsing with grandparent and sibling
  * features.
  * 
- * This structure stores three main arrays of variables: complete and feasible
- * parse, grandparent and modifiers. The parse array stores the head token for
- * each (modifier) token within the sentence. The grandparent array stores the
- * (parent) head token of each head token (grandparent of sinblings). For each
- * head token, a sibling array stores which tokens are its modifiers.
+ * This structure stores three main arrays of variables: parse, grandparent and
+ * modifiers. The parse array stores the head token for each (modifier) token
+ * within the sentence and, thus, stores a feasible parse, that is a rooted tree
+ * (branching). The grandparent array stores the (parent) head token of each
+ * head token (grandparent of modifiers). For each head token, a modifier array
+ * stores which tokens are its modifiers.
  * 
  * @author eraldo
  * 
@@ -71,6 +72,15 @@ public class DPGSOutput implements ExampleOutput {
 	}
 
 	/**
+	 * Return the internal array of head tokens.
+	 * 
+	 * @return
+	 */
+	public int[] getHeads() {
+		return heads;
+	}
+
+	/**
 	 * Return the parent of the given head token (and, consequently, grandparent
 	 * of its children) according to the (not always feasible) grandparent
 	 * structure.
@@ -83,6 +93,15 @@ public class DPGSOutput implements ExampleOutput {
 	}
 
 	/**
+	 * Return the internal array of grandparents.
+	 * 
+	 * @return
+	 */
+	public int[] getGrandparents() {
+		return grandparents;
+	}
+
+	/**
 	 * Return whether the given modifier token really modifies the given head
 	 * token according to the (not always feasible) siblings structure.
 	 * 
@@ -92,6 +111,15 @@ public class DPGSOutput implements ExampleOutput {
 	 */
 	public boolean isModifier(int idxHead, int idxModifier) {
 		return modifiers[idxHead][idxModifier];
+	}
+
+	/**
+	 * Return the internal array of modifiers.
+	 * 
+	 * @return
+	 */
+	public boolean[][] getModifiers() {
+		return modifiers;
 	}
 
 	/**

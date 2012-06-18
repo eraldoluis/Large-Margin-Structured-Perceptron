@@ -247,8 +247,9 @@ public class DPGSModel implements Model {
 		if (features == null)
 			return Double.NaN;
 		double score = 0d;
-		for (int code : features) {
-			AveragedParameter param = parameters.get(code);
+		int numFtrs = features.length;
+		for (int idxCode = 0; idxCode < numFtrs; ++idxCode) {
+			AveragedParameter param = parameters.get(features[idxCode]);
 			if (param != null)
 				score += param.get();
 		}

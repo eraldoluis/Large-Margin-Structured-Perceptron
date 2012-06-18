@@ -2,22 +2,26 @@ package br.pucrio.inf.learn.util.gsmaxbranching;
 
 import java.util.Arrays;
 
+import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSOutput;
+
 /**
- * Implement a maximum "branching" algorithm that considers grandparent and
- * siblings factors, as proposed in Koo et al. (EMNLP-2010).
+ * Implement a maximum grandparent and siblings algorithm as proposed in Koo et
+ * al. (EMNLP-2010).
  * 
- * In fact, this algorithm does not guarantee that the final solution is a
- * proper branching (rooted tree). The solution comprises, for each node, a
- * parent node and a list of children, with no guarantee about agreement among
- * nodes. There can be two problems: (i) for some node I and its parent J, it is
- * not guaranteed that I is included in J's children; and (ii) it can exist
- * cycles. This, this algorithm must be used within a dual decomposition
- * algorithm to respect the whole contraints of rooted trees.
+ * The solution comprises, for each head node, a parent node and a sequence of
+ * left and right children (modifiers) nodes with maximum weight according to
+ * grandparent and siblings factors. Grandparent factors have parameters
+ * (idxHead, idxModifier, idxGrandparent), where idxHead is the index of a head
+ * token, idxModifier is the index of a modifier token and idxGrandparent is the
+ * index of the head token of the head token, that is the grandparent token of
+ * the modifier. Siblings factors have parameters (idxHead, idxModifier,
+ * idxPreviousModifier), where, idxPreviousModfier is the index a the closest
+ * modifier of idxModifier related to the corresponding head.
  * 
  * @author eraldo
  * 
  */
-public class GSMaximumBranchingAlgorithm {
+public class MaximumGrandparentSiblingsAlgorithm {
 
 	/**
 	 * Dynamic programming table that stores the back pointers with the best
@@ -60,7 +64,7 @@ public class GSMaximumBranchingAlgorithm {
 	 * 
 	 * @param maxNumberOfNodes
 	 */
-	public GSMaximumBranchingAlgorithm(int maxNumberOfNodes) {
+	public MaximumGrandparentSiblingsAlgorithm(int maxNumberOfNodes) {
 		realloc(maxNumberOfNodes);
 	}
 
@@ -79,7 +83,7 @@ public class GSMaximumBranchingAlgorithm {
 	}
 
 	/**
-	 * Find the maximum scoring "branching" considering the weights of given
+	 * Find the maximum scoring structure considering the weights of given
 	 * factors: <code>grandparentWeights</code> (with parameters
 	 * <code>(idxHead, idxModifier, idxGrandparent)</code> and
 	 * <code>siblingsWeights</code> (with parameters
@@ -93,14 +97,18 @@ public class GSMaximumBranchingAlgorithm {
 	 * 
 	 * @param numberOfNodes
 	 *            number of nodes in the given instance.
-	 * @param grandparentWeights
+	 * @param grandparentFactorWeights
 	 *            weights of the grandparent factors. The paramters of these
-	 *            factors are
-	 *            <code>(idxHead, idxModifier, idxGrandparent)</code>.
-	 * @param siblingsWeights
+	 *            factors are (idxHead, idxModifier, idxGrandparent).
+	 * @param siblingsFactorWeights
 	 *            weights of the siblings factors. The parameters of these
-	 *            factors are
-	 *            <code>(idxHead, idxModifier, idxPreviousModifier)</code>.
+	 *            factors are (idxHead, idxModifier, idxPreviousModifier).
+	 * @param dualGrandparentVars
+	 *            dual variable for each grandparent constraint identified by
+	 *            (idxHead, idxGrandparent).
+	 * @param dualModifierVars
+	 *            dual variable for each modifier constraint identified by
+	 *            (idxHead, idxModifier).
 	 * @param grandparents
 	 *            output array that will be filled with the grandparent for each
 	 *            head node.
@@ -110,14 +118,17 @@ public class GSMaximumBranchingAlgorithm {
 	 * @return the weight of the best scoring solution, that is the sum of the
 	 *         weights of all factors included in this solution.
 	 */
-	public double findMaximumBranching(int numberOfNodes,
-			double[][][] grandparentWeights, double[][][] siblingsWeights,
-			int[] grandparents, boolean[][] modifiers) {
+	public double findMaximumGrandparentSiblings(int numberOfNodes,
+			double[][][] grandparentFactorWeights,
+			double[][][] siblingsFactorWeights, double[][] dualGrandparentVars,
+			double[][] dualModifierVars, int[] grandparents,
+			boolean[][] modifiers) {
 		double weight = 0d;
 		for (int idxHead = 0; idxHead < numberOfNodes; ++idxHead)
-			weight += findMaximumBranchingForHead(numberOfNodes, idxHead,
-					grandparentWeights[idxHead], siblingsWeights[idxHead],
-					grandparents, modifiers);
+			weight += findMaximumGrandparentSiblingsForHead(numberOfNodes,
+					idxHead, grandparentFactorWeights[idxHead],
+					siblingsFactorWeights[idxHead], null, null, grandparents,
+					modifiers);
 		return weight;
 	}
 
@@ -135,14 +146,22 @@ public class GSMaximumBranchingAlgorithm {
 	 *            number of nodes in the given instance.
 	 * @param idxHead
 	 *            index of the head node to be considered.
-	 * @param grandparentWeights
+	 * @param grandparentFactorWeightsForHead
 	 *            weights of the grandparent factors for the given head node.
-	 *            The paramters of these factors are
-	 *            <code>(idxModifier, idxGrandparent)</code>.
-	 * @param siblingsWeights
+	 *            The paramters of these factors, given a fixed head, are
+	 *            (idxModifier, idxGrandparent).
+	 * @param siblingsFactorWeightsForHead
 	 *            weights of the siblings factors for the given head node. The
-	 *            parameters of these factors are
-	 *            <code>(idxHead, idxModifier, idxPreviousModifier)</code>.
+	 *            parameters of these factors, given a fixed head, are
+	 *            (idxModifier, idxPreviousModifier).
+	 * @param dualGrandparentVarsForHead
+	 *            dual variables for the grandparent constraints related to the
+	 *            given fixed head. Thus, the only parameter of this array is
+	 *            the grandparent index (idxGrandparent).
+	 * @param dualModifierVarsForHead
+	 *            dual variables for the modifier constraints related to the
+	 *            given fixed head. Thus, the only parameter of this array is
+	 *            the modifier index (idxModifier).
 	 * @param grandparents
 	 *            output array that will be filled with the grandparent for each
 	 *            head node.
@@ -151,9 +170,12 @@ public class GSMaximumBranchingAlgorithm {
 	 *            head node.
 	 * @return the weight of the included factors for the given head node.
 	 */
-	public double findMaximumBranchingForHead(int numberOfNodes, int idxHead,
-			double[][] grandparentWeights, double[][] siblingsWeights,
-			int[] grandparents, boolean[][] modifiers) {
+	public double findMaximumGrandparentSiblingsForHead(int numberOfNodes,
+			int idxHead, double[][] grandparentFactorWeightsForHead,
+			double[][] siblingsFactorWeightsForHead,
+			double[] dualGrandparentVarsForHead,
+			double[] dualModifierVarsForHead, int[] grandparents,
+			boolean[][] modifiers) {
 		double bestWeight = Double.NEGATIVE_INFINITY;
 		int bestGrandParent = -1;
 		for (int idxGradparent = 0; idxGradparent < numberOfNodes; ++idxGradparent) {
@@ -161,11 +183,24 @@ public class GSMaximumBranchingAlgorithm {
 			if (idxGradparent == idxHead)
 				continue;
 
-			double weight = 0d;
+			/*
+			 * Weight of the complete solution for (i) the given head, (ii) the
+			 * current grandparent, and (iii) the maximum scoring sequence of
+			 * modifiers. It starts from the weight of the grandparent variable
+			 * because this weight depends only on (idxHead, idxGrandparent).
+			 */
+			double weight = -dualGrandparentVarsForHead[idxGradparent];
 
 			// Process the modifiers on the LEFT side of the current head token.
 			for (int idxModifier = 0; idxModifier < idxHead; ++idxModifier) {
-				double wGrandparentFactor = grandparentWeights[idxModifier][idxGradparent];
+				/*
+				 * Grandparent factor weight, which is fixed for the current
+				 * modifier. That is it does not consider the siblings of this
+				 * modifier. However, if the weight for this factor is NaN, then
+				 * the current modifier cannot be included and, thus, no sibling
+				 * of its needs to be considered.
+				 */
+				double wGrandparentFactor = grandparentFactorWeightsForHead[idxModifier][idxGradparent];
 				if (Double.isNaN(wGrandparentFactor)) {
 					// Grandparent is not valid, thus skip this modifier.
 					previousModifiers[idxModifier] = -1;
@@ -180,16 +215,23 @@ public class GSMaximumBranchingAlgorithm {
 				 * values.
 				 */
 				findBestPreviousModifier(0, idxHead, idxModifier,
-						siblingsWeights[idxModifier]);
+						siblingsFactorWeightsForHead[idxModifier]);
 
-				/*
-				 * Gradparent factor is fixed across siblings modifiers for the
-				 * current modifier. Thus, we can include the corresponding
-				 * (grandparent) weight here, after calculating the best
-				 * sequence of sibling modifiers.
-				 */
-				if (!Double.isNaN(accumWeights[numberOfNodes]))
-					accumWeights[numberOfNodes] += wGrandparentFactor;
+				if (!Double.isNaN(accumWeights[idxModifier])) {
+					/*
+					 * Gradparent factor is fixed across siblings modifiers for
+					 * the current modifier. Thus, we can include the
+					 * corresponding (grandparent) weight here, after
+					 * calculating the best sequence of sibling modifiers.
+					 */
+					accumWeights[idxModifier] += wGrandparentFactor;
+
+					/*
+					 * Same thing for the modifier weight that depends only on
+					 * (idxHead, idxModifier).
+					 */
+					accumWeights[idxModifier] -= dualModifierVarsForHead[idxModifier];
+				}
 			}
 
 			/*
@@ -199,11 +241,11 @@ public class GSMaximumBranchingAlgorithm {
 			 * START and END special symbols.
 			 */
 			findBestPreviousModifier(0, idxHead, idxHead,
-					siblingsWeights[idxHead]);
+					siblingsFactorWeightsForHead[idxHead]);
 
 			// Process the modifiers on the RIGHT side of the current head.
 			for (int idxModifier = idxHead + 1; idxModifier < numberOfNodes; ++idxModifier) {
-				double wGrandparentFactor = grandparentWeights[idxModifier][idxGradparent];
+				double wGrandparentFactor = grandparentFactorWeightsForHead[idxModifier][idxGradparent];
 				if (Double.isNaN(wGrandparentFactor)) {
 					// Grandparent is not valid, thus skip this modifier.
 					previousModifiers[idxModifier] = -1;
@@ -218,7 +260,7 @@ public class GSMaximumBranchingAlgorithm {
 				 * values.
 				 */
 				findBestPreviousModifier(idxHead + 1, numberOfNodes,
-						idxModifier, siblingsWeights[idxModifier]);
+						idxModifier, siblingsFactorWeightsForHead[idxModifier]);
 
 				/*
 				 * Gradparent factor is fixed across siblings modifiers for the
@@ -237,7 +279,7 @@ public class GSMaximumBranchingAlgorithm {
 			 * the START and END special symbols.
 			 */
 			findBestPreviousModifier(0, idxHead, idxHead,
-					siblingsWeights[idxHead]);
+					siblingsFactorWeightsForHead[idxHead]);
 
 			// Store the best solution among all grandparents.
 			if (weight > bestWeight) {
@@ -338,5 +380,84 @@ public class GSMaximumBranchingAlgorithm {
 			previousModifiers[idxModifier] = bestPreviousModifier;
 			accumWeights[idxModifier] = bestAccumWeight;
 		}
+	}
+
+	/**
+	 * Calculate the weight of the parse underlying <code>output</code>
+	 * according to the given factor weights and dual variables.
+	 * 
+	 * @param output
+	 *            structure whose underlying parse is used to measure the
+	 *            objective function value.
+	 * @param grandparentFactorWeights
+	 *            weights of grandparent factors.
+	 * @param siblingsFactorWeights
+	 *            weights of siblings factors.
+	 * @param dualGrandparentVars
+	 *            dual variable values corresponding to grandparent constraints.
+	 * @param dualModifierVars
+	 *            dual variable values corresponding to modifier constraints.
+	 * @return the weight of the given parse according to the given factor
+	 *         weights and dual variables.
+	 */
+	public double calcObjectiveValueOfParse(DPGSOutput output,
+			double[][][] grandparentFactorWeights,
+			double[][][] siblingsFactorWeights, double[][] dualGrandparentVars,
+			double[][] dualModifierVars) {
+		// Total weight of the given parse.
+		double weight = 0d;
+
+		int numberOfNodes = output.size();
+		for (int idxHead = 0; idxHead < numberOfNodes; ++idxHead) {
+			// Parent of the current head (grandparent of its modifiers).
+			int idxGrandparent = output.getHead(idxHead);
+
+			// Grandparent dual variable.
+			weight -= dualGrandparentVars[idxGrandparent][idxHead];
+
+			// LEFT modifiers. The special START symbol is equal to idxHead.
+			int idxPrevModifier = idxHead;
+			for (int idxModifier = 0; idxModifier < idxHead; ++idxModifier) {
+				if (output.getHead(idxModifier) != idxHead)
+					// It is not a modifier of the current head.
+					continue;
+
+				// Grandparent factor.
+				weight += grandparentFactorWeights[idxHead][idxModifier][idxGrandparent];
+				// Sibling factor.
+				weight += siblingsFactorWeights[idxHead][idxModifier][idxPrevModifier];
+
+				// Modifier dual variable.
+				weight -= dualModifierVars[idxHead][idxModifier];
+
+				// Update previous modifier.
+				idxPrevModifier = idxModifier;
+			}
+			// Special END symbol that is equal is equal to idxHead.
+			weight += siblingsFactorWeights[idxHead][idxHead][idxPrevModifier];
+
+			// RIGHT modifiers. The START symbol is equal to numberOfNodes.
+			idxPrevModifier = numberOfNodes;
+			for (int idxModifier = idxHead + 1; idxModifier < numberOfNodes; ++idxModifier) {
+				if (output.getHead(idxModifier) != idxHead)
+					// It is not a modifier of the current head.
+					continue;
+
+				// Grandparent factor.
+				weight += grandparentFactorWeights[idxHead][idxModifier][idxGrandparent];
+				// Sibling factor.
+				weight += siblingsFactorWeights[idxHead][idxModifier][idxPrevModifier];
+
+				// Modifier dual variable.
+				weight -= dualModifierVars[idxHead][idxModifier];
+
+				// Update previous modifier.
+				idxPrevModifier = idxModifier;
+			}
+			// Special END symbol that is equal is equal to numberOfNodes.
+			weight += siblingsFactorWeights[idxHead][numberOfNodes][idxPrevModifier];
+		}
+
+		return weight;
 	}
 }
