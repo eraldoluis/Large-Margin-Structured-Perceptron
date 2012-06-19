@@ -24,7 +24,7 @@ public class DPGSOutput implements ExampleOutput {
 	private int[] heads;
 
 	/**
-	 * Parent of each head token.
+	 * Parent of each head token (grandparent of its modifiers).
 	 */
 	private int[] grandparents;
 
@@ -133,5 +133,32 @@ public class DPGSOutput implements ExampleOutput {
 			for (int idxModifier = 0; idxModifier < numTokens; ++idxModifier)
 				modifiers[idxHead][idxModifier] = (heads[idxModifier] == idxHead);
 		}
+	}
+
+	/**
+	 * Return a string representation of this output structure.
+	 */
+	public String toString() {
+		StringBuffer buff = new StringBuffer();
+		int numTkns = size();
+		// Heads.
+		buff.append("Heads: ");
+		for (int idxModifier = 0; idxModifier < numTkns; ++idxModifier)
+			buff.append("(" + heads[idxModifier] + "," + idxModifier + ") ");
+		// Grandparents.
+		buff.append("\nGrandparents: ");
+		for (int idxHead = 0; idxHead < numTkns; ++idxHead)
+			buff.append("(" + grandparents[idxHead] + "," + idxHead + ") ");
+		// Grandparents.
+		buff.append("\nModifiers:\n");
+		for (int idxHead = 0; idxHead < numTkns; ++idxHead) {
+			buff.append("Head " + idxHead + ": ");
+			for (int idxModifier = 0; idxModifier < numTkns; ++idxModifier) {
+				if (modifiers[idxHead][idxModifier])
+					buff.append(idxModifier + " ");
+			}
+			buff.append("\n");
+		}
+		return buff.toString();
 	}
 }

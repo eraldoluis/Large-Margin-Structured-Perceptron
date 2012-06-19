@@ -96,6 +96,11 @@ public class MaximumBranchingAlgorithm {
 	private boolean checkUniqueRoot;
 
 	/**
+	 * Specify whether negative edges are included when no other option exists.
+	 */
+	private boolean onlyPositiveEdges;
+
+	/**
 	 * Allocate data structures to deal with the given maximum number of nodes.
 	 * 
 	 * @param maxNumberOfNodes
@@ -206,7 +211,7 @@ public class MaximumBranchingAlgorithm {
 				if (Double.isNaN(w))
 					LOG.warn("Using NaN edge: " + from + ">" + inEdgeToNode);
 
-				if (w > maxInEdgeWeight) {
+				if (w > maxInEdgeWeight && (!onlyPositiveEdges || w >= 0d)) {
 					maxInEdgeFromNode = from;
 					maxInEdgeWeight = w;
 				}
@@ -332,6 +337,7 @@ public class MaximumBranchingAlgorithm {
 		// Invert the maximum branching and compute its weight.
 		double weight = 0d;
 		Arrays.fill(visited, 0, numberOfNodes, false);
+		Arrays.fill(invertedMaxBranching, 0, numberOfNodes, -1);
 		for (int scc : doneRootComponents)
 			weight += invertBranching(numberOfNodes, graph, min[scc],
 					maxBranching, visited, invertedMaxBranching);
@@ -390,6 +396,16 @@ public class MaximumBranchingAlgorithm {
 		}
 
 		return weight;
+	}
+
+	/**
+	 * Set whether the algorithm is allowed to include edges with negative
+	 * weight when no nonnegative edge exists.
+	 * 
+	 * @param val
+	 */
+	public void setOnlyPositiveEdges(boolean val) {
+		this.onlyPositiveEdges = val;
 	}
 
 	/**

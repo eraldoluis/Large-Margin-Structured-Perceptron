@@ -3,8 +3,13 @@ package br.pucrio.inf.learn.structlearning.discriminative.application.dpgs;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map.Entry;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
+import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.AveragedParameter;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Inference;
@@ -28,6 +33,16 @@ import br.pucrio.inf.learn.util.maxbranching.MaximumBranchingAlgorithm;
  * 
  */
 public class DPGSInference implements Inference {
+
+	/**
+	 * Log object.
+	 */
+	private final static Log LOG = LogFactory.getLog(DPGSInference.class);
+
+	/**
+	 * Special root node.
+	 */
+	private int root;
 
 	/**
 	 * Chu-Liu-Edmonds algoritmo to maximum branching.
@@ -91,7 +106,8 @@ public class DPGSInference implements Inference {
 	 * 
 	 * @param maxNumberOfTokens
 	 */
-	public DPGSInference(int maxNumberOfTokens) {
+	public DPGSInference(int root, int maxNumberOfTokens) {
+		this.root = root;
 		maxBranchAlgorithm = new MaximumBranchingAlgorithm(maxNumberOfTokens);
 		maxGSAlgorithm = new MaximumGrandparentSiblingsAlgorithm(
 				maxNumberOfTokens);
@@ -100,6 +116,7 @@ public class DPGSInference implements Inference {
 		siblingsFactorWeights = new double[maxNumberOfTokens][maxNumberOfTokens + 1][maxNumberOfTokens + 1];
 		dualGrandparentVariables = new double[maxNumberOfTokens][maxNumberOfTokens];
 		dualModifierVariables = new double[maxNumberOfTokens][maxNumberOfTokens];
+		maxNumberOfSubgradientSteps = 2;
 	}
 
 	/**
@@ -116,6 +133,9 @@ public class DPGSInference implements Inference {
 		siblingsFactorWeights = new double[maxNumberOfTokens][maxNumberOfTokens + 1][maxNumberOfTokens + 1];
 		dualGrandparentVariables = new double[maxNumberOfTokens][maxNumberOfTokens];
 		dualModifierVariables = new double[maxNumberOfTokens][maxNumberOfTokens];
+
+		// TODO test
+		maxBranchAlgorithm.setOnlyPositiveEdges(true);
 	}
 
 	/**
@@ -181,7 +201,7 @@ public class DPGSInference implements Inference {
 		 * and the factor weight arrays in an effient way after each iteration.
 		 */
 		HashMap<Integer, HashMap<Integer, Double>> dualGrandparentDelta = new HashMap<Integer, HashMap<Integer, Double>>();
-		HashMap<Integer, HashMap<Integer, Double>> dualSiblingsDelta = new HashMap<Integer, HashMap<Integer, Double>>();
+		HashMap<Integer, HashMap<Integer, Double>> dualModifierDelta = new HashMap<Integer, HashMap<Integer, Double>>();
 
 		double prevDualObjectiveValue = Double.NaN;
 		int numTkns = input.size();
@@ -193,17 +213,19 @@ public class DPGSInference implements Inference {
 			// Value of the dual objective function in this step.
 			double dualObjectiveValue = 0d;
 
-			// Fill the maximum branching for the current dual values.
-			dualObjectiveValue = maxBranchAlgorithm.findMaxBranching(numTkns,
-					graph, output.getHeads());
-
 			if (step == 0) {
+				// Fill the maximum branching for the current dual values.
+				dualObjectiveValue = maxBranchAlgorithm.findMaxBranching(
+						numTkns, graph, output.getHeads());
+
 				// Fill the complete maximum grandparent/siblings structure.
 				for (int idxHead = 0; idxHead < numTkns; ++idxHead) {
 					dualObjectiveValues[idxHead] = maxGSAlgorithm
 							.findMaximumGrandparentSiblingsForHead(numTkns,
 									idxHead, grandparentFactorWeights[idxHead],
-									siblingsFactorWeights[idxHead], null, null,
+									siblingsFactorWeights[idxHead],
+									dualGrandparentVariables,
+									dualModifierVariables,
 									output.getGrandparents(),
 									output.getModifiers());
 					dualObjectiveValue += dualObjectiveValues[idxHead];
@@ -224,22 +246,70 @@ public class DPGSInference implements Inference {
 			} else {
 				/*
 				 * Set of heads whose dual vars were updated in the previous
-				 * iteration. We only need to recalculate the
-				 * grandparent/siblings structure for these heads.
+				 * iteration. We only need to recalculate the GS structure for
+				 * these heads.
 				 */
-				HashSet<Integer> updatedHeads = new HashSet<Integer>(
-						dualGrandparentDelta.keySet());
-				updatedHeads.addAll(dualSiblingsDelta.keySet());
+				HashSet<Integer> updatedHeads = new HashSet<Integer>();
 
-				// Recompute grandparent/siblings for updated heads.
+				// Update grandparent dual variables.
+				for (Entry<Integer, HashMap<Integer, Double>> headEntry : dualGrandparentDelta
+						.entrySet()) {
+					int idxHead = headEntry.getKey();
+					for (Entry<Integer, Double> entryModifier : headEntry
+							.getValue().entrySet()) {
+						int idxModifier = entryModifier.getKey();
+
+						/*
+						 * GS structure must be recalculated for this modifier
+						 * index due to this grandparent dual variable update.
+						 */
+						updatedHeads.add(idxModifier);
+
+						double inc = entryModifier.getValue();
+						dualGrandparentVariables[idxHead][idxModifier] += inc;
+						graph[idxHead][idxModifier] += inc;
+					}
+				}
+
+				// Update modifier dual variables.
+				for (Entry<Integer, HashMap<Integer, Double>> headEntry : dualModifierDelta
+						.entrySet()) {
+					int idxHead = headEntry.getKey();
+
+					/*
+					 * GS structure must be recalculated for this head due to
+					 * this modifier dual variable update.
+					 */
+					updatedHeads.add(idxHead);
+
+					for (Entry<Integer, Double> entryModifier : headEntry
+							.getValue().entrySet()) {
+						int idxModifier = entryModifier.getKey();
+						double inc = entryModifier.getValue();
+						dualModifierVariables[idxHead][idxModifier] += inc;
+						graph[idxHead][idxModifier] += inc;
+					}
+				}
+
+				// Clear updated heads.
+				dualGrandparentDelta.clear();
+				dualModifierDelta.clear();
+
+				// Fill the maximum branching for the current dual values.
+				dualObjectiveValue = maxBranchAlgorithm.findMaxBranching(
+						numTkns, graph, output.getHeads());
+
 				for (int idxHead = 0; idxHead < numTkns; ++idxHead) {
 					if (updatedHeads.contains(idxHead))
+						// Recompute GS structure only for updated heads.
 						dualObjectiveValues[idxHead] = maxGSAlgorithm
 								.findMaximumGrandparentSiblingsForHead(numTkns,
 										idxHead,
 										grandparentFactorWeights[idxHead],
-										siblingsFactorWeights[idxHead], null,
-										null, output.getGrandparents(),
+										siblingsFactorWeights[idxHead],
+										dualGrandparentVariables,
+										dualModifierVariables,
+										output.getGrandparents(),
 										output.getModifiers());
 
 					dualObjectiveValue += dualObjectiveValues[idxHead];
@@ -253,10 +323,6 @@ public class DPGSInference implements Inference {
 					 * large.
 					 */
 					++numDualObjectiveIncrements;
-
-				// Clear updated heads.
-				dualGrandparentDelta.clear();
-				dualSiblingsDelta.clear();
 			}
 
 			// Update previous solution weight.
@@ -265,19 +331,27 @@ public class DPGSInference implements Inference {
 			// Step size.
 			double stepSize = lambda / (1 + numDualObjectiveIncrements);
 
+			// double stepSize = lambda;
+			// if (numDualObjectiveIncrements > 2)
+			// stepSize /= Math.log(1 + numDualObjectiveIncrements)
+			// / Math.log(2);
+
 			// Compute updates on dual variables.
 			for (int idxHead = 0; idxHead < numTkns; ++idxHead) {
 				HashMap<Integer, Double> dualGrandparentDeltaOfHead = null;
 				HashMap<Integer, Double> dualSiblingsDeltaOfHead = null;
 				for (int idxModifier = 0; idxModifier < numTkns; ++idxModifier) {
-					// Check agreement among the three set of variables.
+					/*
+					 * Get value of edge variable (idxHead, idxModifier) in the
+					 * three set of variables: parse, grandparent and siblings.
+					 */
 					boolean isBranching = (output.getHead(idxModifier) == idxHead);
 					boolean isGrandparent = (output.getGrandparent(idxModifier) == idxHead);
 					boolean isModifier = output
 							.isModifier(idxHead, idxModifier);
 
 					if (isGrandparent != isBranching) {
-						// Grandparent variable different from branching one.
+						// Grandparent variable differs from parse.
 						if (dualGrandparentDeltaOfHead == null) {
 							dualGrandparentDeltaOfHead = new HashMap<Integer, Double>();
 							dualGrandparentDelta.put(idxHead,
@@ -295,10 +369,10 @@ public class DPGSInference implements Inference {
 					}
 
 					if (isModifier != isBranching) {
-						// Modifier variable different from branching one.
+						// Modifier variable differs from parse.
 						if (dualSiblingsDeltaOfHead == null) {
 							dualSiblingsDeltaOfHead = new HashMap<Integer, Double>();
-							dualSiblingsDelta.put(idxHead,
+							dualModifierDelta.put(idxHead,
 									dualSiblingsDeltaOfHead);
 						}
 
@@ -313,10 +387,26 @@ public class DPGSInference implements Inference {
 			}
 
 			if (dualGrandparentDelta.size() == 0
-					&& dualSiblingsDelta.size() == 0)
+					&& dualModifierDelta.size() == 0) {
+				LOG.info("Optimum found at step " + step + " after "
+						+ numDualObjectiveIncrements
+						+ " dual objective increments.");
 				// Stop if the optimality condition is reached.
 				break;
+			}
 		}
+
+		double objectiveValue = 0d;
+		for (int idxHead = 0; idxHead < numTkns; ++idxHead)
+			objectiveValue += dualObjectiveValues[idxHead];
+		LOG.info(String.format(
+				"Dual GS objective value is %f for GS structure.",
+				objectiveValue));
+		LOG.info(String.format(
+				"Dual GS objective value is %f for parse structure.",
+				maxGSAlgorithm.calcObjectiveValueOfParse(output,
+						grandparentFactorWeights, siblingsFactorWeights,
+						dualGrandparentVariables, dualModifierVariables)));
 	}
 
 	/**
@@ -346,10 +436,11 @@ public class DPGSInference implements Inference {
 	private void fillGraph(DPGSModel model, DPGSInput input) {
 		int numTkns = input.size();
 		for (int idxHead = 0; idxHead < numTkns; ++idxHead) {
-			for (int idxModifier = 0; idxModifier < numTkns; ++idxModifier) {
+			for (int idxModifier = 0; idxModifier < numTkns; ++idxModifier)
 				graph[idxHead][idxModifier] = dualGrandparentVariables[idxHead][idxModifier]
 						+ dualModifierVariables[idxHead][idxModifier];
-			}
+			if (root >= 0)
+				graph[idxHead][root] = Double.NaN;
 		}
 	}
 
@@ -525,4 +616,71 @@ public class DPGSInference implements Inference {
 		throw new NotImplementedException();
 	}
 
+	/**
+	 * Test code.
+	 * 
+	 * @param args
+	 * @throws DPGSException
+	 */
+	public static void main(String[] args) throws DPGSException {
+		int[][][][] gFtrs = new int[5][5][5][];
+		int[][][][] sFtrs = new int[5][6][6][];
+
+		/*
+		 * Grandparent degenerated features (root node and root children have no
+		 * grandparent).
+		 */
+		// gFtrs[0][0][0] = new int[] { 0 };
+		// gFtrs[0][1][0] = new int[] { 0 };
+		// gFtrs[0][2][0] = new int[] { 0 };
+		// gFtrs[0][3][0] = new int[] { 0 };
+		// gFtrs[0][4][0] = new int[] { 0 };
+
+		// Grandparent ordinary features.
+		gFtrs[2][3][0] = new int[] { 10 };
+		gFtrs[2][4][0] = new int[] { 10 };
+
+		// Siblings degenerated features (leaf nodes have no modifier).
+		sFtrs[0][0][0] = new int[] { 0 };
+		sFtrs[0][5][5] = new int[] { 0 };
+		sFtrs[1][1][1] = new int[] { 0 };
+		sFtrs[1][5][5] = new int[] { 0 };
+		sFtrs[2][2][2] = new int[] { 0 };
+		sFtrs[2][5][5] = new int[] { 0 };
+		sFtrs[3][3][3] = new int[] { 0 };
+		sFtrs[3][5][5] = new int[] { 0 };
+		sFtrs[4][4][4] = new int[] { 0 };
+		sFtrs[4][5][5] = new int[] { 0 };
+
+		// Siblings ordinary features.
+		sFtrs[0][1][5] = new int[] { 10 };
+		sFtrs[0][2][1] = new int[] { 10 };
+		sFtrs[0][5][2] = new int[] { 10 };
+		sFtrs[2][3][5] = new int[] { 10 };
+		sFtrs[2][4][3] = new int[] { 10 };
+		sFtrs[2][5][4] = new int[] { 10 };
+
+		// Input structure.
+		DPGSInput input = new DPGSInput(gFtrs, sFtrs);
+
+		// Inference object.
+		DPGSInference inference = new DPGSInference(0, input.size());
+
+		// Model.
+		DPGSModel model = new DPGSModel(0);
+
+		// Feature weights.
+		model.getParameters().put(0, new AveragedParameter(0d));
+		model.getParameters().put(10, new AveragedParameter(10d));
+
+		// Output to be filled.
+		DPGSOutput output = input.createOutput();
+
+		// Inference.
+		inference.setMaxNumberOfSubgradientSteps(100000);
+		inference.inference(model, input, output);
+
+		// Print output.
+		System.out.println(output);
+	}
 }

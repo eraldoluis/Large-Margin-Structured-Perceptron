@@ -66,6 +66,25 @@ public class DPGSInput implements ExampleInput, Serializable {
 	 */
 	private int[][][][] siblingsFeatures;
 
+	/**
+	 * Create a new grandparent/siblings input structure using the given feature
+	 * arrays as underlying features. The given arrays are not copied, that is
+	 * they are used as is and must not be modified after this method is called.
+	 * 
+	 * @param grandparentFeatures
+	 * @param siblingsFeatures
+	 * @throws DPGSException
+	 */
+	public DPGSInput(int[][][][] grandparentFeatures,
+			int[][][][] siblingsFeatures) throws DPGSException {
+		if (grandparentFeatures.length != siblingsFeatures.length)
+			throw new DPGSException("Given grandparent feature array has "
+					+ "different length of the siblings array");
+		this.numberOfTokens = grandparentFeatures.length;
+		this.grandParentFeatures = grandparentFeatures;
+		this.siblingsFeatures = siblingsFeatures;
+	}
+
 	@Override
 	public String getId() {
 		return id;
@@ -104,7 +123,7 @@ public class DPGSInput implements ExampleInput, Serializable {
 
 	@Override
 	public DPGSOutput createOutput() {
-		return new DPGSOutput(basicFeatures.length);
+		return new DPGSOutput(numberOfTokens);
 	}
 
 	@Override

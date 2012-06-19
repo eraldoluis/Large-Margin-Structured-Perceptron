@@ -127,8 +127,8 @@ public class MaximumGrandparentSiblingsAlgorithm {
 		for (int idxHead = 0; idxHead < numberOfNodes; ++idxHead)
 			weight += findMaximumGrandparentSiblingsForHead(numberOfNodes,
 					idxHead, grandparentFactorWeights[idxHead],
-					siblingsFactorWeights[idxHead], null, null, grandparents,
-					modifiers);
+					siblingsFactorWeights[idxHead], dualGrandparentVars,
+					dualModifierVars, grandparents, modifiers);
 		return weight;
 	}
 
@@ -154,14 +154,10 @@ public class MaximumGrandparentSiblingsAlgorithm {
 	 *            weights of the siblings factors for the given head node. The
 	 *            parameters of these factors, given a fixed head, are
 	 *            (idxModifier, idxPreviousModifier).
-	 * @param dualGrandparentVarsForHead
-	 *            dual variables for the grandparent constraints related to the
-	 *            given fixed head. Thus, the only parameter of this array is
-	 *            the grandparent index (idxGrandparent).
-	 * @param dualModifierVarsForHead
-	 *            dual variables for the modifier constraints related to the
-	 *            given fixed head. Thus, the only parameter of this array is
-	 *            the modifier index (idxModifier).
+	 * @param dualGrandparentVars
+	 *            dual variables for the grandparent constraints.
+	 * @param dualModifierVars
+	 *            dual variables for the modifier constraints.
 	 * @param grandparents
 	 *            output array that will be filled with the grandparent for each
 	 *            head node.
@@ -173,23 +169,28 @@ public class MaximumGrandparentSiblingsAlgorithm {
 	public double findMaximumGrandparentSiblingsForHead(int numberOfNodes,
 			int idxHead, double[][] grandparentFactorWeightsForHead,
 			double[][] siblingsFactorWeightsForHead,
-			double[] dualGrandparentVarsForHead,
-			double[] dualModifierVarsForHead, int[] grandparents,
-			boolean[][] modifiers) {
+			double[][] dualGrandparentVars, double[][] dualModifierVars,
+			int[] grandparents, boolean[][] modifiers) {
+		/*
+		 * Initialize the best left and right modifier sequence to an empty.
+		 * Just in case, if no sequence (or even no grandparent) is feasible
+		 * (when all factors have weights equal to Double.NaN).
+		 */
+		bestPreviousModifiers[idxHead] = idxHead;
+		bestPreviousModifiers[numberOfNodes] = numberOfNodes;
+
 		double bestWeight = Double.NEGATIVE_INFINITY;
 		int bestGrandParent = -1;
-		for (int idxGradparent = 0; idxGradparent < numberOfNodes; ++idxGradparent) {
-			// Skip infeasile self-loop arcs.
-			if (idxGradparent == idxHead)
-				continue;
-
+		for (int idxGrandparent = -1; idxGrandparent < numberOfNodes; ++idxGrandparent) {
 			/*
 			 * Weight of the complete solution for (i) the given head, (ii) the
 			 * current grandparent, and (iii) the maximum scoring sequence of
 			 * modifiers. It starts from the weight of the grandparent variable
 			 * because this weight depends only on (idxHead, idxGrandparent).
 			 */
-			double weight = -dualGrandparentVarsForHead[idxGradparent];
+			double weight = 0d;
+			if (idxGrandparent != -1)
+				weight = -dualGrandparentVars[idxGrandparent][idxHead];
 
 			// Process the modifiers on the LEFT side of the current head token.
 			for (int idxModifier = 0; idxModifier < idxHead; ++idxModifier) {
@@ -200,7 +201,9 @@ public class MaximumGrandparentSiblingsAlgorithm {
 				 * the current modifier cannot be included and, thus, no sibling
 				 * of its needs to be considered.
 				 */
-				double wGrandparentFactor = grandparentFactorWeightsForHead[idxModifier][idxGradparent];
+				double wGrandparentFactor = 0d;
+				if (idxGrandparent != -1)
+					wGrandparentFactor = grandparentFactorWeightsForHead[idxModifier][idxGrandparent];
 				if (Double.isNaN(wGrandparentFactor)) {
 					// Grandparent is not valid, thus skip this modifier.
 					previousModifiers[idxModifier] = -1;
@@ -217,21 +220,19 @@ public class MaximumGrandparentSiblingsAlgorithm {
 				findBestPreviousModifier(0, idxHead, idxModifier,
 						siblingsFactorWeightsForHead[idxModifier]);
 
-				if (!Double.isNaN(accumWeights[idxModifier])) {
-					/*
-					 * Gradparent factor is fixed across siblings modifiers for
-					 * the current modifier. Thus, we can include the
-					 * corresponding (grandparent) weight here, after
-					 * calculating the best sequence of sibling modifiers.
-					 */
-					accumWeights[idxModifier] += wGrandparentFactor;
+				/*
+				 * Gradparent factor is fixed across siblings modifiers for the
+				 * current modifier. Thus, we can include the corresponding
+				 * (grandparent) weight here, after calculating the best
+				 * sequence of sibling modifiers.
+				 */
+				accumWeights[idxModifier] += wGrandparentFactor;
 
-					/*
-					 * Same thing for the modifier weight that depends only on
-					 * (idxHead, idxModifier).
-					 */
-					accumWeights[idxModifier] -= dualModifierVarsForHead[idxModifier];
-				}
+				/*
+				 * Same thing for the modifier weight that depends only on
+				 * (idxHead, idxModifier).
+				 */
+				accumWeights[idxModifier] -= dualModifierVars[idxHead][idxModifier];
 			}
 
 			/*
@@ -243,9 +244,21 @@ public class MaximumGrandparentSiblingsAlgorithm {
 			findBestPreviousModifier(0, idxHead, idxHead,
 					siblingsFactorWeightsForHead[idxHead]);
 
+			// Add the weight of the best left sequence of modifiers.
+			weight += accumWeights[idxHead];
+
 			// Process the modifiers on the RIGHT side of the current head.
 			for (int idxModifier = idxHead + 1; idxModifier < numberOfNodes; ++idxModifier) {
-				double wGrandparentFactor = grandparentFactorWeightsForHead[idxModifier][idxGradparent];
+				/*
+				 * Grandparent factor weight, which is fixed for the current
+				 * modifier. That is it does not consider the siblings of this
+				 * modifier. However, if the weight for this factor is NaN, then
+				 * the current modifier cannot be included and, thus, no sibling
+				 * of its needs to be considered.
+				 */
+				double wGrandparentFactor = 0d;
+				if (idxGrandparent != -1)
+					wGrandparentFactor = grandparentFactorWeightsForHead[idxModifier][idxGrandparent];
 				if (Double.isNaN(wGrandparentFactor)) {
 					// Grandparent is not valid, thus skip this modifier.
 					previousModifiers[idxModifier] = -1;
@@ -268,8 +281,13 @@ public class MaximumGrandparentSiblingsAlgorithm {
 				 * (grandparent) weight here, after calculating the best
 				 * sequence of sibling modifiers.
 				 */
-				if (!Double.isNaN(accumWeights[numberOfNodes]))
-					accumWeights[numberOfNodes] += wGrandparentFactor;
+				accumWeights[idxModifier] += wGrandparentFactor;
+
+				/*
+				 * Same thing for the modifier weight that depends only on
+				 * (idxHead, idxModifier).
+				 */
+				accumWeights[idxModifier] -= dualModifierVars[idxHead][idxModifier];
 			}
 
 			/*
@@ -278,15 +296,18 @@ public class MaximumGrandparentSiblingsAlgorithm {
 			 * modifiers) by the special index 'numberOfTokens' that is used for
 			 * the START and END special symbols.
 			 */
-			findBestPreviousModifier(0, idxHead, idxHead,
-					siblingsFactorWeightsForHead[idxHead]);
+			findBestPreviousModifier(idxHead + 1, numberOfNodes, numberOfNodes,
+					siblingsFactorWeightsForHead[numberOfNodes]);
+
+			// Add weight of the best sequence of right modifiers.
+			weight += accumWeights[numberOfNodes];
 
 			// Store the best solution among all grandparents.
 			if (weight > bestWeight) {
 				for (int idx = 0; idx <= numberOfNodes; ++idx)
 					bestPreviousModifiers[idx] = previousModifiers[idx];
 				bestWeight = weight;
-				bestGrandParent = idxGradparent;
+				bestGrandParent = idxGrandparent;
 			}
 		}
 
@@ -344,18 +365,24 @@ public class MaximumGrandparentSiblingsAlgorithm {
 
 		// Find the best previous modifier.
 		for (int idxPrevModifier = firstIndex; idxPrevModifier < idxModifier; ++idxPrevModifier) {
-			// Current siblings factor weight.
+			/*
+			 * Weight of the siblings factor associated with the previous
+			 * modifier index.
+			 */
 			double wSiblingsFactor = siblingsWeights[idxPrevModifier];
 
 			if (Double.isNaN(wSiblingsFactor))
 				// Skip inexistent factors.
 				continue;
 
+			// Weight accumulated up to the previous modifier.
 			double accumWeight = accumWeights[idxPrevModifier];
+
 			if (Double.isNaN(accumWeight))
 				// Skip inexistent path.
 				continue;
 
+			// Accumulated weight up to the modifier.
 			accumWeight += wSiblingsFactor;
 
 			if (Double.isNaN(bestAccumWeight) || accumWeight > bestAccumWeight) {
@@ -365,26 +392,21 @@ public class MaximumGrandparentSiblingsAlgorithm {
 			}
 		}
 
-		if (Double.isNaN(bestAccumWeight)) {
-			/*
-			 * No factor is valid for the current pair given by (idxHead,
-			 * idxModifier, *).
-			 */
-			previousModifiers[idxModifier] = -1;
-			accumWeights[idxModifier] = Double.NaN;
-		} else {
-			/*
-			 * Store the best previous modifier for the current pair given by
-			 * (idxHead, idxModifier).
-			 */
-			previousModifiers[idxModifier] = bestPreviousModifier;
-			accumWeights[idxModifier] = bestAccumWeight;
-		}
+		/*
+		 * Store the best previous modifier for the current pair given by
+		 * (idxHead, idxModifier).
+		 */
+		previousModifiers[idxModifier] = bestPreviousModifier;
+		accumWeights[idxModifier] = bestAccumWeight;
 	}
 
 	/**
 	 * Calculate the weight of the parse underlying <code>output</code>
-	 * according to the given factor weights and dual variables.
+	 * according to the given factor weights and dual variables. That is the
+	 * grandparent/siblings objective function minus dual variables. If the user
+	 * wants the GS objective function value alone, then it can give
+	 * <code>null</code> values for the dual variable arrays (
+	 * <code>dualGrandparentVars</code> and <code>dualModifierVars</code>).
 	 * 
 	 * @param output
 	 *            structure whose underlying parse is used to measure the
@@ -395,8 +417,12 @@ public class MaximumGrandparentSiblingsAlgorithm {
 	 *            weights of siblings factors.
 	 * @param dualGrandparentVars
 	 *            dual variable values corresponding to grandparent constraints.
+	 *            It can be null if the user wants the value of the GS objective
+	 *            function alone.
 	 * @param dualModifierVars
-	 *            dual variable values corresponding to modifier constraints.
+	 *            dual variable values corresponding to modifier constraints. It
+	 *            can be <code>null</code> if the user wants the value of the GS
+	 *            objective function alone.
 	 * @return the weight of the given parse according to the given factor
 	 *         weights and dual variables.
 	 */
@@ -406,14 +432,16 @@ public class MaximumGrandparentSiblingsAlgorithm {
 			double[][] dualModifierVars) {
 		// Total weight of the given parse.
 		double weight = 0d;
+		double w;
 
 		int numberOfNodes = output.size();
 		for (int idxHead = 0; idxHead < numberOfNodes; ++idxHead) {
 			// Parent of the current head (grandparent of its modifiers).
 			int idxGrandparent = output.getHead(idxHead);
 
-			// Grandparent dual variable.
-			weight -= dualGrandparentVars[idxGrandparent][idxHead];
+			if (idxGrandparent != -1 && dualGrandparentVars != null)
+				// Grandparent dual variable.
+				weight -= dualGrandparentVars[idxGrandparent][idxHead];
 
 			// LEFT modifiers. The special START symbol is equal to idxHead.
 			int idxPrevModifier = idxHead;
@@ -422,19 +450,30 @@ public class MaximumGrandparentSiblingsAlgorithm {
 					// It is not a modifier of the current head.
 					continue;
 
-				// Grandparent factor.
-				weight += grandparentFactorWeights[idxHead][idxModifier][idxGrandparent];
+				if (idxGrandparent != -1) {
+					// Grandparent factor.
+					w = grandparentFactorWeights[idxHead][idxModifier][idxGrandparent];
+					if (!Double.isNaN(w))
+						weight += w;
+				}
+
 				// Sibling factor.
-				weight += siblingsFactorWeights[idxHead][idxModifier][idxPrevModifier];
+				w = siblingsFactorWeights[idxHead][idxModifier][idxPrevModifier];
+				if (!Double.isNaN(w))
+					weight += w;
 
 				// Modifier dual variable.
-				weight -= dualModifierVars[idxHead][idxModifier];
+				if (dualModifierVars != null)
+					weight -= dualModifierVars[idxHead][idxModifier];
 
 				// Update previous modifier.
 				idxPrevModifier = idxModifier;
 			}
+
 			// Special END symbol that is equal is equal to idxHead.
-			weight += siblingsFactorWeights[idxHead][idxHead][idxPrevModifier];
+			w = siblingsFactorWeights[idxHead][idxHead][idxPrevModifier];
+			if (!Double.isNaN(w))
+				weight += w;
 
 			// RIGHT modifiers. The START symbol is equal to numberOfNodes.
 			idxPrevModifier = numberOfNodes;
@@ -443,19 +482,30 @@ public class MaximumGrandparentSiblingsAlgorithm {
 					// It is not a modifier of the current head.
 					continue;
 
-				// Grandparent factor.
-				weight += grandparentFactorWeights[idxHead][idxModifier][idxGrandparent];
+				if (idxGrandparent != -1) {
+					// Grandparent factor.
+					w = grandparentFactorWeights[idxHead][idxModifier][idxGrandparent];
+					if (!Double.isNaN(w))
+						weight += w;
+				}
+
 				// Sibling factor.
-				weight += siblingsFactorWeights[idxHead][idxModifier][idxPrevModifier];
+				w = siblingsFactorWeights[idxHead][idxModifier][idxPrevModifier];
+				if (!Double.isNaN(w))
+					weight += w;
 
 				// Modifier dual variable.
-				weight -= dualModifierVars[idxHead][idxModifier];
+				if (dualModifierVars != null)
+					weight -= dualModifierVars[idxHead][idxModifier];
 
 				// Update previous modifier.
 				idxPrevModifier = idxModifier;
 			}
+
 			// Special END symbol that is equal is equal to numberOfNodes.
-			weight += siblingsFactorWeights[idxHead][numberOfNodes][idxPrevModifier];
+			w = siblingsFactorWeights[idxHead][numberOfNodes][idxPrevModifier];
+			if (!Double.isNaN(w))
+				weight += w;
 		}
 
 		return weight;
