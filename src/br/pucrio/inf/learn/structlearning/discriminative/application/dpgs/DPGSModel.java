@@ -268,7 +268,7 @@ public class DPGSModel implements Model {
 	 */
 	public double getGrandparentFactorScore(DPGSInput input, int idxHead,
 			int idxModifier, int idxGrandparent) {
-		return getFeatureListScore(input.getGrandParentFeatures(idxHead,
+		return getFeatureListScore(input.getGrandparentFeatures(idxHead,
 				idxModifier, idxGrandparent));
 	}
 
@@ -454,7 +454,7 @@ public class DPGSModel implements Model {
 	 */
 	protected void updateGrandparentFactorParams(DPGSInput input, int idxHead,
 			int idxModifier, int idxGrandparent, double learnRate) {
-		int[] ftrs = input.getGrandParentFeatures(idxHead, idxModifier,
+		int[] ftrs = input.getGrandparentFeatures(idxHead, idxModifier,
 				idxGrandparent);
 		for (int code : ftrs)
 			updateFeatureParam(code, learnRate);

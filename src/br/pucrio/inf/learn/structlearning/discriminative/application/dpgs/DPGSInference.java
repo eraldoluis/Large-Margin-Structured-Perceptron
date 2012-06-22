@@ -472,7 +472,7 @@ public class DPGSInference implements Inference {
 				// Fill factor weights for each grandparent.
 				for (int idxGrandparent = 0; idxGrandparent < numTkns; ++idxGrandparent) {
 					// Get list of features for the current siblings factor.
-					int[] ftrs = input.getGrandParentFeatures(idxHead,
+					int[] ftrs = input.getGrandparentFeatures(idxHead,
 							idxModifier, idxGrandparent);
 					if (ftrs != null) {
 						// Sum feature weights to achieve the factor weight.
