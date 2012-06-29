@@ -72,6 +72,16 @@ public class DPGSOutput implements ExampleOutput {
 	}
 
 	/**
+	 * Set the head of the given modifier.
+	 * 
+	 * @param idxModifier
+	 * @param idxHead
+	 */
+	public void setHead(int idxModifier, int idxHead) {
+		heads[idxModifier] = idxHead;
+	}
+
+	/**
 	 * Return the internal array of head tokens.
 	 * 
 	 * @return
@@ -93,6 +103,15 @@ public class DPGSOutput implements ExampleOutput {
 	}
 
 	/**
+	 * Set grandparent token for the given head token.
+	 * 
+	 * @param idxHead
+	 */
+	public void setGrandparent(int idxHead, int idxGrandparent) {
+		grandparents[idxHead] = idxGrandparent;
+	}
+
+	/**
 	 * Return the internal array of grandparents.
 	 * 
 	 * @return
@@ -111,6 +130,17 @@ public class DPGSOutput implements ExampleOutput {
 	 */
 	public boolean isModifier(int idxHead, int idxModifier) {
 		return modifiers[idxHead][idxModifier];
+	}
+
+	/**
+	 * Set the modifier flag for the given dependency (idxHead, idxModifier).
+	 * 
+	 * @param idxHead
+	 * @param idxModifier
+	 * @param val
+	 */
+	public void setModifier(int idxHead, int idxModifier, boolean val) {
+		modifiers[idxHead][idxModifier] = val;
 	}
 
 	/**
@@ -142,7 +172,7 @@ public class DPGSOutput implements ExampleOutput {
 		StringBuffer buff = new StringBuffer();
 		int numTkns = size();
 		// Heads.
-		buff.append("Heads: ");
+		buff.append("Heads       : ");
 		for (int idxModifier = 0; idxModifier < numTkns; ++idxModifier)
 			buff.append("(" + heads[idxModifier] + "," + idxModifier + ") ");
 		// Grandparents.

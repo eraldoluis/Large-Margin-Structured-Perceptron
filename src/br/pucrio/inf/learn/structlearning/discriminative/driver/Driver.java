@@ -54,12 +54,17 @@ public class Driver {
 		descriptions.add(new CommandDescription(new ApplyCoreferenceModel(),
 				"ApplyCoreference", "Apply a coreference resolution model."));
 
-		// Apply coreference resolution model.
+		// Print coreference clusters whose latent tree is not a simple chain.
 		descriptions
 				.add(new CommandDescription(
 						new PrintCorefNonSingularClusters(),
 						"PrintCorefNonSingularClusters",
 						"Print clusters whose latent tree is more complex than a chain."));
+
+		// Train a dependency parser with grandparent/siblings features.
+		descriptions.add(new CommandDescription(new TrainDPGS(), "TrainDPGS",
+				"Train a dependency parser with "
+						+ "grandparent/siblings features."));
 
 		if (args.length < 1) {
 			usage();

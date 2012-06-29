@@ -1,33 +1,28 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.dpgs;
 
-import java.io.FileInputStream;
+import java.io.BufferedReader;
 import java.io.FileNotFoundException;
-import java.io.FileWriter;
+import java.io.FileReader;
 import java.io.IOException;
-import java.io.Writer;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeSet;
 
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
-import org.json.JSONTokener;
-import org.json.JSONWriter;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 
-import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CorefColumnDataset;
+import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.Feature;
-import br.pucrio.inf.learn.structlearning.discriminative.application.dp.FeatureTemplate;
-import br.pucrio.inf.learn.structlearning.discriminative.application.dp.SimpleFeatureTemplate;
-import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPColumnDataset;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.AveragedParameter;
 import br.pucrio.inf.learn.structlearning.discriminative.data.Dataset;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
-import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
+import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.MapEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Model;
 
 /**
@@ -39,6 +34,11 @@ import br.pucrio.inf.learn.structlearning.discriminative.task.Model;
  * 
  */
 public class DPGSModel implements Model {
+
+	/**
+	 * Loging object.
+	 */
+	private static final Log LOG = LogFactory.getLog(DPGSModel.class);
 
 	/**
 	 * Special root node.
@@ -57,11 +57,17 @@ public class DPGSModel implements Model {
 	protected Set<AveragedParameter> updatedParameters;
 
 	/**
+	 * Encoding for explicit features, i.e., features created from templates by
+	 * conjoining basic features.
+	 */
+	protected MapEncoding<Feature> explicitEncoding;
+
+	/**
 	 * Grandparent templates that comprise three parameters: head token,
 	 * modifier token and head of the head token (grandparent of modifier
 	 * token).
 	 */
-	protected FeatureTemplate[] grandparentTemplates;
+	protected DPGSTemplate[] grandparentTemplates;
 
 	/**
 	 * Siblings templates for modifiers on the left side of the head token.
@@ -71,7 +77,7 @@ public class DPGSModel implements Model {
 	 * is END. Both of them are represented by index N, where N is the number of
 	 * tokens in the sentence.
 	 */
-	protected FeatureTemplate[] leftSiblingsTemplates;
+	protected DPGSTemplate[] leftSiblingsTemplates;
 
 	/**
 	 * Siblings templates for modifiers on the right side of the head token.
@@ -81,7 +87,7 @@ public class DPGSModel implements Model {
 	 * is END. Both of them are represented by index N, where N is the number of
 	 * tokens in the sentence.
 	 */
-	protected FeatureTemplate[] rightSiblingsTemplates;
+	protected DPGSTemplate[] rightSiblingsTemplates;
 
 	/**
 	 * Create a new model with the given root node.
@@ -95,43 +101,7 @@ public class DPGSModel implements Model {
 		this.root = root;
 		this.parameters = new HashMap<Integer, AveragedParameter>();
 		this.updatedParameters = new HashSet<AveragedParameter>();
-	}
-
-	/**
-	 * Load a model from the given file and using the encodings in the given
-	 * dataset. Usually, the loaded model will later be applied in this dataset.
-	 * The dataset encodins can be even empty and then they will be filled with
-	 * features from the loaded model.
-	 * 
-	 * @param fileName
-	 * @param dataset
-	 * @throws JSONException
-	 * @throws IOException
-	 */
-	public DPGSModel(String fileName, CorefColumnDataset dataset)
-			throws JSONException, IOException {
-		this.updatedParameters = null;
-		this.parameters = new HashMap<Integer, AveragedParameter>();
-
-		// Model file input stream.
-		FileInputStream fis = new FileInputStream(fileName);
-
-		// Load JSON model object.
-		JSONObject jModel = new JSONObject(new JSONTokener(fis));
-
-		// Set dataset templates.
-		FeatureTemplate[][] templatesAllLevels = loadTemplatesFromJSON(jModel,
-				dataset);
-		dataset.setTemplates(templatesAllLevels);
-
-		// Set model parameters.
-		loadParametersFromJSON(jModel, dataset);
-
-		// Close model file input stream.
-		fis.close();
-
-		// Get root value.
-		this.root = jModel.getInt("root");
+		this.explicitEncoding = new MapEncoding<Feature>();
 	}
 
 	/**
@@ -155,77 +125,6 @@ public class DPGSModel implements Model {
 
 		// Updated parameters and features are NOT copied.
 		updatedParameters = new TreeSet<AveragedParameter>();
-	}
-
-	/**
-	 * Load model parameters from the given JSON model object
-	 * <code>jModel</code>.
-	 * 
-	 * @param jModel
-	 * @param dataset
-	 * @throws JSONException
-	 */
-	protected void loadParametersFromJSON(JSONObject jModel,
-			CorefColumnDataset dataset) throws JSONException {
-		// Encodings.
-		FeatureEncoding<String> basicEncoding = dataset.getFeatureEncoding();
-		FeatureEncoding<Feature> explicitEncoding = dataset
-				.getExplicitEncoding();
-		// JSON array of parameters.
-		JSONArray jParams = jModel.getJSONArray("parameters");
-		int numParams = jParams.length();
-		for (int idxParam = 0; idxParam < numParams; ++idxParam) {
-			/*
-			 * JSON array that represents a complete parameter: its template
-			 * index, its feature values and its weight.
-			 */
-			JSONArray jParam = jParams.getJSONArray(idxParam);
-			// Template index.
-			int idxTpl = jParam.getInt(0);
-			// Copy basic features values.
-			JSONArray jValues = jParam.getJSONArray(1);
-			int[] values = new int[jValues.length()];
-			for (int idxVal = 0; idxVal < values.length; ++idxVal)
-				values[idxVal] = basicEncoding.put(jValues.getString(idxVal));
-			// Create a feature object and encode it.
-			Feature ftr = new Feature(idxTpl, values);
-			int code = explicitEncoding.put(ftr);
-			// Put the new feature weight in the parameters.
-			parameters.put(code, new AveragedParameter(jParam.getDouble(2)));
-		}
-	}
-
-	/**
-	 * Load templates from the given JSON model object <code>jModel</code>.
-	 * 
-	 * @param jModel
-	 * @param dataset
-	 * @return
-	 * @throws JSONException
-	 */
-	protected FeatureTemplate[][] loadTemplatesFromJSON(JSONObject jModel,
-			CorefColumnDataset dataset) throws JSONException {
-		// Get template set.
-		JSONArray jTemplatesAllLevels = jModel.getJSONArray("templates");
-		FeatureTemplate[][] templatesAllLevels = new FeatureTemplate[jTemplatesAllLevels
-				.length()][];
-		for (int level = 0; level < templatesAllLevels.length; ++level) {
-			JSONArray jTemplates = jTemplatesAllLevels.getJSONArray(level);
-			FeatureTemplate[] templates = new FeatureTemplate[jTemplates
-					.length()];
-			for (int idxTpl = 0; idxTpl < templates.length; ++idxTpl) {
-				JSONArray jTemplate = jTemplates.getJSONArray(idxTpl);
-				int[] features = new int[jTemplate.length()];
-				for (int idxFtr = 0; idxFtr < features.length; ++idxFtr)
-					features[idxFtr] = dataset.getFeatureIndex(jTemplate
-							.getString(idxFtr));
-				SimpleFeatureTemplate tpl = new SimpleFeatureTemplate(idxTpl,
-						features);
-				templates[idxTpl] = tpl;
-			}
-			templatesAllLevels[level] = templates;
-		}
-		return templatesAllLevels;
 	}
 
 	/**
@@ -322,24 +221,30 @@ public class DPGSModel implements Model {
 			int predictedGrandparent = outputPredicted.getGrandparent(idxHead);
 
 			/*
-			 * Correct and predicted previous modifier. The numTkns index (i.e.,
-			 * the not-in-range last token) is the special index to indicate
-			 * START and END symbols.
+			 * Verifiy grandparent and siblings factors for differences between
+			 * correct and predicted factors.
+			 * 
+			 * We start as previous token with the special 'idxHead' index is
+			 * the index to indicate START and END tokens for LEFT modifiers.
+			 * For RIGHT modifiers, we use the 'numTkns' index.
 			 */
-			int correctPreviousModifier = numTkns;
-			int predictedPreviousModifier = numTkns;
-			for (int idxModifier = 0; idxModifier < numTkns; ++idxModifier) {
+			int correctPreviousModifier = idxHead;
+			int predictedPreviousModifier = idxHead;
+			for (int idxModifier = 0; idxModifier <= numTkns; ++idxModifier) {
+				// Is this token special (START or END).
+				boolean isSpecialToken = (idxModifier == idxHead || idxModifier == numTkns);
 				/*
 				 * Is this modifier included in the correct or in the predicted
-				 * structures for the current head.
+				 * structures for the current head or is it a special token.
 				 */
-				boolean isCorrectModifier = (outputCorrect.getHead(idxModifier) == idxHead);
-				boolean isPredictedModifier = outputPredicted.isModifier(
-						idxHead, idxModifier);
+				boolean isCorrectModifier = (isSpecialToken || (outputCorrect
+						.getHead(idxModifier) == idxHead));
+				boolean isPredictedModifier = (isSpecialToken || outputPredicted
+						.isModifier(idxHead, idxModifier));
 
 				if (!isCorrectModifier && !isPredictedModifier)
 					/*
-					 * Modifier token is included in neither the correct
+					 * Modifier token is neither included in the correct
 					 * structure nor the predicted structure. Thus, skip it.
 					 */
 					continue;
@@ -358,8 +263,10 @@ public class DPGSModel implements Model {
 						 */
 						updateSiblingsFactorParams(input, idxHead, idxModifier,
 								correctPreviousModifier, learningRate);
-						updateGrandparentFactorParams(input, idxHead,
-								idxModifier, correctGrandparent, learningRate);
+						if (correctGrandparent != -1)
+							updateGrandparentFactorParams(input, idxHead,
+									idxModifier, correctGrandparent,
+									learningRate);
 					} else {
 						/*
 						 * Current modifier is not correct but the predicted
@@ -370,9 +277,10 @@ public class DPGSModel implements Model {
 						 */
 						updateSiblingsFactorParams(input, idxHead, idxModifier,
 								predictedPreviousModifier, -learningRate);
-						updateGrandparentFactorParams(input, idxHead,
-								idxModifier, predictedGrandparent,
-								-learningRate);
+						if (predictedGrandparent != -1)
+							updateGrandparentFactorParams(input, idxHead,
+									idxModifier, predictedGrandparent,
+									-learningRate);
 					}
 				} else {
 					// Error flag.
@@ -398,18 +306,22 @@ public class DPGSModel implements Model {
 						error = true;
 					}
 
-					if (correctGrandparent != predictedGrandparent) {
+					if (!isSpecialToken
+							&& correctGrandparent != predictedGrandparent) {
 						/*
 						 * Predicted modifier is correct but grandparent head is
 						 * NOT. Thus, the corresponding correct grandparent
 						 * factor is missing (false negative) and the predicted
 						 * one is incorrectly predicted (false positive).
 						 */
-						updateGrandparentFactorParams(input, idxHead,
-								idxModifier, correctGrandparent, learningRate);
-						updateGrandparentFactorParams(input, idxHead,
-								idxModifier, predictedGrandparent,
-								-learningRate);
+						if (correctGrandparent != -1)
+							updateGrandparentFactorParams(input, idxHead,
+									idxModifier, correctGrandparent,
+									learningRate);
+						if (predictedGrandparent != -1)
+							updateGrandparentFactorParams(input, idxHead,
+									idxModifier, predictedGrandparent,
+									-learningRate);
 						error = true;
 					}
 
@@ -417,25 +329,33 @@ public class DPGSModel implements Model {
 						loss += 1;
 				}
 
-				// Update previous modifiers.
-				if (isCorrectModifier)
-					correctPreviousModifier = idxModifier;
-				if (isPredictedModifier)
-					predictedPreviousModifier = idxModifier;
-			}
+				if (isCorrectModifier) {
+					// Update correct previous modifier.
+					if (idxModifier == idxHead)
+						/*
+						 * Current token (idxToken) is the boundary token
+						 * between left and right modifiers. Thus, the previous
+						 * modifier for the next iteration is the special START
+						 * token for right modifiers, that is 'numTkns'.
+						 */
+						correctPreviousModifier = numTkns;
+					else
+						correctPreviousModifier = idxModifier;
+				}
 
-			if (correctPreviousModifier != predictedPreviousModifier) {
-				/*
-				 * The last modifiers of correct and predicted structures are
-				 * different. Thus, update the factors from the last modifiers
-				 * to the special END symbol (numTkns index).
-				 */
-				updateSiblingsFactorParams(input, idxHead, numTkns,
-						correctPreviousModifier, learningRate);
-				updateSiblingsFactorParams(input, idxHead, numTkns,
-						predictedPreviousModifier, -learningRate);
-
-				loss += 1;
+				if (isPredictedModifier) {
+					// Update predicted previous modifier.
+					if (idxModifier == idxHead)
+						/*
+						 * Current token (idxToken) is the boundary token
+						 * between left and right modifiers. Thus, the previous
+						 * modifier for the next iteration is the special START
+						 * token for right modifiers, that is 'numTkns'.
+						 */
+						predictedPreviousModifier = numTkns;
+					else
+						predictedPreviousModifier = idxModifier;
+				}
 			}
 		}
 
@@ -456,8 +376,11 @@ public class DPGSModel implements Model {
 			int idxModifier, int idxGrandparent, double learnRate) {
 		int[] ftrs = input.getGrandparentFeatures(idxHead, idxModifier,
 				idxGrandparent);
-		for (int code : ftrs)
-			updateFeatureParam(code, learnRate);
+		if (ftrs == null)
+			// Inexistent factor.
+			return;
+		for (int idxFtr = 0; idxFtr < ftrs.length; ++idxFtr)
+			updateFeatureParam(ftrs[idxFtr], learnRate);
 	}
 
 	/**
@@ -474,8 +397,11 @@ public class DPGSModel implements Model {
 			int idxModifier, int idxSibling, double learnRate) {
 		int[] ftrs = input
 				.getSiblingsFeatures(idxHead, idxModifier, idxSibling);
-		for (int code : ftrs)
-			updateFeatureParam(code, learnRate);
+		if (ftrs == null)
+			// Inexistent factor.
+			return;
+		for (int idxFtr = 0; idxFtr < ftrs.length; ++idxFtr)
+			updateFeatureParam(ftrs[idxFtr], learnRate);
 	}
 
 	/**
@@ -531,88 +457,6 @@ public class DPGSModel implements Model {
 		return parameters.size();
 	}
 
-	@Override
-	public void save(String fileName, Dataset dataset) throws IOException,
-			FileNotFoundException {
-		FileWriter fw = new FileWriter(fileName);
-		save(fw, (DPColumnDataset) dataset);
-		fw.close();
-	}
-
-	/**
-	 * Save this model in the given <code>FileWriter</code> object.
-	 * 
-	 * @param w
-	 * @param dataset
-	 * @throws IOException
-	 */
-	public void save(Writer w, DPColumnDataset dataset) throws IOException {
-		FeatureEncoding<String> basicEncoding = dataset.getFeatureEncoding();
-		FeatureEncoding<Feature> explicitEncoding = dataset
-				.getExplicitEncoding();
-		try {
-			// JSON objects writer.
-			JSONWriter jw = new JSONWriter(w);
-
-			// Model object.
-			jw.object();
-
-			// Root value.
-			jw.key("root").value(root);
-
-			// Templates array.
-			jw.key("templates");
-			jw.array();
-			FeatureTemplate[][] templatesAllLevels = dataset.getTemplates();
-			for (FeatureTemplate[] templates : templatesAllLevels) {
-				// Templates array of the current level.
-				jw.array();
-				for (FeatureTemplate template : templates) {
-					// Features array of the current template.
-					jw.array();
-					for (int idxFtr : template.getFeatures())
-						jw.value(dataset.getFeatureLabel(idxFtr));
-					// End of features array of the current template.
-					jw.endArray();
-				}
-				// End of templates array of the current level.
-				jw.endArray();
-			}
-			// End of templates array.
-			jw.endArray();
-
-			// Parameters array.
-			jw.key("parameters");
-			jw.array();
-			for (Entry<Integer, AveragedParameter> entry : parameters
-					.entrySet()) {
-				// Explicit features array:
-				// [template_index, [feature_values_array], weight].
-				jw.array();
-				Feature ftr = explicitEncoding.getValueByCode(entry.getKey());
-				jw.value(ftr.getTemplateIndex());
-				// Feature values array.
-				jw.array();
-				for (int code : ftr.getValues())
-					jw.value(basicEncoding.getValueByCode(code));
-				// End of feature values array.
-				jw.endArray();
-				// Parameter weight.
-				jw.value(entry.getValue().get());
-				// End of explicit features array.
-				jw.endArray();
-			}
-			// End of parameters array.
-			jw.endArray();
-
-			// End of model object.
-			jw.endObject();
-
-		} catch (JSONException e) {
-			throw new IOException("JSON error", e);
-		}
-	}
-
 	/**
 	 * Sum the parameters of the given model in this model. The given model
 	 * parameters are weighted by the given weight.
@@ -632,5 +476,219 @@ public class DPGSModel implements Model {
 			}
 			param.increment(val * weight);
 		}
+	}
+
+	/**
+	 * Return the explicit feature encoding of this dataset.
+	 * 
+	 * @return
+	 */
+	public MapEncoding<Feature> getExplicitFeatureEncoding() {
+		return explicitEncoding;
+	}
+
+	public DPGSTemplate[] loadSiblingsTemplates(BufferedReader reader,
+			DPGSDataset dataset, int type) throws IOException, DPGSException {
+		LinkedList<DPGSTemplate> templatesList = new LinkedList<DPGSTemplate>();
+		String line = DPGSDataset.skipBlanksAndComments(reader);
+		while (line != null) {
+			String[] ftrsStr = line.split("[ ]");
+			int[] ftrs = new int[ftrsStr.length];
+			for (int idx = 0; idx < ftrs.length; ++idx) {
+				ftrs[idx] = dataset.getSiblingsFeatureIndex(ftrsStr[idx]);
+				if (ftrs[idx] == -1)
+					throw new DPGSException(String.format(
+							"Feature label %s does not exist", ftrsStr[idx]));
+			}
+			templatesList.add(new DPSiblingsTemplate(type,
+					templatesList.size(), ftrs));
+			// Read next line.
+			line = DPGSDataset.skipBlanksAndComments(reader);
+		}
+
+		// Convert list to array.
+		return templatesList.toArray(new DPGSTemplate[0]);
+	}
+
+	/**
+	 * Load templates from the given reader and, optionally, generate explicit
+	 * features.
+	 * 
+	 * @param reader
+	 * @param dataset
+	 * @throws IOException
+	 * @throws DPGSException
+	 */
+	public void loadGrandparentTemplates(BufferedReader reader,
+			DPGSDataset dataset) throws IOException, DPGSException {
+		LinkedList<DPGSTemplate> templatesList = new LinkedList<DPGSTemplate>();
+		String line = DPGSDataset.skipBlanksAndComments(reader);
+		while (line != null) {
+			String[] ftrsStr = line.split("[ ]");
+			int[] ftrs = new int[ftrsStr.length];
+			for (int idx = 0; idx < ftrs.length; ++idx) {
+				ftrs[idx] = dataset.getGrandparentFeatureIndex(ftrsStr[idx]);
+				if (ftrs[idx] == -1)
+					throw new DPGSException(String.format(
+							"Feature label %s does not exist", ftrsStr[idx]));
+			}
+			templatesList.add(new DPGrandparentTemplate(templatesList.size(),
+					ftrs));
+			// Read next line.
+			line = DPGSDataset.skipBlanksAndComments(reader);
+		}
+
+		// Convert list to array.
+		grandparentTemplates = templatesList.toArray(new DPGSTemplate[0]);
+	}
+
+	public void loadGrandparentTemplates(String templatesFileName,
+			DPGSDataset dataset) throws IOException, DPGSException {
+		BufferedReader reader = new BufferedReader(new FileReader(
+				templatesFileName));
+		loadGrandparentTemplates(reader, dataset);
+		reader.close();
+	}
+
+	public void loadLeftSiblingsTemplates(String templatesFileName,
+			DPGSDataset dataset) throws IOException, DPGSException {
+		BufferedReader reader = new BufferedReader(new FileReader(
+				templatesFileName));
+		leftSiblingsTemplates = loadSiblingsTemplates(reader, dataset, 2);
+		reader.close();
+	}
+
+	public void loadRightSiblingsTemplates(String templatesFileName,
+			DPGSDataset dataset) throws IOException, DPGSException {
+		BufferedReader reader = new BufferedReader(new FileReader(
+				templatesFileName));
+		rightSiblingsTemplates = loadSiblingsTemplates(reader, dataset, 3);
+		reader.close();
+	}
+
+	protected void instantiateSiblingsFeatures(DPGSInput input, int idxHead,
+			int idxModifier, int idxPrevModifier) {
+		// Skip non-existent edges.
+		if (input.getBasicSiblingsFeatures(idxHead, idxModifier,
+				idxPrevModifier) == null)
+			return;
+
+		// List of generated features for the current factor.
+		LinkedList<Integer> ftrs = new LinkedList<Integer>();
+
+		/*
+		 * Instantiate edge features and add them to active features list.
+		 */
+		for (int idxTpl = 0; idxTpl < grandparentTemplates.length; ++idxTpl) {
+			DPSiblingsTemplate tpl = (DPSiblingsTemplate) leftSiblingsTemplates[idxTpl];
+			try {
+				tpl.instantiateSiblingsDerivedFeatures(input, ftrs,
+						explicitEncoding, idxHead, idxModifier, idxPrevModifier);
+			} catch (CloneNotSupportedException e) {
+				LOG.error("Instantiating feature", e);
+			}
+		}
+
+		// Set feature vector of this input.
+		int numFtrs = ftrs.size();
+		int[] ftrVals = new int[numFtrs];
+		Iterator<Integer> itFtrVals = ftrs.iterator();
+		for (int idxFtr = 0; idxFtr < numFtrs; ++idxFtr)
+			ftrVals[idxFtr] = itFtrVals.next();
+		input.setSiblingsFeatures(idxHead, idxModifier, idxPrevModifier,
+				ftrVals);
+	}
+
+	public void generateFeatures(DPGSDataset dataset) {
+		int numExs = dataset.getNumberOfExamples();
+		for (int idxEx = 0; idxEx < numExs; ++idxEx) {
+			// Current input structure.
+			DPGSInput input = dataset.getInput(idxEx);
+
+			// Number of tokens within the current input.
+			int numTkns = input.size();
+
+			for (int idxHead = 0; idxHead < numTkns; ++idxHead) {
+				// Grandparent features.
+				for (int idxModifier = 0; idxModifier < numTkns; ++idxModifier) {
+					for (int idxGrandparent = 0; idxGrandparent < numTkns; ++idxGrandparent) {
+						// Skip non-existent edges.
+						if (input.getBasicGrandparentFeatures(idxHead,
+								idxModifier, idxGrandparent) == null)
+							continue;
+
+						// List of generated features for the current factor.
+						LinkedList<Integer> ftrs = new LinkedList<Integer>();
+
+						/*
+						 * Instantiate edge features and add them to active
+						 * features list.
+						 */
+						for (int idxTpl = 0; idxTpl < grandparentTemplates.length; ++idxTpl) {
+							DPGrandparentTemplate tpl = (DPGrandparentTemplate) grandparentTemplates[idxTpl];
+							try {
+								tpl.instantiateGrandparentDerivedFeatures(
+										input, ftrs, explicitEncoding, idxHead,
+										idxModifier, idxGrandparent);
+							} catch (CloneNotSupportedException e) {
+								LOG.error("Instantiating feature", e);
+							}
+						}
+
+						// Set feature vector of this input.
+						int numFtrs = ftrs.size();
+						int[] ftrVals = new int[numFtrs];
+						Iterator<Integer> itFtrVals = ftrs.iterator();
+						for (int idxFtr = 0; idxFtr < numFtrs; ++idxFtr)
+							ftrVals[idxFtr] = itFtrVals.next();
+						input.setGrandparentFeatures(idxHead, idxModifier,
+								idxGrandparent, ftrVals);
+					}
+				}
+
+				// Left siblings features.
+				for (int idxModifier = 0; idxModifier <= idxHead; ++idxModifier) {
+					instantiateSiblingsFeatures(input, idxHead, idxModifier,
+							idxHead);
+					for (int idxPrevModifier = 0; idxPrevModifier < idxModifier; ++idxPrevModifier)
+						instantiateSiblingsFeatures(input, idxHead,
+								idxModifier, idxPrevModifier);
+				}
+
+				// Right siblings features.
+				for (int idxModifier = idxHead + 1; idxModifier <= numTkns; ++idxModifier) {
+					instantiateSiblingsFeatures(input, idxHead, idxModifier,
+							numTkns);
+					for (int idxPrevModifier = 0; idxPrevModifier < idxModifier; ++idxPrevModifier)
+						instantiateSiblingsFeatures(input, idxHead,
+								idxModifier, idxPrevModifier);
+				}
+			}
+
+			// Progess report.
+			if ((idxEx + 1) % 100 == 0) {
+				System.out.print('.');
+				System.out.flush();
+			}
+		}
+
+		System.out.println();
+		System.out.flush();
+	}
+
+	@Override
+	public void save(String fileName, Dataset dataset) throws IOException,
+			FileNotFoundException {
+		throw new NotImplementedException();
+	}
+
+	/**
+	 * Return the number of instantiated parameters. Roughly, that is the number
+	 * of parameters with value different from zero.
+	 * 
+	 * @return
+	 */
+	public int getNumberOfUpdatedParameters() {
+		return parameters.size();
 	}
 }

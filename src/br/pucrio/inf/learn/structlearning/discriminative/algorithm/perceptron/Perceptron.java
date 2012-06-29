@@ -336,14 +336,13 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 			}
 		}
 
+		// TODO debug
+		// indexTrainingOrder[0] = 4;
+
 		// Iterate over the training examples, updating the weight vector.
 		for (int idx = 0; idx < inputs.length; ++idx) {
 
 			indexCurrentExample = indexTrainingOrder[idx];
-
-//			// On demand feature generation.
-//			((DPInput) inputs[indexCurrentExample]).generateFeatures(templates,
-//					encoding);
 
 			/*
 			 * Update the current model weights according with the predicted
@@ -352,9 +351,6 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 			loss += train(inputs[indexCurrentExample],
 					outputs[indexCurrentExample],
 					predicteds[indexCurrentExample]);
-
-			// // On demand feature generation.
-			// ((DPInput) inputs[indexCurrentExample]).freeFeatureArrays();
 
 			// Progress report.
 			if (reportProgressInterval > 0

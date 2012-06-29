@@ -189,7 +189,7 @@ public class MaximumGrandparentSiblingsAlgorithm {
 			 * because this weight depends only on (idxHead, idxGrandparent).
 			 */
 			double weight = 0d;
-			if (idxGrandparent != -1)
+			if (idxGrandparent != -1 && dualGrandparentVars != null)
 				weight = -dualGrandparentVars[idxGrandparent][idxHead];
 
 			// Process the modifiers on the LEFT side of the current head token.
@@ -232,7 +232,8 @@ public class MaximumGrandparentSiblingsAlgorithm {
 				 * Same thing for the modifier weight that depends only on
 				 * (idxHead, idxModifier).
 				 */
-				accumWeights[idxModifier] -= dualModifierVars[idxHead][idxModifier];
+				if (dualModifierVars != null)
+					accumWeights[idxModifier] -= dualModifierVars[idxHead][idxModifier];
 			}
 
 			/*
@@ -287,7 +288,8 @@ public class MaximumGrandparentSiblingsAlgorithm {
 				 * Same thing for the modifier weight that depends only on
 				 * (idxHead, idxModifier).
 				 */
-				accumWeights[idxModifier] -= dualModifierVars[idxHead][idxModifier];
+				if (dualModifierVars != null)
+					accumWeights[idxModifier] -= dualModifierVars[idxHead][idxModifier];
 			}
 
 			/*

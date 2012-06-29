@@ -81,7 +81,43 @@ public class DPGSInput implements ExampleInput, Serializable {
 	private int[][][][] siblingsFeatures;
 
 	/**
-	 * Create an input structure from a list of factors.
+	 * Create an empty input structure with the given length.
+	 * 
+	 * @param id
+	 *            an arbitrary string that identifies this instance.
+	 * @param numberOfTokens
+	 *            number of tokens in this example.
+	 */
+	public DPGSInput(String id, int numberOfTokens) {
+		this.id = id;
+		this.numberOfTokens = numberOfTokens;
+		this.basicGrandparentFeatures = new int[numberOfTokens][numberOfTokens][numberOfTokens][][];
+		this.grandparentFeatures = new int[numberOfTokens][numberOfTokens][numberOfTokens][];
+		this.basicSiblingsFeatures = new int[numberOfTokens][numberOfTokens + 1][numberOfTokens + 1][][];
+		this.siblingsFeatures = new int[numberOfTokens][numberOfTokens + 1][numberOfTokens + 1][];
+	}
+
+	/**
+	 * Create a new grandparent/siblings input structure using the given feature
+	 * arrays as underlying features. The given arrays are not copied, that is
+	 * they are used as is and must not be modified after this method is called.
+	 * 
+	 * @param grandparentFeatures
+	 * @param siblingsFeatures
+	 * @throws DPGSException
+	 */
+	public DPGSInput(int[][][][] grandparentFeatures,
+			int[][][][] siblingsFeatures) throws DPGSException {
+		if (grandparentFeatures.length != siblingsFeatures.length)
+			throw new DPGSException("Given grandparent feature array has "
+					+ "different length of the siblings array");
+		this.numberOfTokens = grandparentFeatures.length;
+		this.grandparentFeatures = grandparentFeatures;
+		this.siblingsFeatures = siblingsFeatures;
+	}
+
+	/**
+	 * Fill basic features with the given list of factors.
 	 * 
 	 * Each item in this list (i.e., a factor) contains a list of basic
 	 * features. The first item in this list contains an array with the factor
@@ -95,24 +131,12 @@ public class DPGSInput implements ExampleInput, Serializable {
 	 * grandparent factors or (idxHead, idxModifier, idxPreviousModifier) for
 	 * siblings factors.
 	 * 
-	 * @param id
-	 *            an arbitrary string that identifies this instance.
-	 * @param numberOfColumns
-	 *            the number of columns (features) within each factor. This
-	 *            number does not include the parameter first feature.
 	 * @param basicFeatures
-	 *            list of factors comprising parameters and features according
-	 *            to the description above.
 	 * @throws DPGSException
 	 */
-	public DPGSInput(String id, int numberOfColumns, int numberOfTokens,
+	public void fillBasicFeatures(
 			Collection<? extends Collection<int[]>> basicFeatures)
 			throws DPGSException {
-		this.id = id;
-		this.numberOfTokens = numberOfTokens;
-		this.basicGrandparentFeatures = new int[numberOfColumns][numberOfTokens][numberOfTokens][][];
-		this.basicSiblingsFeatures = new int[numberOfColumns][numberOfTokens + 1][numberOfTokens + 1][][];
-
 		for (Collection<int[]> factor : basicFeatures) {
 			// Iterator of factor list items.
 			Iterator<int[]> it = factor.iterator();
@@ -133,6 +157,9 @@ public class DPGSInput implements ExampleInput, Serializable {
 			// Columns for the current factor.
 			int[][] columns;
 
+			// Number of basic features in this factor.
+			int numberOfColumns = factor.size() - 1;
+
 			/*
 			 * Alloc memory for the factor columns and store in the correct
 			 * place with the underlying GS structures.
@@ -141,11 +168,21 @@ public class DPGSInput implements ExampleInput, Serializable {
 			case 1:
 				int idxGrandparent = params[3];
 				columns = new int[numberOfColumns][];
+				if (basicGrandparentFeatures[idxHead][idxModifier][idxGrandparent] != null)
+					throw new DPGSException(
+							String.format(
+									"Factor G(%d,%d,%d) in example %s is already filled",
+									idxHead, idxModifier, idxGrandparent, id));
 				basicGrandparentFeatures[idxHead][idxModifier][idxGrandparent] = columns;
 				break;
 			case 2:
 				int idxPrevModifier = params[3];
 				columns = new int[numberOfColumns][];
+				if (basicSiblingsFeatures[idxHead][idxModifier][idxPrevModifier] != null)
+					throw new DPGSException(
+							String.format(
+									"Factor S(%d,%d,%d) in example %s is already filled",
+									idxHead, idxModifier, idxPrevModifier, id));
 				basicSiblingsFeatures[idxHead][idxModifier][idxPrevModifier] = columns;
 				break;
 			default:
@@ -166,25 +203,6 @@ public class DPGSInput implements ExampleInput, Serializable {
 								"Incorrect number of features in the factor (%d,%d,%d) of type %d from example %s",
 								params[1], params[2], params[3], params[0], id));
 		}
-	}
-
-	/**
-	 * Create a new grandparent/siblings input structure using the given feature
-	 * arrays as underlying features. The given arrays are not copied, that is
-	 * they are used as is and must not be modified after this method is called.
-	 * 
-	 * @param grandparentFeatures
-	 * @param siblingsFeatures
-	 * @throws DPGSException
-	 */
-	public DPGSInput(int[][][][] grandparentFeatures,
-			int[][][][] siblingsFeatures) throws DPGSException {
-		if (grandparentFeatures.length != siblingsFeatures.length)
-			throw new DPGSException("Given grandparent feature array has "
-					+ "different length of the siblings array");
-		this.numberOfTokens = grandparentFeatures.length;
-		this.grandparentFeatures = grandparentFeatures;
-		this.siblingsFeatures = siblingsFeatures;
 	}
 
 	@Override
@@ -247,4 +265,23 @@ public class DPGSInput implements ExampleInput, Serializable {
 		return numberOfTokens;
 	}
 
+	public int[][] getBasicGrandparentFeatures(int idxHead, int idxModifier,
+			int idxGrandparent) {
+		return basicGrandparentFeatures[idxHead][idxModifier][idxGrandparent];
+	}
+
+	public int[][] getBasicSiblingsFeatures(int idxHead, int idxModifier,
+			int idxPrevModifier) {
+		return basicSiblingsFeatures[idxHead][idxModifier][idxPrevModifier];
+	}
+
+	public void setGrandparentFeatures(int idxHead, int idxModifier,
+			int idxGrandparent, int[] vals) {
+		grandparentFeatures[idxHead][idxModifier][idxGrandparent] = vals;
+	}
+
+	public void setSiblingsFeatures(int idxHead, int idxModifier,
+			int idxPrevModifier, int[] vals) {
+		siblingsFeatures[idxHead][idxModifier][idxPrevModifier] = vals;
+	}
 }
