@@ -119,12 +119,20 @@ public class DPGSModel implements Model {
 		this.parameters = (HashMap<Integer, AveragedParameter>) ((HashMap<Integer, AveragedParameter>) other.parameters)
 				.clone();
 
-		// Clone each map value.
+		// Deep-copy of parameters.
 		for (Entry<Integer, AveragedParameter> entry : parameters.entrySet())
 			entry.setValue(entry.getValue().clone());
 
 		// Updated parameters and features are NOT copied.
 		updatedParameters = new TreeSet<AveragedParameter>();
+
+		// Explicit encoding just references the other one.
+		this.explicitEncoding = other.explicitEncoding;
+
+		// Templates.
+		this.grandparentTemplates = other.grandparentTemplates;
+		this.leftSiblingsTemplates = other.leftSiblingsTemplates;
+		this.rightSiblingsTemplates = other.rightSiblingsTemplates;
 	}
 
 	/**

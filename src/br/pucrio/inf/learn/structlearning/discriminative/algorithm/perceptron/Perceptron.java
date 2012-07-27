@@ -336,9 +336,6 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 			}
 		}
 
-		// TODO debug
-		// indexTrainingOrder[0] = 4;
-
 		// Iterate over the training examples, updating the weight vector.
 		for (int idx = 0; idx < inputs.length; ++idx) {
 

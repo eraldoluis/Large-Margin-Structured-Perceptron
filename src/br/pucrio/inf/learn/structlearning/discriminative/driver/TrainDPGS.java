@@ -17,6 +17,7 @@ import br.pucrio.inf.learn.structlearning.discriminative.algorithm.OnlineStructu
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.TrainingListener;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.Perceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSDataset;
+import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSDualInference;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSInference;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSModel;
@@ -83,9 +84,6 @@ public class TrainDPGS implements Command {
 		options.addOption(OptionBuilder.withLongOpt("script")
 				.withArgName("path").hasArg()
 				.withDescription("CoNLL evaluation script (eval.pl).").create());
-		options.addOption(OptionBuilder.withLongOpt("conlltest")
-				.withArgName("filename").hasArg()
-				.withDescription("Test dataset on CoNLL format.").create());
 		options.addOption(OptionBuilder
 				.withLongOpt("perepoch")
 				.withDescription(
@@ -130,10 +128,7 @@ public class TrainDPGS implements Command {
 		// Print the list of options along the values provided by the user.
 		CommandLineOptionsUtil.printOptionValues(cmdLine, options);
 
-		/*
-		 * Get the options given in the command-line or the corresponding
-		 * default values.
-		 */
+		// Training options.
 		String trainPrefix = cmdLine.getOptionValue("train");
 		String trainGPDatasetFileName = trainPrefix + ".grandparent";
 		String trainLSDatasetFileName = trainPrefix + ".leftsiblings";
@@ -144,6 +139,14 @@ public class TrainDPGS implements Command {
 		String templatesRSFileName = templatesPrefix + ".rightsiblings";
 		int numEpochs = Integer.parseInt(cmdLine.getOptionValue("numepochs",
 				"10"));
+		int maxSubgradientSteps = Integer.valueOf(cmdLine.getOptionValue(
+				"maxsteps", "500"));
+		double lossWeight = Double.parseDouble(cmdLine.getOptionValue(
+				"lossweight", "0d"));
+		boolean averaged = !cmdLine.hasOption("noavg");
+		String seedStr = cmdLine.getOptionValue("seed");
+
+		// Test options.
 		String testConllFileName = cmdLine.getOptionValue("testconll");
 		String outputConllFilename = cmdLine.getOptionValue("outputconll");
 		String testPrefix = cmdLine.getOptionValue("test");
@@ -152,24 +155,15 @@ public class TrainDPGS implements Command {
 		String testRSDatasetFilename = testPrefix + ".rightsiblings";
 		String script = cmdLine.getOptionValue("script");
 		boolean evalPerEpoch = cmdLine.hasOption("perepoch");
-		int maxSubgradientSteps = Integer.valueOf(cmdLine.getOptionValue(
-				"maxsteps", "100000"));
-		String seedStr = cmdLine.getOptionValue("seed");
-		double lossWeight = Double.parseDouble(cmdLine.getOptionValue(
-				"lossweight", "0d"));
-		boolean averaged = !cmdLine.hasOption("noavg");
 
 		/*
-		 * If --test is provided, then --conlltest must be provided (and
-		 * vice-versa).
+		 * Options --testconll, --outputconll and --test must always be provided
+		 * together.
 		 */
-		if ((testGPDatasetFilename == null) != (testConllFileName == null)
-				|| (testLSDatasetFilename == null) != (testConllFileName == null)
-				|| (outputConllFilename == null) != (testConllFileName == null)
-				|| (testRSDatasetFilename == null) != (testConllFileName == null)) {
-			LOG.error("the four options --testgp, --testls, --testrs, "
-					+ "--outputconll, and --testconll must always be "
-					+ "provided together (all or none)");
+		if ((testPrefix == null) != (testConllFileName == null)
+				|| (outputConllFilename == null) != (testConllFileName == null)) {
+			LOG.error("the options --testconll, --outputconll and --test "
+					+ "must always be provided together (all or none)");
 			System.exit(1);
 		}
 
@@ -223,9 +217,7 @@ public class TrainDPGS implements Command {
 			// Generate derived features from templates.
 			model.generateFeatures(trainDataset);
 
-			// Inference algorithm.
-			// DPGSDualInference inference = new DPGSDualInference(0,
-			// trainDataset.getMaxNumberOfTokens());
+			// Inference algorithm for training.
 			DPGSInference inference = new DPGSInference(
 					trainDataset.getMaxNumberOfTokens());
 
@@ -239,14 +231,21 @@ public class TrainDPGS implements Command {
 
 			EvaluateModelListener eval = null;
 			if (testConllFileName != null && evalPerEpoch) {
-				inference.setCopyPredictionToParse(true);
 				LOG.info("Loading test factors...");
 				DPGSDataset testset = new DPGSDataset(trainDataset);
 				testset.loadSiblingsFactors(testLSDatasetFilename);
 				testset.loadSiblingsFactors(testRSDatasetFilename);
 				testset.loadGrandparentFactors(testGPDatasetFilename);
+				model.generateFeatures(testset);
+
+				LOG.info("Evaluating...");
+				// Use dual inference algorithm for testing.
+				DPGSDualInference inferenceDual = new DPGSDualInference(0,
+						testset.getMaxNumberOfTokens());
+				inferenceDual
+						.setMaxNumberOfSubgradientSteps(maxSubgradientSteps);
 				eval = new EvaluateModelListener(script, testConllFileName,
-						outputConllFilename, testset, averaged);
+						outputConllFilename, testset, averaged, inferenceDual);
 				eval.setQuiet(true);
 				alg.setListener(eval);
 			}
@@ -259,15 +258,21 @@ public class TrainDPGS implements Command {
 					model.getNumberOfUpdatedParameters()));
 
 			if (testConllFileName != null && !evalPerEpoch) {
-				inference.setCopyPredictionToParse(true);
 				LOG.info("Loading test factors...");
 				DPGSDataset testset = new DPGSDataset(trainDataset);
 				testset.loadSiblingsFactors(testLSDatasetFilename);
 				testset.loadSiblingsFactors(testRSDatasetFilename);
 				testset.loadGrandparentFactors(testGPDatasetFilename);
+				model.generateFeatures(testset);
+
 				LOG.info("Evaluating...");
+				// Use dual inference algorithm for testing.
+				DPGSDualInference inferenceDual = new DPGSDualInference(0,
+						testset.getMaxNumberOfTokens());
+				inferenceDual
+						.setMaxNumberOfSubgradientSteps(maxSubgradientSteps);
 				eval = new EvaluateModelListener(script, testConllFileName,
-						outputConllFilename, testset, averaged);
+						outputConllFilename, testset, false, inferenceDual);
 				eval.setQuiet(true);
 				eval.afterEpoch(inference, model, -1, -1d, -1);
 			}
@@ -338,7 +343,7 @@ public class TrainDPGS implements Command {
 	}
 
 	/**
-	 * Training listener to evaluate models after each iteration.
+	 * Training listener to evaluate models after each epoch.
 	 * 
 	 * @author eraldof
 	 * 
@@ -359,13 +364,17 @@ public class TrainDPGS implements Command {
 
 		private boolean quiet;
 
+		private Inference inference;
+
 		public EvaluateModelListener(String script, String conllGolden,
-				String conllPredicted, DPGSDataset testset, boolean averaged) {
+				String conllPredicted, DPGSDataset testset, boolean averaged,
+				Inference inference) {
 			this.script = script;
 			this.conllGolden = conllGolden;
 			this.conllPredicted = conllPredicted;
 			this.testset = testset;
 			this.averaged = averaged;
+			this.inference = inference;
 
 			// Allocate output sequences for predictions.
 			int numExs = testset.getNumberOfExamples();
@@ -418,6 +427,9 @@ public class TrainDPGS implements Command {
 				model.average(iteration);
 			}
 
+			// Use other inference if it has been given in constructor.
+			if (inference != null)
+				inferenceImpl = inference;
 			// Fill the list of predicted outputs.
 			DPGSInput[] inputs = testset.getInputs();
 			// DPOutput[] outputs = testset.getOutputs();

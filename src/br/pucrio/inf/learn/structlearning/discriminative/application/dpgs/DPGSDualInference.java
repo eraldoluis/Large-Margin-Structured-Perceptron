@@ -155,6 +155,9 @@ public class DPGSDualInference implements Inference {
 	 *            structure.
 	 */
 	public void inference(DPGSModel model, DPGSInput input, DPGSOutput output) {
+		// Clear dual variables.
+		clearDualVars(input.size());
+
 		// Generate inference problem for the given input.
 		fillGraph(model, input);
 		fillGrandparentFactorWeights(model, input, null, 0d);
@@ -451,17 +454,17 @@ public class DPGSDualInference implements Inference {
 			}
 		}
 
-		double objectiveValue = 0d;
-		for (int idxHead = 0; idxHead < numTkns; ++idxHead)
-			objectiveValue += dualObjectiveValues[idxHead];
-		LOG.info(String.format(
-				"Dual GS objective value is %f for GS structure.",
-				objectiveValue));
-		LOG.info(String.format(
-				"Dual GS objective value is %f for parse structure.",
-				maxGSAlgorithm.calcObjectiveValueOfParse(output,
-						grandparentFactorWeights, siblingsFactorWeights,
-						dualGrandparentVariables, dualModifierVariables)));
+		// double objectiveValue = 0d;
+		// for (int idxHead = 0; idxHead < numTkns; ++idxHead)
+		// objectiveValue += dualObjectiveValues[idxHead];
+		// LOG.info(String.format(
+		// "Dual GS objective value is %f for GS structure.",
+		// objectiveValue));
+		// LOG.info(String.format(
+		// "Dual GS objective value is %f for parse structure.",
+		// maxGSAlgorithm.calcObjectiveValueOfParse(output,
+		// grandparentFactorWeights, siblingsFactorWeights,
+		// dualGrandparentVariables, dualModifierVariables)));
 	}
 
 	public static void printDualVars(int numTkns, double[][] vars) {

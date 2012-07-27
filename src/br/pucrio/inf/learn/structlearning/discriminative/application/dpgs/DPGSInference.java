@@ -1,5 +1,8 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.dpgs;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.AveragedParameter;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
@@ -19,6 +22,11 @@ import br.pucrio.inf.learn.util.gsmaxbranching.MaximumGrandparentSiblingsAlgorit
  * 
  */
 public class DPGSInference implements Inference {
+
+	/**
+	 * Logging object.
+	 */
+	private static final Log LOG = LogFactory.getLog(DPGSInference.class);
 
 	/**
 	 * Dynamic programming algorithm to grandparent/siblings model.
@@ -107,9 +115,11 @@ public class DPGSInference implements Inference {
 		fillSiblingsFactorWeights(model, input);
 
 		// Solve the inference problem.
-		maxGSAlgorithm.findMaximumGrandparentSiblings(input.size(),
-				grandparentFactorWeights, siblingsFactorWeights, null, null,
-				output.getGrandparents(), output.getModifiers());
+		double score = maxGSAlgorithm.findMaximumGrandparentSiblings(
+				input.size(), grandparentFactorWeights, siblingsFactorWeights,
+				null, null, output.getGrandparents(), output.getModifiers());
+
+		LOG.debug(String.format("Solution score: %f", score));
 
 		if (copyPredictionToParse)
 			copyPredictionToParse(output);
@@ -250,8 +260,17 @@ public class DPGSInference implements Inference {
 	 */
 	private void copyPredictionToParse(DPGSOutput output) {
 		int numTkns = output.size();
-		for (int tkn = 0; tkn < numTkns; ++tkn)
-			output.setHead(tkn, output.getGrandparent(tkn));
+		for (int tkn = 0; tkn < numTkns; ++tkn) {
+			int head = output.getGrandparent(tkn);
+			if (head < 0) {
+				for (int idxHead = 0; idxHead < numTkns; ++idxHead)
+					if (output.isModifier(idxHead, tkn)) {
+						head = idxHead;
+						break;
+					}
+			}
+			output.setHead(tkn, head);
+		}
 	}
 
 	@Override

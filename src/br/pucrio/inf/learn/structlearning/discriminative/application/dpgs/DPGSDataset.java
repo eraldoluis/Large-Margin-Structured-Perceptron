@@ -573,12 +573,24 @@ public class DPGSDataset {
 					throw new DatasetException("More lines than expected in "
 							+ "input file");
 				else if (idxEx == numExs) {
+					/*
+					 * Make sure output file has the same length of input. This
+					 * is a requirement of the official CoNLL evaluation script.
+					 */
+					writer.write("\n");
+
 					// Make sure all remaining lines are blank.
 					while ((line = reader.readLine()) != null) {
 						if (line.trim().length() > 0)
 							throw new DatasetException(
 									"More lines than expected in "
 											+ "input file");
+						/*
+						 * Make sure output file has the same length of input.
+						 * This is a requirement of the official CoNLL
+						 * evaluation script.
+						 */
+						writer.write("\n");
 					}
 					break;
 				}
