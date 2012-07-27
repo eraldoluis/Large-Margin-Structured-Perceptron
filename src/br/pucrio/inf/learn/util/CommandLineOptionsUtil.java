@@ -20,10 +20,12 @@ public class CommandLineOptionsUtil {
 	 * @param ops
 	 */
 	public static void usage(String syntaxLine, Options ops) {
+		System.out.println();
 		HelpFormatter hf = new HelpFormatter();
 		hf.setWidth(Integer.MAX_VALUE);
 		hf.setOptionComparator(null);
 		hf.printHelp(syntaxLine, ops, true);
+		System.out.println();
 		System.exit(1);
 	}
 

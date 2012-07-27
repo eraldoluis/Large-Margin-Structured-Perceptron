@@ -23,7 +23,6 @@ import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPO
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.StringMapEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.driver.Driver.Command;
-import br.pucrio.inf.learn.structlearning.discriminative.task.Inference;
 import br.pucrio.inf.learn.util.CommandLineOptionsUtil;
 
 /**
@@ -82,6 +81,14 @@ public class ApplyCoreferenceModel implements Command {
 				.withLongOpt("nosingletons")
 				.withDescription("Remove singleton mentions before evaluation.")
 				.create());
+		options.addOption(OptionBuilder
+				.withLongOpt("trees")
+				.withDescription(
+						"Output edge dataset will include only predicted "
+								+ "trees and not all intra-cluster edges.")
+				.create());
+
+		System.out.println();
 
 		// Parse the command-line arguments.
 		CommandLine cmdLine = null;
@@ -108,6 +115,7 @@ public class ApplyCoreferenceModel implements Command {
 		String outputConllFileName = cmdLine.getOptionValue("outputconll");
 		String metric = cmdLine.getOptionValue("conllmetric");
 		boolean considerSingletons = !cmdLine.hasOption("nosingletons");
+		boolean outputCorefTrees = cmdLine.hasOption("trees");
 
 		if (outputFileName == null && outputConllFileName == null
 				&& metric == null) {
@@ -115,20 +123,21 @@ public class ApplyCoreferenceModel implements Command {
 			System.exit(1);
 		}
 
-		// CoNLL scripts base path.
-		File conllBasePath = null;
-		if (scriptBasePathStr != null)
-			conllBasePath = new File(scriptBasePathStr);
+		if (outputCorefTrees && (outputFileName == null)) {
+			LOG.error("Option --tree requires option --output=<filename>");
+			System.exit(1);
+		}
 
-		/*
-		 * If --conllmetric is provided, then --conlltest must be provided (and
-		 * vice-versa).
-		 */
 		if ((metric == null) != (conllTestFileName == null)) {
 			LOG.error("if --conllmetric is provided, then --conlltest"
 					+ " must be provided (and vice-versa)");
 			System.exit(1);
 		}
+
+		// CoNLL scripts base path.
+		File conllBasePath = null;
+		if (scriptBasePathStr != null)
+			conllBasePath = new File(scriptBasePathStr);
 
 		CorefColumnDataset testDataset = null;
 		FeatureEncoding<String> featureEncoding = null;
@@ -143,7 +152,7 @@ public class ApplyCoreferenceModel implements Command {
 			LOG.info("Loading dataset...");
 			testDataset = new CorefColumnDataset(featureEncoding,
 					(Collection<String>) null);
-			((CorefColumnDataset) testDataset).setCheckMultipleTrueEdges(false);
+			testDataset.setCheckMultipleTrueEdges(false);
 			testDataset.load(testDatasetFileName);
 
 		} catch (Exception e) {
@@ -167,7 +176,7 @@ public class ApplyCoreferenceModel implements Command {
 		testDataset.generateFeatures();
 
 		// Inference algorithm.
-		Inference inference = new CoreferenceMaxBranchInference(
+		CoreferenceMaxBranchInference inference = new CoreferenceMaxBranchInference(
 				testDataset.getMaxNumberOfTokens(), 0);
 
 		/*
@@ -192,9 +201,16 @@ public class ApplyCoreferenceModel implements Command {
 					+ new Random().nextInt() + ".pred";
 
 		try {
-			LOG.info("Saving test file (" + testPredictedFileName
-					+ ") with predicted column...");
-			testDataset.save(testPredictedFileName, predicteds);
+			if (outputCorefTrees) {
+				LOG.info("Saving test file (" + testPredictedFileName
+						+ ") with predicted column where correct edges "
+						+ "are only the ones in coreference trees...");
+				testDataset.save(testPredictedFileName, predicteds);
+			} else {
+				LOG.info("Saving test file (" + testPredictedFileName
+						+ ") with predicted column...");
+				testDataset.save(testPredictedFileName, predicteds);
+			}
 		} catch (Exception e) {
 			LOG.error("Saving predicted file " + testPredictedFileName, e);
 			System.exit(1);
