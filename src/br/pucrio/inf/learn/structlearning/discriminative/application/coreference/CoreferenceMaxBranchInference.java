@@ -12,7 +12,9 @@ import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Inference;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Model;
+import br.pucrio.inf.learn.util.maxbranching.DirectedMaxBranchAlgorithm;
 import br.pucrio.inf.learn.util.maxbranching.MaximumBranchingAlgorithm;
+import br.pucrio.inf.learn.util.maxbranching.UndirectedMaxBranchAlgorithm;
 
 /**
  * Inference algorithm for coreference resolution that is based on latent
@@ -24,6 +26,33 @@ import br.pucrio.inf.learn.util.maxbranching.MaximumBranchingAlgorithm;
  * 
  */
 public class CoreferenceMaxBranchInference implements Inference {
+
+	/**
+	 * Strategy to be used to solve the inference problem.
+	 * 
+	 * @author eraldo
+	 */
+	public enum InferenceStrategy {
+		/**
+		 * Fixed maximum branching. The correct output structures in training
+		 * data indicate the (only one) correct tree.
+		 */
+		BRANCH,
+
+		/**
+		 * Latent maximum branching. The correct output structures in training
+		 * data indicate only the correct cluster. The underlying tree is
+		 * assumed as latent and predicted by Chu-Liu-Edmonds algorithm.
+		 */
+		LBRANCH,
+
+		/**
+		 * Latent (undirected) MST. The correct output structures in training
+		 * data indicate only the correct cluster. The underlying tree is
+		 * assumed as latent and predicted by Kruskal algorithm.
+		 */
+		LKRUSKAL,
+	}
 
 	/**
 	 * Index of an artificial mention that is not within any cluster. Thus, to
@@ -51,6 +80,13 @@ public class CoreferenceMaxBranchInference implements Inference {
 	private double lossFactorForRootEdges;
 
 	/**
+	 * Whether to use the artificial root node or not.
+	 */
+	private boolean useRoot;
+
+	public double treeWeight;
+
+	/**
 	 * Create an inference implementation to deal with sentences that have the
 	 * given maximum number of tokens.
 	 * 
@@ -61,11 +97,43 @@ public class CoreferenceMaxBranchInference implements Inference {
 	 *            mention does not implicate cluster union. If this value is
 	 *            less than zero, then it is ignored.
 	 */
-	public CoreferenceMaxBranchInference(int maxNumberOfTokens, int root) {
+	public CoreferenceMaxBranchInference(int maxNumberOfTokens, int root,
+			InferenceStrategy inferenceStrategy) {
 		this.root = root;
-		maxBranchingAlgorithm = new MaximumBranchingAlgorithm(maxNumberOfTokens);
+		if (inferenceStrategy == InferenceStrategy.LBRANCH)
+			maxBranchingAlgorithm = new DirectedMaxBranchAlgorithm(
+					maxNumberOfTokens);
+		else if (inferenceStrategy == InferenceStrategy.LKRUSKAL)
+			maxBranchingAlgorithm = new UndirectedMaxBranchAlgorithm(
+					maxNumberOfTokens);
 		graph = new double[maxNumberOfTokens][maxNumberOfTokens];
 		lossFactorForRootEdges = -1d;
+		useRoot = true;
+		/*
+		 * If the artificial root node is used, then the prediction algorithm
+		 * can consider even negative-weight edges, since there is always the
+		 * root node as an option. Otherwise, negative-weight edges must be
+		 * avoided in order to allow the prediction of non-connected trees (one
+		 * tree for each cluster).
+		 */
+		maxBranchingAlgorithm.setOnlyPositiveEdges(!useRoot);
+	}
+
+	/**
+	 * Set whether to use the artificial root node or not.
+	 * 
+	 * @param useRoot
+	 */
+	public void setUseRoot(boolean useRoot) {
+		this.useRoot = useRoot;
+		/*
+		 * If the artificial root node is used, then the prediction algorithm
+		 * can consider even negative-weight edges, since there is always the
+		 * root node as an option. Otherwise, negative-weight edges must be
+		 * avoided in order to allow the prediction of non-connected trees (one
+		 * tree for each cluster).
+		 */
+		maxBranchingAlgorithm.setOnlyPositiveEdges(!useRoot);
 	}
 
 	@Override
@@ -88,8 +156,9 @@ public class CoreferenceMaxBranchInference implements Inference {
 		 * Find the maximum branching rooted at the zero node and fill the
 		 * output inverted branching array with it.
 		 */
-		maxBranchingAlgorithm.findMaxBranching(input.getNumberOfTokens(),
-				graph, output.getInvertedBranchingArray());
+		treeWeight = maxBranchingAlgorithm.findMaxBranching(
+				input.getNumberOfTokens(), graph,
+				output.getInvertedBranchingArray());
 
 		// Compute the clustering from the found rooted tree.
 		output.computeClusteringFromTree(root);
@@ -111,13 +180,13 @@ public class CoreferenceMaxBranchInference implements Inference {
 		}
 		// Fill the weight matrix.
 		for (int leftMention = 0; leftMention < numTokens; ++leftMention) {
-			// Backward edges are not used.
-			for (int rightMention = 0; rightMention <= leftMention; ++rightMention)
-				graph[leftMention][rightMention] = Double.NaN;
-			// Forward edges.
-			for (int rightMention = leftMention + 1; rightMention < numTokens; ++rightMention)
-				graph[leftMention][rightMention] = model.getEdgeScore(input,
-						leftMention, rightMention);
+			for (int rightMention = 0; rightMention < numTokens; ++rightMention) {
+				if (!useRoot && (leftMention == root || rightMention == root))
+					graph[leftMention][rightMention] = Double.NaN;
+				else
+					graph[leftMention][rightMention] = model.getEdgeScore(
+							input, leftMention, rightMention);
+			}
 		}
 	}
 
@@ -142,17 +211,19 @@ public class CoreferenceMaxBranchInference implements Inference {
 		 * Find the maximum branching and fill the output inverted branching
 		 * array with it.
 		 */
-		maxBranchingAlgorithm.findMaxBranching(numMentions, graph,
+		treeWeight = maxBranchingAlgorithm.findMaxBranching(numMentions, graph,
 				predictedOutput.getInvertedBranchingArray());
 
 		maxBranchingAlgorithm.setCheckUniqueRoot(true);
 
-		// Connect root nodes of the branching to the artificial root node.
-		for (int mention = 0; mention < numMentions; ++mention) {
-			if (mention == root)
-				continue;
-			if (predictedOutput.getHead(mention) < 0)
-				predictedOutput.setHead(mention, root);
+		if (useRoot) {
+			// Connect root nodes of the branching to the artificial root node.
+			for (int mention = 0; mention < numMentions; ++mention) {
+				if (mention == root)
+					continue;
+				if (predictedOutput.getHead(mention) < 0)
+					predictedOutput.setHead(mention, root);
+			}
 		}
 
 		// Set the correct clustering for the predicted output structure.
@@ -183,17 +254,17 @@ public class CoreferenceMaxBranchInference implements Inference {
 			// Left mention cluster id.
 			int idClusterLeftMention = referenceOutput
 					.getClusterId(mentionLeft);
-			// Backward edges are not used.
-			for (int mentionRight = 0; mentionRight <= mentionLeft; ++mentionRight)
-				graph[mentionLeft][mentionRight] = Double.NaN;
-			// Forward edges.
-			for (int mentionRight = mentionLeft + 1; mentionRight < numTokens; ++mentionRight) {
+			// Right mentions.
+			for (int mentionRight = 0; mentionRight < numTokens; ++mentionRight) {
+				// Right mention cluster id.
+				int idClusterRightMention = referenceOutput
+						.getClusterId(mentionRight);
 				// Only include correct edges (intracluster edges).
-				if (idClusterLeftMention == referenceOutput
-						.getClusterId(mentionRight))
+				if (idClusterLeftMention == idClusterRightMention)
 					graph[mentionLeft][mentionRight] = model.getEdgeScore(
 							input, mentionLeft, mentionRight);
 				else
+					// Double.NaN indicates missing edge.
 					graph[mentionLeft][mentionRight] = Double.NaN;
 			}
 		}
@@ -233,14 +304,14 @@ public class CoreferenceMaxBranchInference implements Inference {
 					 * Root edges (edges linking right mentions to artificial
 					 * root node.
 					 */
-					for (int rightMention = leftMention + 1; rightMention < numTokens; ++rightMention)
+					for (int rightMention = 0; rightMention < numTokens; ++rightMention)
 						if (referenceOutput.getHead(rightMention) != root)
 							// Increment weight for incorrect root edge.
 							if (!Double.isNaN(graph[leftMention][rightMention]))
 								graph[leftMention][rightMention] += rootLossWeight;
 				} else {
 					// Ordinary edges, i.e., edges between real mentions.
-					for (int rightMention = leftMention + 1; rightMention < numTokens; ++rightMention) {
+					for (int rightMention = 0; rightMention < numTokens; ++rightMention) {
 						int correctLeftCluster = referenceOutput
 								.getClusterId(leftMention);
 						int correctRightCluster = referenceOutput
@@ -261,8 +332,9 @@ public class CoreferenceMaxBranchInference implements Inference {
 		 * Find the maximum branching rooted at the zero node and fill the
 		 * output inverted branching array with it.
 		 */
-		maxBranchingAlgorithm.findMaxBranching(input.getNumberOfTokens(),
-				graph, predictedOutput.getInvertedBranchingArray());
+		treeWeight = maxBranchingAlgorithm.findMaxBranching(
+				input.getNumberOfTokens(), graph,
+				predictedOutput.getInvertedBranchingArray());
 
 		// Set the correct clustering for the predicted output structure.
 		// predictedOutput.setClusteringEqualTo(referenceOutput);

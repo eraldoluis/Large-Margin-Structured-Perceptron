@@ -16,6 +16,7 @@ import org.json.JSONException;
 
 import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CorefColumnDataset;
 import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CoreferenceMaxBranchInference;
+import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CoreferenceMaxBranchInference.InferenceStrategy;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPModel;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPTemplateEvolutionModel;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPInput;
@@ -87,6 +88,27 @@ public class ApplyCoreferenceModel implements Command {
 						"Output edge dataset will include only predicted "
 								+ "trees and not all intra-cluster edges.")
 				.create());
+		options.addOption(OptionBuilder
+				.withLongOpt("inference")
+				.withArgName("inference strategy")
+				.hasArg()
+				.withDescription(
+						"Inference strategy and algorithm. "
+								+ "It can be one of the following options:\n"
+								+ "BRANCH: fixed maximum branching. The "
+								+ "correct output structures in training "
+								+ "data indicate the correct tree.\n"
+								+ "LBRANCH: latent maximum branching. The "
+								+ "correct output structures in training data "
+								+ "indicate only the correct clusters. The "
+								+ "underlying tress are latent.\n"
+								+ "LKRUSKAL: latent unrirected MS, i.e., "
+								+ "use Kruskal algorithm to predict the latent "
+								+ "structures. The correct output structures in "
+								+ "training data indicate only the correct "
+								+ "clusters. The underlying trees are assumed "
+								+ "to be latent and are predicted using Kruskal "
+								+ "algorithm.").create());
 
 		System.out.println();
 
@@ -116,6 +138,11 @@ public class ApplyCoreferenceModel implements Command {
 		String metric = cmdLine.getOptionValue("conllmetric");
 		boolean considerSingletons = !cmdLine.hasOption("nosingletons");
 		boolean outputCorefTrees = cmdLine.hasOption("trees");
+		// Inference strategy.
+		InferenceStrategy inferenceStrategy = InferenceStrategy.BRANCH;
+		String inferenceStrategyStr = cmdLine.getOptionValue("inference");
+		if (inferenceStrategyStr != null)
+			inferenceStrategy = InferenceStrategy.valueOf(inferenceStrategyStr);
 
 		if (outputFileName == null && outputConllFileName == null
 				&& metric == null) {
@@ -177,7 +204,7 @@ public class ApplyCoreferenceModel implements Command {
 
 		// Inference algorithm.
 		CoreferenceMaxBranchInference inference = new CoreferenceMaxBranchInference(
-				testDataset.getMaxNumberOfTokens(), 0);
+				testDataset.getMaxNumberOfTokens(), 0, inferenceStrategy);
 
 		/*
 		 * Model application.
@@ -205,7 +232,8 @@ public class ApplyCoreferenceModel implements Command {
 				LOG.info("Saving test file (" + testPredictedFileName
 						+ ") with predicted column where correct edges "
 						+ "are only the ones in coreference trees...");
-				testDataset.save(testPredictedFileName, predicteds);
+				testDataset
+						.saveCorefTrees(testPredictedFileName, predicteds, 0);
 			} else {
 				LOG.info("Saving test file (" + testPredictedFileName
 						+ ") with predicted column...");

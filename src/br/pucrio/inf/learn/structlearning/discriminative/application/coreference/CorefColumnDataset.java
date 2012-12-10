@@ -267,11 +267,11 @@ public class CorefColumnDataset extends DPColumnDataset {
 			int numMentions = input.getNumberOfTokens();
 			for (int idxLeft = 0; idxLeft < numMentions; ++idxLeft) {
 				for (int idxRight = 0; idxRight < numMentions; ++idxRight) {
-					int[] ftrs = input.getBasicFeatures(idxRight, idxLeft);
+					int[] ftrs = input.getBasicFeatures(idxLeft, idxRight);
 					if (ftrs == null)
 						continue;
 					// Id.
-					writer.write(idxRight + ">" + idxLeft);
+					writer.write(idxLeft + ">" + idxRight);
 					// Features.
 					for (int idxFtr = 0; idxFtr < ftrs.length; ++idxFtr)
 						writer.write(" "
@@ -316,10 +316,10 @@ public class CorefColumnDataset extends DPColumnDataset {
 	 * @throws IOException
 	 * @throws DatasetException
 	 */
-	public void saveCorefTrees(String fileName, DPOutput[] predictedOuputs)
-			throws IOException, DatasetException {
+	public void saveCorefTrees(String fileName, DPOutput[] predictedOuputs,
+			int root) throws IOException, DatasetException {
 		BufferedWriter writer = new BufferedWriter(new FileWriter(fileName));
-		save(writer, predictedOuputs);
+		saveCorefTrees(writer, predictedOuputs, root);
 		writer.close();
 	}
 
@@ -337,8 +337,9 @@ public class CorefColumnDataset extends DPColumnDataset {
 	 * @throws IOException
 	 * @throws DatasetException
 	 */
-	public void saveCorefTrees(BufferedWriter writer, DPOutput[] predictedOuputs)
-			throws IOException, DatasetException {
+	public void saveCorefTrees(BufferedWriter writer,
+			DPOutput[] predictedOuputs, int root) throws IOException,
+			DatasetException {
 		// Header.
 		writer.write("[features = id");
 		for (int idxFtr = 0; idxFtr < featureLabels.length; ++idxFtr)
@@ -355,11 +356,11 @@ public class CorefColumnDataset extends DPColumnDataset {
 			int numMentions = input.getNumberOfTokens();
 			for (int idxLeft = 0; idxLeft < numMentions; ++idxLeft) {
 				for (int idxRight = 0; idxRight < numMentions; ++idxRight) {
-					int[] ftrs = input.getBasicFeatures(idxRight, idxLeft);
+					int[] ftrs = input.getBasicFeatures(idxLeft, idxRight);
 					if (ftrs == null)
 						continue;
 					// Id.
-					writer.write(idxRight + ">" + idxLeft);
+					writer.write(idxLeft + ">" + idxRight);
 					// Features.
 					for (int idxFtr = 0; idxFtr < ftrs.length; ++idxFtr)
 						writer.write(" "
@@ -373,7 +374,8 @@ public class CorefColumnDataset extends DPColumnDataset {
 						writer.write(" N");
 
 					// Predicted feature. Only consider the tree.
-					if (predictedOutput.getHead(idxRight) == idxLeft)
+					if (idxLeft != root && idxRight != root
+							&& predictedOutput.getHead(idxRight) == idxLeft)
 						writer.write(" Y");
 					else
 						writer.write(" N");

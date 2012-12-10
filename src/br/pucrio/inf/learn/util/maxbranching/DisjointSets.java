@@ -1,6 +1,5 @@
 package br.pucrio.inf.learn.util.maxbranching;
 
-
 /**
  * Disjoint set forests with path compression heuristic. Elements and sets are
  * represented by integers in the interval {0, ..., n-1}, where n is the number
@@ -47,20 +46,35 @@ public class DisjointSets {
 	 * @return
 	 */
 	public int find(int element) {
-		if (trees[element] != element)
-			trees[element] = find(trees[element]);
-		return trees[element];
+		// Find root (set id).
+		int root = element;
+		while (root != trees[root])
+			root = trees[root];
+		// Path compression.
+		int q = element;
+		while (q != trees[q]) {
+			element = trees[q];
+			trees[q] = root;
+			q = element;
+		}
+		return root;
 	}
 
 	/**
-	 * Include <code>set2</code> in <code>set1</code> and remove
-	 * <code>set2</code>.
+	 * Merge <code>set1</code> and <code>set2</code>.
 	 * 
 	 * @param set1
 	 * @param set2
 	 */
 	public void union(int set1, int set2) {
-		trees[set2] = set1;
+		trees[set2] = find(set1);
+	}
+
+	/**
+	 * Cleat this partition so that it represents isolated elements.
+	 */
+	public void clear() {
+		clear(trees.length);
 	}
 
 	/**

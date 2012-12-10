@@ -141,8 +141,8 @@ public class TrainDPGS implements Command {
 				"10"));
 		int maxSubgradientSteps = Integer.valueOf(cmdLine.getOptionValue(
 				"maxsteps", "500"));
-		double lossWeight = Double.parseDouble(cmdLine.getOptionValue(
-				"lossweight", "0d"));
+		// double lossWeight =
+		// Double.parseDouble(cmdLine.getOptionValue("lossweight", "0d"));
 		boolean averaged = !cmdLine.hasOption("noavg");
 		String seedStr = cmdLine.getOptionValue("seed");
 

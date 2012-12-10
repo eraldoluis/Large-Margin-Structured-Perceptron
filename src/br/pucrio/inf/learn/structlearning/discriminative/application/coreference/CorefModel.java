@@ -60,7 +60,7 @@ public class CorefModel extends DPTemplateEvolutionModel {
 	 */
 	public CorefModel(int root) {
 		super(root);
-		this.updateStrategy = UpdateStrategy.CLUSTER;
+		this.updateStrategy = UpdateStrategy.TREE;
 	}
 
 	/**
@@ -72,7 +72,7 @@ public class CorefModel extends DPTemplateEvolutionModel {
 	public CorefModel(DPTemplateEvolutionModel other)
 			throws CloneNotSupportedException {
 		super(other);
-		this.updateStrategy = UpdateStrategy.CLUSTER;
+		this.updateStrategy = UpdateStrategy.TREE;
 	}
 
 	@Override

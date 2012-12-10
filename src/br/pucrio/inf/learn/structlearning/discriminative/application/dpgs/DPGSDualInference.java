@@ -15,7 +15,7 @@ import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Inference;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Model;
 import br.pucrio.inf.learn.util.gsmaxbranching.MaximumGrandparentSiblingsAlgorithm;
-import br.pucrio.inf.learn.util.maxbranching.MaximumBranchingAlgorithm;
+import br.pucrio.inf.learn.util.maxbranching.DirectedMaxBranchAlgorithm;
 
 /**
  * Dependency parser with grandparent and siblings features based on dual
@@ -47,7 +47,7 @@ public class DPGSDualInference implements Inference {
 	/**
 	 * Chu-Liu-Edmonds algoritmo to maximum branching.
 	 */
-	private MaximumBranchingAlgorithm maxBranchAlgorithm;
+	private DirectedMaxBranchAlgorithm maxBranchAlgorithm;
 
 	/**
 	 * Dynamic programming algorithm to grandparent/siblings model.
@@ -108,7 +108,7 @@ public class DPGSDualInference implements Inference {
 	 */
 	public DPGSDualInference(int root, int maxNumberOfTokens) {
 		this.root = root;
-		maxBranchAlgorithm = new MaximumBranchingAlgorithm(maxNumberOfTokens);
+		maxBranchAlgorithm = new DirectedMaxBranchAlgorithm(maxNumberOfTokens);
 		maxBranchAlgorithm.setCheckUniqueRoot(false);
 		maxGSAlgorithm = new MaximumGrandparentSiblingsAlgorithm(
 				maxNumberOfTokens);

@@ -7,7 +7,7 @@ import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Inference;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Model;
-import br.pucrio.inf.learn.util.maxbranching.MaximumBranchingAlgorithm;
+import br.pucrio.inf.learn.util.maxbranching.DirectedMaxBranchAlgorithm;
 
 /**
  * Inference algorithm for dependency parsing problems. It corresponds to
@@ -23,7 +23,7 @@ public class MaximumBranchingInference implements Inference {
 	/**
 	 * Algorithm and its data structures for finding maximum branching.
 	 */
-	private MaximumBranchingAlgorithm maxBranchingAlgorithm;
+	private DirectedMaxBranchAlgorithm maxBranchingAlgorithm;
 
 	/**
 	 * Input graph used to predict the maximum branching.
@@ -37,7 +37,7 @@ public class MaximumBranchingInference implements Inference {
 	 * @param maxNumberOfTokens
 	 */
 	public MaximumBranchingInference(int maxNumberOfTokens) {
-		maxBranchingAlgorithm = new MaximumBranchingAlgorithm(maxNumberOfTokens);
+		maxBranchingAlgorithm = new DirectedMaxBranchAlgorithm(maxNumberOfTokens);
 		graph = new double[maxNumberOfTokens][maxNumberOfTokens];
 	}
 
