@@ -862,4 +862,55 @@ public class DPColumnDataset implements DPDataset {
 		System.out.println();
 		System.out.flush();
 	}
+
+	/**
+	 * For testing.
+	 */
+	public void generateBasicFeatures() {
+		LinkedList<Integer> ftrs = new LinkedList<Integer>();
+		int numExs = inputs.length;
+		for (int idxEx = 0; idxEx < numExs; ++idxEx) {
+			// Current input structure.
+			DPInput input = inputs[idxEx];
+
+			// Number of tokens within the current input.
+			int numTkns = input.getNumberOfTokens();
+
+			// Allocate explicit features matrix.
+			input.allocFeatureMatrix();
+
+			for (int idxHead = 0; idxHead < numTkns; ++idxHead) {
+				for (int idxDep = 0; idxDep < numTkns; ++idxDep) {
+					// Skip non-existent edges.
+					int[] basicFtrs = input.getBasicFeatures(idxHead, idxDep);
+					if (basicFtrs == null)
+						continue;
+
+					// Clear previous used list of features.
+					ftrs.clear();
+
+					/*
+					 * Instantiate edge features and add them to active features
+					 * list.
+					 */
+					for (int idxFtr = 0; idxFtr < basicFtrs.length; ++idxFtr) {
+						int code = basicFtrs[idxFtr];
+						ftrs.add(code);
+					}
+
+					// Set feature vector of this input.
+					input.setFeatures(idxHead, idxDep, ftrs, ftrs.size());
+				}
+			}
+
+			// Progess report.
+			if ((idxEx + 1) % 100 == 0) {
+				System.out.print('.');
+				System.out.flush();
+			}
+		}
+
+		System.out.println();
+		System.out.flush();
+	}
 }

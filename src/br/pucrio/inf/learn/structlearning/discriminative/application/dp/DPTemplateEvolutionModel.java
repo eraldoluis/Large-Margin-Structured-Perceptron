@@ -271,10 +271,10 @@ public class DPTemplateEvolutionModel implements DPModel {
 	protected double update(DPInput input, DPOutput outputCorrect,
 			DPOutput outputPredicted, double learningRate) {
 		/*
-		 * The root token (zero) must always be ignored during the inference,
-		 * thus it has to be always correctly classified.
+		 * The root token must always be ignored during the inference, thus it
+		 * has to be always correctly classified.
 		 */
-		assert outputCorrect.getHead(0) == outputPredicted.getHead(0);
+		assert outputCorrect.getHead(root) == outputPredicted.getHead(root);
 
 		// Per-token loss value for this example.
 		double loss = 0d;

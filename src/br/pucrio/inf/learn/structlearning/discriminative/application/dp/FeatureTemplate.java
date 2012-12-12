@@ -1,6 +1,6 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.dp;
 
-import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPInput;
+import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 
 /**
  * Represents a combination of basic features.
@@ -28,20 +28,18 @@ public interface FeatureTemplate {
 	 * Return a temporary feature for the given token.
 	 * 
 	 * @param input
-	 * @param idxHead
-	 * @param idxDep
+	 * @param params
 	 * @return
 	 */
-	public Feature getInstance(DPInput input, int idxHead, int idxDep);
+	public Feature getInstance(ExampleInput input, Object... params);
 
 	/**
 	 * Instantiate a NEW feature for the given token.
 	 * 
 	 * @param input
-	 * @param idxHead
-	 * @param idxDep
+	 * @param params
 	 * @return
 	 */
-	public Feature newInstance(DPInput input, int idxHead, int idxDep);
+	public Feature newInstance(ExampleInput input, Object... params);
 
 }

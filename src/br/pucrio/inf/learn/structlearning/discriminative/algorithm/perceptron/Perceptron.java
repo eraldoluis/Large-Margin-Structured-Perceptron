@@ -341,10 +341,6 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 
 			indexCurrentExample = indexTrainingOrder[idx];
 
-//			// On demand feature generation.
-//			((DPInput) inputs[indexCurrentExample]).generateFeatures(templates,
-//					encoding);
-
 			/*
 			 * Update the current model weights according with the predicted
 			 * output for this training example.
@@ -352,9 +348,6 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 			loss += train(inputs[indexCurrentExample],
 					outputs[indexCurrentExample],
 					predicteds[indexCurrentExample]);
-
-			// // On demand feature generation.
-			// ((DPInput) inputs[indexCurrentExample]).freeFeatureArrays();
 
 			// Progress report.
 			if (reportProgressInterval > 0

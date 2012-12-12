@@ -21,7 +21,7 @@ import org.json.JSONException;
 import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CorefColumnDataset;
 import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CorefOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CoreferenceMaxBranchInference;
-import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPModel;
+import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CoreferenceMaxBranchInference.InferenceStrategy;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPTemplateEvolutionModel;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.Feature;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.FeatureTemplate;
@@ -154,7 +154,8 @@ public class PrintCorefNonSingularClusters implements Command {
 
 		// Inference algorithm.
 		CoreferenceMaxBranchInference inference = new CoreferenceMaxBranchInference(
-				testDataset.getMaxNumberOfTokens(), 0);
+				testDataset.getMaxNumberOfTokens(), 0,
+				InferenceStrategy.LBRANCH);
 
 		/*
 		 * Model application.
@@ -189,7 +190,7 @@ public class PrintCorefNonSingularClusters implements Command {
 
 			++numExsCorrects;
 
-			// Check how many not-singular clusters there are in this output.
+			// Check how many non-singular clusters there are in this output.
 			Map<Integer, ? extends Set<Integer>> explicitClusters = CoreferenceMaxBranchInference
 					.createExplicitClustering((CorefOutput) predicteds[idx]);
 

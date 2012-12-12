@@ -22,7 +22,9 @@ import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.Lo
 import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CorefColumnDataset;
 import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CorefModel;
 import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CorefModel.UpdateStrategy;
+import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CorefUndirectedModel;
 import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CoreferenceMaxBranchInference;
+import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CoreferenceMaxBranchInference.InferenceStrategy;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPModel;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPTemplateEvolutionModel;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.MaximumBranchingInference;
@@ -59,10 +61,26 @@ public class TrainCoreference implements Command {
 				.withArgName("filename").hasArg()
 				.withDescription("Training dataset file name.").create());
 		options.addOption(OptionBuilder
-				.withLongOpt("latent")
+				.withLongOpt("inference")
+				.withArgName("inference strategy")
+				.hasArg()
 				.withDescription(
-						"Use latent structure within output structure.")
-				.create());
+						"Inference strategy and algorithm. "
+								+ "It can be one of the following options:\n"
+								+ "BRANCH: fixed maximum branching. The "
+								+ "correct output structures in training "
+								+ "data indicate the correct tree.\n"
+								+ "LBRANCH: latent maximum branching. The "
+								+ "correct output structures in training data "
+								+ "indicate only the correct clusters. The "
+								+ "underlying tress are latent.\n"
+								+ "LKRUSKAL: latent unrirected MS, i.e., "
+								+ "use Kruskal algorithm to predict the latent "
+								+ "structures. The correct output structures in "
+								+ "training data indicate only the correct "
+								+ "clusters. The underlying trees are assumed "
+								+ "to be latent and are predicted using Kruskal "
+								+ "algorithm.").create());
 		options.addOption(OptionBuilder
 				.withLongOpt("update")
 				.withArgName("strategy")
@@ -70,6 +88,15 @@ public class TrainCoreference implements Command {
 				.withDescription(
 						"Update strategy to train: "
 								+ "CLUSTER (default), TREE or ALL.").create());
+		options.addOption(OptionBuilder
+				.withLongOpt("noroot")
+				.withDescription(
+						"Do not use the artificial root node."
+								+ " In that way, the prediction algorithm "
+								+ "avoids negative-weight edges in order to "
+								+ "predict non-connected trees and, "
+								+ "consequently, more than one cluster.")
+				.create());
 		options.addOption(OptionBuilder
 				.withLongOpt("rootlossfactor")
 				.withArgName("multiplicative factor")
@@ -185,11 +212,18 @@ public class TrainCoreference implements Command {
 		double lossWeight = Double.parseDouble(cmdLine.getOptionValue(
 				"lossweight", "0d"));
 		boolean averageWeights = !cmdLine.hasOption("noavg");
-		boolean latent = cmdLine.hasOption("latent");
+		// Inference strategy.
+		InferenceStrategy inferenceStrategy = InferenceStrategy.BRANCH;
+		String inferenceStrategyStr = cmdLine.getOptionValue("inference");
+		if (inferenceStrategyStr != null)
+			inferenceStrategy = InferenceStrategy.valueOf(inferenceStrategyStr);
+		// Update strategy.
 		UpdateStrategy updateStrategy = null;
 		String updateStrategyStr = cmdLine.getOptionValue("update");
 		if (updateStrategyStr != null)
 			updateStrategy = UpdateStrategy.valueOf(updateStrategyStr);
+		boolean useRoot = !cmdLine.hasOption("noroot");
+		// Root loss factor.
 		double rootLossFactor = Double.valueOf(cmdLine.getOptionValue(
 				"rootlossfactor", "-1"));
 		boolean considerSingletons = !cmdLine.hasOption("nosingletons");
@@ -215,12 +249,14 @@ public class TrainCoreference implements Command {
 			featureEncoding = new StringMapEncoding();
 
 			LOG.info("Loading train dataset...");
-			if (latent) {
+			if (inferenceStrategy != InferenceStrategy.BRANCH) {
+				// Latent output structure.
 				inDataset = new CorefColumnDataset(featureEncoding,
 						(Collection<String>) null);
 				((CorefColumnDataset) inDataset)
 						.setCheckMultipleTrueEdges(false);
 			} else {
+				// Explicit output structure.
 				inDataset = new DPColumnDataset(featureEncoding,
 						(Collection<String>) null);
 			}
@@ -241,21 +277,34 @@ public class TrainCoreference implements Command {
 		LOG.info("Allocating initial model...");
 		DPModel model;
 
-		// Inference algorithm.
+		// Inference (prediction) algorithm.
 		Inference inference;
 
-		if (latent) {
+		if (inferenceStrategy == InferenceStrategy.LBRANCH) {
 			// Model and the update strategy.
 			model = new CorefModel(0);
 			if (updateStrategy != null)
 				((CorefModel) model).setUpdateStrategy(updateStrategy);
 			// Inference (prediction) algorithm and the root loss factor.
 			inference = new CoreferenceMaxBranchInference(
-					inDataset.getMaxNumberOfTokens(), 0);
+					inDataset.getMaxNumberOfTokens(), 0, inferenceStrategy);
+			((CoreferenceMaxBranchInference) inference).setUseRoot(useRoot);
 			if (rootLossFactor >= 0d)
 				((CoreferenceMaxBranchInference) inference)
 						.setLossFactorForRootEdges(rootLossFactor);
-		} else {
+		} else if (inferenceStrategy == InferenceStrategy.LKRUSKAL) {
+			// Model and the update strategy.
+			model = new CorefUndirectedModel(0);
+			if (updateStrategy != null)
+				((CorefModel) model).setUpdateStrategy(updateStrategy);
+			// Inference (prediction) algorithm and the root loss factor.
+			inference = new CoreferenceMaxBranchInference(
+					inDataset.getMaxNumberOfTokens(), 0, inferenceStrategy);
+			((CoreferenceMaxBranchInference) inference).setUseRoot(useRoot);
+			if (rootLossFactor >= 0d)
+				((CoreferenceMaxBranchInference) inference)
+						.setLossFactorForRootEdges(rootLossFactor);
+		} else if (inferenceStrategy == InferenceStrategy.BRANCH) {
 			if (updateStrategy != null) {
 				LOG.error("--update=<strategy> requires --latent");
 				System.exit(1);
@@ -267,6 +316,11 @@ public class TrainCoreference implements Command {
 			model = new DPTemplateEvolutionModel(0);
 			inference = new MaximumBranchingInference(
 					inDataset.getMaxNumberOfTokens());
+		} else {
+			LOG.error("Unknown inference strategy "
+					+ inferenceStrategy.toString());
+			System.exit(1);
+			return;
 		}
 
 		// Learning algorithm.
@@ -274,7 +328,8 @@ public class TrainCoreference implements Command {
 				model, numEpochs, 1d, lossWeight, true, averageWeights,
 				LearnRateUpdateStrategy.NONE);
 
-		if (latent)
+		if (inferenceStrategy == InferenceStrategy.LBRANCH
+				|| inferenceStrategy == InferenceStrategy.LKRUSKAL)
 			alg.setPartiallyAnnotatedExamples(true);
 
 		if (seedStr != null)
@@ -294,7 +349,8 @@ public class TrainCoreference implements Command {
 		if (testDatasetFileName != null && evalPerEpoch) {
 			try {
 				LOG.info("Loading and preparing test dataset...");
-				if (latent) {
+				if (inferenceStrategy == InferenceStrategy.LBRANCH
+						|| inferenceStrategy == InferenceStrategy.LKRUSKAL) {
 					testset = new CorefColumnDataset(inDataset);
 					((CorefColumnDataset) testset)
 							.setCheckMultipleTrueEdges(false);
@@ -337,7 +393,8 @@ public class TrainCoreference implements Command {
 			try {
 
 				LOG.info("Loading and preparing test dataset...");
-				if (latent) {
+				if (inferenceStrategy == InferenceStrategy.LBRANCH
+						|| inferenceStrategy == InferenceStrategy.LKRUSKAL) {
 					testset = new CorefColumnDataset(inDataset);
 					((CorefColumnDataset) testset)
 							.setCheckMultipleTrueEdges(false);

@@ -2,6 +2,7 @@ package br.pucrio.inf.learn.structlearning.discriminative.application.coreferenc
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Iterator;
@@ -266,11 +267,11 @@ public class CorefColumnDataset extends DPColumnDataset {
 			int numMentions = input.getNumberOfTokens();
 			for (int idxLeft = 0; idxLeft < numMentions; ++idxLeft) {
 				for (int idxRight = 0; idxRight < numMentions; ++idxRight) {
-					int[] ftrs = input.getBasicFeatures(idxRight, idxLeft);
+					int[] ftrs = input.getBasicFeatures(idxLeft, idxRight);
 					if (ftrs == null)
 						continue;
 					// Id.
-					writer.write(idxRight + ">" + idxLeft);
+					writer.write(idxLeft + ">" + idxRight);
 					// Features.
 					for (int idxFtr = 0; idxFtr < ftrs.length; ++idxFtr)
 						writer.write(" "
@@ -293,7 +294,96 @@ public class CorefColumnDataset extends DPColumnDataset {
 					writer.write("\n");
 				}
 			}
-			
+
+			if (numMentions == 0)
+				writer.write("-\n");
+
+			writer.write("\n");
+		}
+	}
+
+	/**
+	 * Save this dataset along with a new column with the given predicted
+	 * outputs. However, different of the <code>save(...)</code> methods, save
+	 * tag as correct only the edges in the predicted coreference trees.
+	 * 
+	 * The ordinary <code>save(...)</code> methods tag all intra-cluster edges
+	 * as correct. This method is useful to analyse the predicted trees, which
+	 * are crucial to understand the prediction algorithm errors.
+	 * 
+	 * @param fileName
+	 * @param predictedOuputs
+	 * @throws IOException
+	 * @throws DatasetException
+	 */
+	public void saveCorefTrees(String fileName, DPOutput[] predictedOuputs,
+			int root) throws IOException, DatasetException {
+		BufferedWriter writer = new BufferedWriter(new FileWriter(fileName));
+		saveCorefTrees(writer, predictedOuputs, root);
+		writer.close();
+	}
+
+	/**
+	 * Save this dataset along with a new column with the given predicted
+	 * outputs. However, different of the <code>save(...)</code> methods, save
+	 * tag as correct only the edges in the predicted coreference trees.
+	 * 
+	 * The ordinary <code>save(...)</code> methods tag all intra-cluster edges
+	 * as correct. This method is useful to analyse the predicted trees, which
+	 * are crucial to understand the prediction algorithm errors.
+	 * 
+	 * @param writer
+	 * @param predictedOuputs
+	 * @throws IOException
+	 * @throws DatasetException
+	 */
+	public void saveCorefTrees(BufferedWriter writer,
+			DPOutput[] predictedOuputs, int root) throws IOException,
+			DatasetException {
+		// Header.
+		writer.write("[features = id");
+		for (int idxFtr = 0; idxFtr < featureLabels.length; ++idxFtr)
+			writer.write(", " + featureLabels[idxFtr]);
+		writer.write(", correct, predicted]\n\n");
+
+		// Examples.
+		for (int idxEx = 0; idxEx < inputs.length; ++idxEx) {
+			DPInput input = inputs[idxEx];
+			CorefOutput correctOutput = (CorefOutput) outputs[idxEx];
+			CorefOutput predictedOutput = (CorefOutput) predictedOuputs[idxEx];
+
+			// Edge features.
+			int numMentions = input.getNumberOfTokens();
+			for (int idxLeft = 0; idxLeft < numMentions; ++idxLeft) {
+				for (int idxRight = 0; idxRight < numMentions; ++idxRight) {
+					int[] ftrs = input.getBasicFeatures(idxLeft, idxRight);
+					if (ftrs == null)
+						continue;
+					// Id.
+					writer.write(idxLeft + ">" + idxRight);
+					// Features.
+					for (int idxFtr = 0; idxFtr < ftrs.length; ++idxFtr)
+						writer.write(" "
+								+ basicEncoding.getValueByCode(ftrs[idxFtr]));
+
+					// Correct feature. Consider the cluster, not the tree.
+					if (correctOutput.getClusterId(idxLeft) == correctOutput
+							.getClusterId(idxRight))
+						writer.write(" Y");
+					else
+						writer.write(" N");
+
+					// Predicted feature. Only consider the tree.
+					if (idxLeft != root && idxRight != root
+							&& predictedOutput.getHead(idxRight) == idxLeft)
+						writer.write(" Y");
+					else
+						writer.write(" N");
+
+					writer.write("\n");
+				}
+			}
+
 			if (numMentions == 0)
 				writer.write("-\n");
 

@@ -51,7 +51,7 @@ public class CorefOutput extends DPOutput {
 	 *            value is less than zero, then it is ignored.
 	 */
 	public void computeClusteringFromTree(int root) {
-		clustering.clear(size());
+		clustering.clear();
 		for (int mentionRight = 0; mentionRight < size(); ++mentionRight) {
 			int mentionLeft = getHead(mentionRight);
 			if (mentionRight != root && mentionLeft != root && mentionLeft >= 0)

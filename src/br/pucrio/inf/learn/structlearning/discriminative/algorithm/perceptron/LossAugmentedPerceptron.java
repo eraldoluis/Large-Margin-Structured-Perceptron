@@ -130,9 +130,9 @@ public class LossAugmentedPerceptron extends Perceptron {
 			 * using a loss-augmented objective function that uses different
 			 * weights for annotated and non-annotated tokens.
 			 */
-			inferenceImpl.lossAugmentedInferenceWithNonAnnotatedWeight(
-					model, input, correctOutput, referenceOutput,
-					predictedOutput, lossWeight, lossNonAnnotatedWeight);
+			inferenceImpl.lossAugmentedInferenceWithNonAnnotatedWeight(model,
+					input, correctOutput, referenceOutput, predictedOutput,
+					lossWeight, lossNonAnnotatedWeight);
 
 		// Update the current model and return the loss for this example.
 		double loss = model.update(input, referenceOutput, predictedOutput,
