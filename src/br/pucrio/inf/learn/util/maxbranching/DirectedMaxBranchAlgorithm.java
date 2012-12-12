@@ -127,18 +127,6 @@ public class DirectedMaxBranchAlgorithm implements MaximumBranchingAlgorithm {
 	}
 
 	/**
-	 * Set whether the prediction algorithm checks if the predicted branching
-	 * comprises exactly one root node. If this flag is <code>true</code>, then
-	 * emit a warn whenever the predicted branching comprises more than one root
-	 * node.
-	 * 
-	 * @param check
-	 */
-	public void setCheckUniqueRoot(boolean check) {
-		checkUniqueRoot = check;
-	}
-
-	/**
 	 * Fill <code>maxBranching</code> with a maximum branching of the given
 	 * graph <code>graph</code> and rooted in the given node.
 	 * 
@@ -399,14 +387,24 @@ public class DirectedMaxBranchAlgorithm implements MaximumBranchingAlgorithm {
 		return weight;
 	}
 
-	/**
-	 * Set whether the algorithm is allowed to include edges with negative
-	 * weight when no nonnegative edge exists.
-	 * 
-	 * @param val
-	 */
+	@Override
+	public void setCheckUniqueRoot(boolean check) {
+		checkUniqueRoot = check;
+	}
+
+	@Override
+	public boolean isCheckUniqueRoot() {
+		return checkUniqueRoot;
+	}
+
+	@Override
 	public void setOnlyPositiveEdges(boolean val) {
-		this.onlyPositiveEdges = val;
+		onlyPositiveEdges = val;
+	}
+
+	@Override
+	public boolean isOnlyPositiveEdges() {
+		return onlyPositiveEdges;
 	}
 
 	/**

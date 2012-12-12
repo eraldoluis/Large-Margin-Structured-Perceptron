@@ -11,7 +11,7 @@ import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPTempla
  * trees. The prediction problem is solved by Kruskal algorithm. Since the
  * output structures are represented by the same classes (CorefOutput), which
  * supports only directed trees, the update method must be overwritten to
- * disconsider the edge orientation.
+ * disconsider edge orientation.
  * 
  * @author eraldo
  * 

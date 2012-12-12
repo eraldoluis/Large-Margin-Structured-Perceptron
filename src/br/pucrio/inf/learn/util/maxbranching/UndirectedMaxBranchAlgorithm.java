@@ -163,18 +163,24 @@ public class UndirectedMaxBranchAlgorithm implements MaximumBranchingAlgorithm {
 	}
 
 	@Override
+	public boolean isCheckUniqueRoot() {
+		return false;
+	}
+
+	@Override
 	public void setOnlyPositiveEdges(boolean val) {
 		onlyPositiveEdges = val;
 	}
 
+	@Override
+	public boolean isOnlyPositiveEdges() {
+		return onlyPositiveEdges;
+	}
+
 	public static void main(String[] args) {
 		UndirectedMaxBranchAlgorithm alg = new UndirectedMaxBranchAlgorithm(5);
-		double[][] graph = { 
-				{ 0,  10,   0,   0,  10 }, 
-				{ 0,   0,   1,   5,  10 },
-				{ 0,   0,   0,   2,   0 }, 
-				{ 0,   0,   0,   0,   5 }, 
-				{ 0,   0,   0,   0,   0 }, };
+		double[][] graph = { { 0, 10, 0, 0, 10 }, { 0, 0, 1, 5, 10 },
+				{ 0, 0, 0, 2, 0 }, { 0, 0, 0, 0, 5 }, { 0, 0, 0, 0, 0 }, };
 		int[] tree = new int[5];
 
 		alg.findMaxBranching(5, graph, tree);

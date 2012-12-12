@@ -203,8 +203,18 @@ public class CoreferenceMaxBranchInference implements Inference {
 		// Fill edge weights (not including incorrect edges).
 		fillPartialGraph(model, input, partiallyLabeledOutput);
 
+		// Save current flag for unique root check.
+		boolean oldCheckFlag = maxBranchingAlgorithm.isCheckUniqueRoot();
+		// Turn off unique root check.
 		maxBranchingAlgorithm.setCheckUniqueRoot(false);
 
+		// Save current flag to positive edges only.
+		boolean oldOnlyPosEdges = maxBranchingAlgorithm.isOnlyPositiveEdges();
+		/*
+		 * Turn off only positive edges to avoid disconnected coreferring
+		 * clusters due to lack of positive edges.
+		 */
+		maxBranchingAlgorithm.setOnlyPositiveEdges(false);
 		int numMentions = input.getNumberOfTokens();
 
 		/*
@@ -214,7 +224,10 @@ public class CoreferenceMaxBranchInference implements Inference {
 		treeWeight = maxBranchingAlgorithm.findMaxBranching(numMentions, graph,
 				predictedOutput.getInvertedBranchingArray());
 
-		maxBranchingAlgorithm.setCheckUniqueRoot(true);
+		// Recover old value for unique root check flag.
+		maxBranchingAlgorithm.setCheckUniqueRoot(oldCheckFlag);
+		// Recover old value for positive edges only flag.
+		maxBranchingAlgorithm.setOnlyPositiveEdges(oldOnlyPosEdges);
 
 		if (useRoot) {
 			// Connect root nodes of the branching to the artificial root node.

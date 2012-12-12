@@ -36,10 +36,24 @@ public interface MaximumBranchingAlgorithm {
 	public void setCheckUniqueRoot(boolean check);
 
 	/**
+	 * Return whether unique root checking is activated or not.
+	 * 
+	 * @return
+	 */
+	public boolean isCheckUniqueRoot();
+
+	/**
 	 * Set whether to avoid negative-weight edges.
 	 * 
 	 * @param val
 	 */
 	public void setOnlyPositiveEdges(boolean val);
+
+	/**
+	 * Return whether only positive edges are allowed or not.
+	 * 
+	 * @return
+	 */
+	public boolean isOnlyPositiveEdges();
 
 }
