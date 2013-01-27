@@ -67,18 +67,29 @@ public class DPGSDualInference implements Inference {
 	private double[][][] grandparentFactorWeights;
 
 	/**
-	 * Siblings factor weights for grandparent/siblings algorithm. The index for
-	 * this array is (idxHead, idxModifier, idxPreviousModifier). The indexes
-	 * idxModifier and idxPreviousModifier can assume two special values:
-	 * START/END for left modifiers and START/END for right modifiers. START is
-	 * always assumed to be the first modifier of any sequence of siblings and
-	 * END is always the last one. Since, for START and END nodes, there are
-	 * only factors of the form (idxHead, idxModifier, START) and (idxHead, END,
-	 * idxModifier), we can use the same index for START and END. The special
-	 * index for START/END node on the left side of the head is 'idxHead'. We
-	 * can use this index because no edge of the form (idxHead, idxHead) is
-	 * allowed. The special node on the right side of the head is
-	 * 'numberOfNodes', that is we create an additional position is every
+	 * Siblings factor weight vector for grandparent/siblings algorithm. The
+	 * index for this array is (idxHead, idxModifier, idxPreviousModifier). <br>
+	 * <br>
+	 * The indexes idxModifier and idxPreviousModifier can assume two special
+	 * values: START/END for left modifiers and START/END for right modifiers.
+	 * START is always assumed to be the first modifier of any sequence of
+	 * siblings and END is always the last one. For instance, consider that the
+	 * head token 5 has two modifiers, namely tokens 7 and 8. Hence, the
+	 * following siblings factors are present: (5, 7, START), (5, 8, 7) and (5,
+	 * END, 8). <br>
+	 * <br>
+	 * Given a siblings factor (head, modifier, prevModifier), START special
+	 * nodes can only occur as prevModifier, while END special nodes can only
+	 * occur as modifier. Therefore, we can use the same index in the
+	 * <code>siblingsFactorWeights</code> vector to represent START and END
+	 * special nodes. <br>
+	 * <br>
+	 * The special index for START/END nodes that occur on the left side of
+	 * (smaller than) the head is 'idxHead'. We can use this index because no
+	 * edge of the form (idxHead, idxHead) is allowed. <br>
+	 * <br>
+	 * The special nodes that occur on the right side of (grater than) the head
+	 * is 'numberOfNodes'. Hence, we create an additional position in every
 	 * siblings array to store this special START/END node.
 	 */
 	private double[][][] siblingsFactorWeights;
@@ -446,9 +457,12 @@ public class DPGSDualInference implements Inference {
 
 			if (dualGrandparentDelta.size() == 0
 					&& dualModifierDelta.size() == 0) {
-				LOG.info("Optimum found at step " + step + " after "
-						+ numDualObjectiveIncrements
-						+ " dual objective increments.");
+				LOG.info(String
+						.format("Optimum found at step %d after %d dual objective increments. Weight: %f",
+								step, numDualObjectiveIncrements,
+								maxGSAlgorithm.calcObjectiveValueOfParse(
+										output, grandparentFactorWeights,
+										siblingsFactorWeights, null, null)));
 				// Stop if the optimality condition is reached.
 				break;
 			}
@@ -695,15 +709,11 @@ public class DPGSDualInference implements Inference {
 		 * Grandparent degenerated features (root node and root children have no
 		 * grandparent).
 		 */
-		// gFtrs[0][0][0] = new int[] { 0 };
-		// gFtrs[0][1][0] = new int[] { 0 };
-		// gFtrs[0][2][0] = new int[] { 0 };
-		// gFtrs[0][3][0] = new int[] { 0 };
-		// gFtrs[0][4][0] = new int[] { 0 };
-
-		// Grandparent ordinary features.
-		gFtrs[2][3][0] = new int[] { 10 };
-		gFtrs[2][4][0] = new int[] { 10 };
+		gFtrs[0][0][0] = new int[] { 0 };
+		gFtrs[0][1][0] = new int[] { 0 };
+		gFtrs[0][2][0] = new int[] { 0 };
+		gFtrs[0][3][0] = new int[] { 0 };
+		gFtrs[0][4][0] = new int[] { 0 };
 
 		// Siblings degenerated features (leaf nodes have no modifier).
 		sFtrs[0][0][0] = new int[] { 0 };
@@ -717,13 +727,24 @@ public class DPGSDualInference implements Inference {
 		sFtrs[4][4][4] = new int[] { 0 };
 		sFtrs[4][5][5] = new int[] { 0 };
 
-		// Siblings ordinary features.
+		// Grandparent ordinary features for 1st tree.
+		gFtrs[2][3][0] = new int[] { 10 };
+		gFtrs[2][4][0] = new int[] { 10 };
+
+		// Siblings ordinary features for 1st tree.
 		sFtrs[0][1][5] = new int[] { 10 };
 		sFtrs[0][2][1] = new int[] { 10 };
 		sFtrs[0][5][2] = new int[] { 10 };
 		sFtrs[2][3][5] = new int[] { 10 };
 		sFtrs[2][4][3] = new int[] { 10 };
 		sFtrs[2][5][4] = new int[] { 10 };
+
+		// Grandparent ordinary features for 2nd tree.
+		gFtrs[2][1][0] = new int[] { 10 };
+
+		// Siblings ordinary features for 2nd tree.
+		sFtrs[2][1][2] = new int[] { 10 };
+		sFtrs[2][2][1] = new int[] { 10 };
 
 		// Input structure.
 		DPGSInput input = new DPGSInput(gFtrs, sFtrs);
@@ -737,6 +758,8 @@ public class DPGSDualInference implements Inference {
 		// Feature weights.
 		model.getParameters().put(0, new AveragedParameter(0d));
 		model.getParameters().put(10, new AveragedParameter(10d));
+		model.getParameters().put(20, new AveragedParameter(20d));
+		model.getParameters().put(30, new AveragedParameter(30d));
 
 		// Output to be filled.
 		DPGSOutput output = input.createOutput();

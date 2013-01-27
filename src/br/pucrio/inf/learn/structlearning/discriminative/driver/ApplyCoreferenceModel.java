@@ -21,6 +21,7 @@ import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPModel;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPTemplateEvolutionModel;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPOutput;
+import br.pucrio.inf.learn.structlearning.discriminative.data.DatasetException;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.StringMapEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.driver.Driver.Command;
@@ -190,17 +191,21 @@ public class ApplyCoreferenceModel implements Command {
 		LOG.info("Loading model and templates...");
 		DPModel model = null;
 		try {
-			model = new DPTemplateEvolutionModel(modelFileName, testDataset);
+			model = new DPTemplateEvolutionModel(modelFileName, testDataset,
+					true);
 		} catch (JSONException e) {
 			LOG.error("Loading model", e);
 			System.exit(1);
 		} catch (IOException e) {
 			LOG.error("Loading model", e);
 			System.exit(1);
+		} catch (DatasetException e) {
+			LOG.error("Loading model", e);
+			System.exit(1);
 		}
 
-		LOG.info("Generating features from templates...");
-		testDataset.generateFeatures();
+		// LOG.info("Generating features from templates...");
+		// testDataset.generateFeatures();
 
 		// Inference algorithm.
 		CoreferenceMaxBranchInference inference = new CoreferenceMaxBranchInference(
@@ -217,9 +222,22 @@ public class ApplyCoreferenceModel implements Command {
 			predicteds[idx] = inputs[idx].createOutput();
 
 		// Fill the list of predicted outputs with predictions from the model.
-		for (int idx = 0; idx < inputs.length; ++idx)
+		LOG.info("Predicting...");
+		for (int idx = 0; idx < inputs.length; ++idx) {
+			// Allocate derived feature matrix memory.
+			inputs[idx].allocFeatureMatrix();
+			// Generate derived features from templates.
+			inputs[idx].generateFeatures(testDataset.getTemplates()[0],
+					testDataset.getExplicitFeatureEncoding());
 			// Predict (tag the output sequence).
 			inference.inference(model, inputs[idx], predicteds[idx]);
+			// Free derived feature matrix.
+			inputs[idx].freeFeatureMatrix();
+			if ((idx + 1) % 100 == 0) {
+				System.out.print(".");
+				System.out.flush();
+			}
+		}
 
 		// Predicted test set filename.
 		String testPredictedFileName = outputFileName;

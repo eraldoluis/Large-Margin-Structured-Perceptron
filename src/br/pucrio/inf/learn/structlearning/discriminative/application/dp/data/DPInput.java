@@ -240,10 +240,17 @@ public class DPInput implements ExampleInput, Serializable {
 	}
 
 	/**
-	 * Allocate feature matrix for this input structure.
+	 * Allocate the derived feature matrix.
 	 */
 	public void allocFeatureMatrix() {
 		features = new int[numberOfTokens][numberOfTokens][];
+	}
+
+	/**
+	 * Free the derived feature matrix.
+	 */
+	public void freeFeatureMatrix() {
+		features = null;
 	}
 
 	/**
@@ -263,6 +270,12 @@ public class DPInput implements ExampleInput, Serializable {
 			edgeFeatures[idxFtr++] = ftr;
 	}
 
+	/**
+	 * Generate derived features from basic features and the given templates.
+	 * 
+	 * @param templates
+	 * @param encoding
+	 */
 	public void generateFeatures(FeatureTemplate[] templates,
 			FeatureEncoding<Feature> encoding) {
 		for (int idxHead = 0; idxHead < numberOfTokens; ++idxHead) {
@@ -271,7 +284,6 @@ public class DPInput implements ExampleInput, Serializable {
 					continue;
 
 				// Create array of features.
-				// TODO this will be no constant when using multi-valued feats.
 				int[] ftrs = new int[templates.length];
 				features[idxHead][idxDep] = ftrs;
 				/*
@@ -298,6 +310,9 @@ public class DPInput implements ExampleInput, Serializable {
 		}
 	}
 
+	/**
+	 * Free the derived feature arrays.
+	 */
 	public void freeFeatureArrays() {
 		for (int idxHead = 0; idxHead < numberOfTokens; ++idxHead) {
 			for (int idxDep = 0; idxDep < numberOfTokens; ++idxDep) {

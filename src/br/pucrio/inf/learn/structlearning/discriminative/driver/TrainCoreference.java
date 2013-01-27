@@ -33,6 +33,7 @@ import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPI
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.DatasetException;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
+import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.Murmur3Encoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.StringMapEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.driver.Driver.Command;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Inference;
@@ -107,6 +108,16 @@ public class TrainCoreference implements Command {
 		options.addOption(OptionBuilder.withLongOpt("templates").isRequired()
 				.withArgName("filename").hasArg()
 				.withDescription("Feature templates file name.").create());
+		options.addOption(OptionBuilder
+				.withLongOpt("hashsize")
+				.withArgName("size")
+				.hasArg()
+				.withDescription(
+						"Number of entries or bits (use "
+								+ "suffix b) in the hash function.").create());
+		options.addOption(OptionBuilder.withLongOpt("hashseed")
+				.withArgName("seed").hasArg()
+				.withDescription("Seed for the hash function.").create());
 		options.addOption(OptionBuilder
 				.withLongOpt("numepochs")
 				.withArgName("integer")
@@ -196,6 +207,8 @@ public class TrainCoreference implements Command {
 		int numEpochs = Integer.parseInt(cmdLine.getOptionValue("numepochs",
 				"10"));
 		String modelFileName = cmdLine.getOptionValue("model");
+		String hashSizeStr = cmdLine.getOptionValue("hashsize");
+		String hashSeedStr = cmdLine.getOptionValue("hashseed");
 		String testDatasetFileName = cmdLine.getOptionValue("test");
 		String scriptBasePathStr = cmdLine.getOptionValue("scriptpath");
 		File conllBasePath = null;
@@ -242,11 +255,30 @@ public class TrainCoreference implements Command {
 		FeatureEncoding<String> featureEncoding = null;
 		try {
 			/*
-			 * Create an empty and flexible feature encoding that will encode
-			 * unambiguously all feature values. If the training dataset is big,
-			 * this may not fit in memory.
+			 * The feature encoding converts textual feature values to integer
+			 * codes. The use has two options: simple encoding and hash
+			 * encoding. The simple encoding only gives a new code to each
+			 * unseen feature value. The hash encoding uses a hash function
+			 * (Murmur 3, in our case) to convert any string value to a code.
+			 * The latter case implies on some representation loss, due to
+			 * collisions in the hash function.
 			 */
-			featureEncoding = new StringMapEncoding();
+			if (hashSizeStr == null) {
+				if (hashSeedStr == null) {
+					featureEncoding = new StringMapEncoding();
+				} else {
+					LOG.error("Option --hashseed requires --hashsize");
+					System.exit(1);
+				}
+			} else {
+				int hashSize = TrainDP.parseValueDirectOrBits(hashSizeStr);
+				if (hashSeedStr == null) {
+					featureEncoding = new Murmur3Encoding(hashSize);
+				} else {
+					int hashSeed = Integer.parseInt(hashSeedStr);
+					featureEncoding = new Murmur3Encoding(hashSize, hashSeed);
+				}
+			}
 
 			LOG.info("Loading train dataset...");
 			if (inferenceStrategy != InferenceStrategy.BRANCH) {
@@ -379,7 +411,7 @@ public class TrainCoreference implements Command {
 
 		if (modelFileName != null) {
 			try {
-				// Save model.
+				// Save learned model.
 				model.save(modelFileName, inDataset);
 			} catch (FileNotFoundException e) {
 				LOG.error(e);

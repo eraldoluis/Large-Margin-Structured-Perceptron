@@ -165,10 +165,28 @@ public class CorefColumnDataset extends DPColumnDataset {
 			edgeFeatures.add(idxMentionLeft);
 			edgeFeatures.add(idxMentionRight);
 
-			// Encode the edge features.
-			for (int idxFtr = 1; idxFtr < ftrValues.length - 1; ++idxFtr) {
+			/*
+			 * The next 6 features indentify the two mentions (their segment and
+			 * token indexes). These features are not encoded. They are stored
+			 * as their integer values themselves.
+			 */
+			int m1Segment = Integer.parseInt(ftrValues[1]);
+			int m1TokenIni = Integer.parseInt(ftrValues[2]);
+			int m1TokenFim = Integer.parseInt(ftrValues[3]);
+			int m2Segment = Integer.parseInt(ftrValues[4]);
+			int m2TokenIni = Integer.parseInt(ftrValues[5]);
+			int m2TokenFim = Integer.parseInt(ftrValues[6]);
+
+			edgeFeatures.add(m1Segment);
+			edgeFeatures.add(m1TokenIni);
+			edgeFeatures.add(m1TokenFim);
+			edgeFeatures.add(m2Segment);
+			edgeFeatures.add(m2TokenIni);
+			edgeFeatures.add(m2TokenFim);
+
+			// Encode the remaining edge features.
+			for (int idxFtr = 7; idxFtr < ftrValues.length - 1; ++idxFtr) {
 				String str = ftrValues[idxFtr];
-				// TODO deal with multi-valued features.
 				int code = basicEncoding.put(new String(str));
 				edgeFeatures.add(code);
 			}
@@ -270,14 +288,23 @@ public class CorefColumnDataset extends DPColumnDataset {
 					int[] ftrs = input.getBasicFeatures(idxLeft, idxRight);
 					if (ftrs == null)
 						continue;
+
 					// Id.
 					writer.write(idxLeft + ">" + idxRight);
-					// Features.
-					for (int idxFtr = 0; idxFtr < ftrs.length; ++idxFtr)
+
+					/*
+					 * The first 6 values are not encoded, they are the integer
+					 * values themselver.
+					 */
+					for (int idxFtr = 0; idxFtr < 6; ++idxFtr)
+						writer.write(" " + ftrs[idxFtr]);
+
+					// Ordinary encoded features.
+					for (int idxFtr = 6; idxFtr < ftrs.length; ++idxFtr)
 						writer.write(" "
 								+ basicEncoding.getValueByCode(ftrs[idxFtr]));
 
-					// Correct feature.
+					// Correct flag.
 					if (correctOutput.getClusterId(idxLeft) == correctOutput
 							.getClusterId(idxRight))
 						writer.write(" Y");

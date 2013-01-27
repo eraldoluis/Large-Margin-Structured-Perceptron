@@ -100,10 +100,10 @@ public class CoreferenceMaxBranchInference implements Inference {
 	public CoreferenceMaxBranchInference(int maxNumberOfTokens, int root,
 			InferenceStrategy inferenceStrategy) {
 		this.root = root;
-		if (inferenceStrategy == InferenceStrategy.LBRANCH)
+		if (inferenceStrategy != InferenceStrategy.LKRUSKAL)
 			maxBranchingAlgorithm = new DirectedMaxBranchAlgorithm(
 					maxNumberOfTokens);
-		else if (inferenceStrategy == InferenceStrategy.LKRUSKAL)
+		else
 			maxBranchingAlgorithm = new UndirectedMaxBranchAlgorithm(
 					maxNumberOfTokens);
 		graph = new double[maxNumberOfTokens][maxNumberOfTokens];
