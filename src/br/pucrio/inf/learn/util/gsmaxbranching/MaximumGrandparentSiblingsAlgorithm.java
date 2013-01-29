@@ -2,8 +2,6 @@ package br.pucrio.inf.learn.util.gsmaxbranching;
 
 import java.util.Arrays;
 
-import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSOutput;
-
 /**
  * Implement a maximum grandparent and siblings algorithm as proposed in Koo et
  * al. (EMNLP-2010).
@@ -205,10 +203,12 @@ public class MaximumGrandparentSiblingsAlgorithm {
 				if (idxGrandparent != -1)
 					wGrandparentFactor = grandparentFactorWeightsForHead[idxModifier][idxGrandparent];
 				if (Double.isNaN(wGrandparentFactor)) {
-					// Grandparent is not valid, thus skip this modifier.
-					previousModifiers[idxModifier] = -1;
-					accumWeights[idxModifier] = Double.NaN;
-					continue;
+					/*
+					 * TODO test: // Grandparent is not valid, thus skip this
+					 * modifier. previousModifiers[idxModifier] = -1;
+					 * accumWeights[idxModifier] = Double.NaN; continue;
+					 */
+					wGrandparentFactor = 0d;
 				}
 
 				/*
@@ -229,7 +229,7 @@ public class MaximumGrandparentSiblingsAlgorithm {
 				accumWeights[idxModifier] += wGrandparentFactor;
 
 				/*
-				 * Same thing for the modifier weight that depends only on
+				 * Same thing for the modifier dual var that depends only on
 				 * (idxHead, idxModifier).
 				 */
 				if (dualModifierVars != null)
@@ -261,10 +261,12 @@ public class MaximumGrandparentSiblingsAlgorithm {
 				if (idxGrandparent != -1)
 					wGrandparentFactor = grandparentFactorWeightsForHead[idxModifier][idxGrandparent];
 				if (Double.isNaN(wGrandparentFactor)) {
-					// Grandparent is not valid, thus skip this modifier.
-					previousModifiers[idxModifier] = -1;
-					accumWeights[idxModifier] = Double.NaN;
-					continue;
+					/*
+					 * TODO test: // Grandparent is not valid, thus skip this
+					 * modifier. previousModifiers[idxModifier] = -1;
+					 * accumWeights[idxModifier] = Double.NaN; continue;
+					 */
+					wGrandparentFactor = 0d;
 				}
 
 				/*
@@ -285,7 +287,7 @@ public class MaximumGrandparentSiblingsAlgorithm {
 				accumWeights[idxModifier] += wGrandparentFactor;
 
 				/*
-				 * Same thing for the modifier weight that depends only on
+				 * Same thing for the modifier dual var that depends only on
 				 * (idxHead, idxModifier).
 				 */
 				if (dualModifierVars != null)
@@ -374,15 +376,19 @@ public class MaximumGrandparentSiblingsAlgorithm {
 			double wSiblingsFactor = siblingsWeights[idxPrevModifier];
 
 			if (Double.isNaN(wSiblingsFactor))
-				// Skip inexistent factors.
-				continue;
+				/*
+				 * TODO test: // Skip inexistent factors. continue;
+				 */
+				wSiblingsFactor = 0d;
 
 			// Weight accumulated up to the previous modifier.
 			double accumWeight = accumWeights[idxPrevModifier];
 
 			if (Double.isNaN(accumWeight))
-				// Skip inexistent path.
-				continue;
+				/*
+				 * TODO test: // Skip inexistent path. continue;
+				 */
+				accumWeight = 0d;
 
 			// Accumulated weight up to the modifier.
 			accumWeight += wSiblingsFactor;
@@ -399,20 +405,24 @@ public class MaximumGrandparentSiblingsAlgorithm {
 		 * (idxHead, idxModifier).
 		 */
 		previousModifiers[idxModifier] = bestPreviousModifier;
+		// TODO test.
+		if (Double.isNaN(bestAccumWeight))
+			bestAccumWeight = 0d;
 		accumWeights[idxModifier] = bestAccumWeight;
 	}
 
 	/**
-	 * Calculate the weight of the parse underlying <code>output</code>
-	 * according to the given factor weights and dual variables. That is the
+	 * Calculate the weight of the given parse tree <code>heads</code> according
+	 * to the given factor weights and dual variables. That is the
 	 * grandparent/siblings objective function minus dual variables. If the user
 	 * wants the GS objective function value alone, then it can give
 	 * <code>null</code> values for the dual variable arrays (
 	 * <code>dualGrandparentVars</code> and <code>dualModifierVars</code>).
 	 * 
-	 * @param output
-	 *            structure whose underlying parse is used to measure the
-	 *            objective function value.
+	 * @param heads
+	 *            parse tree to measure the objective function value.
+	 * @param numberOfNodes
+	 *            number of nodes (tokens) in the given parse tree.
 	 * @param grandparentFactorWeights
 	 *            weights of grandparent factors.
 	 * @param siblingsFactorWeights
@@ -428,7 +438,7 @@ public class MaximumGrandparentSiblingsAlgorithm {
 	 * @return the weight of the given parse according to the given factor
 	 *         weights and dual variables.
 	 */
-	public double calcObjectiveValueOfParse(DPGSOutput output,
+	public double calcObjectiveValueOfParse(int heads[], int numberOfNodes,
 			double[][][] grandparentFactorWeights,
 			double[][][] siblingsFactorWeights, double[][] dualGrandparentVars,
 			double[][] dualModifierVars) {
@@ -436,10 +446,9 @@ public class MaximumGrandparentSiblingsAlgorithm {
 		double weight = 0d;
 		double w;
 
-		int numberOfNodes = output.size();
 		for (int idxHead = 0; idxHead < numberOfNodes; ++idxHead) {
 			// Parent of the current head (grandparent of its modifiers).
-			int idxGrandparent = output.getHead(idxHead);
+			int idxGrandparent = heads[idxHead];
 
 			if (idxGrandparent != -1 && dualGrandparentVars != null)
 				// Grandparent dual variable.
@@ -448,7 +457,7 @@ public class MaximumGrandparentSiblingsAlgorithm {
 			// LEFT modifiers. The special START symbol is equal to idxHead.
 			int idxPrevModifier = idxHead;
 			for (int idxModifier = 0; idxModifier < idxHead; ++idxModifier) {
-				if (output.getHead(idxModifier) != idxHead)
+				if (heads[idxModifier] != idxHead)
 					// It is not a modifier of the current head.
 					continue;
 
@@ -480,7 +489,7 @@ public class MaximumGrandparentSiblingsAlgorithm {
 			// RIGHT modifiers. The START symbol is equal to numberOfNodes.
 			idxPrevModifier = numberOfNodes;
 			for (int idxModifier = idxHead + 1; idxModifier < numberOfNodes; ++idxModifier) {
-				if (output.getHead(idxModifier) != idxHead)
+				if (heads[idxModifier] != idxHead)
 					// It is not a modifier of the current head.
 					continue;
 

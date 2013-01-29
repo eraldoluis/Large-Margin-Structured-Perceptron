@@ -1,9 +1,6 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.dpgs;
 
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map.Entry;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -129,9 +126,7 @@ public class DPGSDualInference implements Inference {
 		dualGrandparentVariables = new double[maxNumberOfTokens][maxNumberOfTokens];
 		dualModifierVariables = new double[maxNumberOfTokens][maxNumberOfTokens];
 		maxNumberOfSubgradientSteps = 2;
-
-		// TODO test
-		maxBranchAlgorithm.setOnlyPositiveEdges(true);
+		maxBranchAlgorithm.setOnlyPositiveEdges(false);
 	}
 
 	/**
@@ -148,9 +143,6 @@ public class DPGSDualInference implements Inference {
 		siblingsFactorWeights = new double[maxNumberOfTokens][maxNumberOfTokens + 1][maxNumberOfTokens + 1];
 		dualGrandparentVariables = new double[maxNumberOfTokens][maxNumberOfTokens];
 		dualModifierVariables = new double[maxNumberOfTokens][maxNumberOfTokens];
-
-		// TODO test
-		maxBranchAlgorithm.setOnlyPositiveEdges(true);
 	}
 
 	/**
@@ -170,7 +162,7 @@ public class DPGSDualInference implements Inference {
 		clearDualVars(input.size());
 
 		// Generate inference problem for the given input.
-		fillGraph(model, input);
+		fillGraph(input.size());
 		fillGrandparentFactorWeights(model, input, null, 0d);
 		fillSiblingsFactorWeights(model, input);
 
@@ -196,7 +188,7 @@ public class DPGSDualInference implements Inference {
 		clearDualVars(input.size());
 
 		// Generate loss-augmented inference problem for the given input.
-		fillGraph(model, input);
+		fillGraph(input.size());
 		fillGrandparentFactorWeights(model, input, referenceOutput, lossWeight);
 		fillSiblingsFactorWeights(model, input);
 
@@ -213,155 +205,60 @@ public class DPGSDualInference implements Inference {
 	 * @param output
 	 */
 	private void subgradientMethod(DPGSInput input, DPGSOutput output) {
-		/*
-		 * Sparse arrays of updates for dual variables per head token in each
-		 * iteration. They are used to update the proper dual variable arrays
-		 * and the factor weight arrays in an effient way after each iteration.
-		 */
-		HashMap<Integer, HashMap<Integer, Double>> dualGrandparentDelta = new HashMap<Integer, HashMap<Integer, Double>>();
-		HashMap<Integer, HashMap<Integer, Double>> dualModifierDelta = new HashMap<Integer, HashMap<Integer, Double>>();
-
+		// Dual objetive function value in the previous iteration.
 		double prevDualObjectiveValue = Double.NaN;
+		// Number of tokens in the current input.
 		int numTkns = input.size();
 		// Number of times that the dual objective has been incremented.
 		int numDualObjectiveIncrements = 0;
+		// Dual objective function values for each head.
 		double[] dualObjectiveValues = new double[numTkns];
+		// Initial step size.
 		double lambda = Double.NaN;
+
+		// Fill the maximum branching for a zero-weight graph.
+		double dualObjectiveValue = maxBranchAlgorithm.findMaxBranching(
+				numTkns, graph, output.getHeads());
+
+		// Fill the complete maximum grandparent/siblings structure.
+		for (int idxHead = 0; idxHead < numTkns; ++idxHead) {
+			dualObjectiveValues[idxHead] = maxGSAlgorithm
+					.findMaximumGrandparentSiblingsForHead(numTkns, idxHead,
+							grandparentFactorWeights[idxHead],
+							siblingsFactorWeights[idxHead],
+							dualGrandparentVariables, dualModifierVariables,
+							output.getGrandparents(), output.getModifiers());
+			dualObjectiveValue += dualObjectiveValues[idxHead];
+		}
+
+		/*
+		 * The first step size is equal to the difference between the weights of
+		 * the grandparent/siblings structure and the parse structure under the
+		 * grandparent/siblings objective function.
+		 */
+		lambda = dualObjectiveValue
+				- maxGSAlgorithm.calcObjectiveValueOfParse(output.getHeads(),
+						output.size(), grandparentFactorWeights,
+						siblingsFactorWeights, dualGrandparentVariables,
+						dualModifierVariables);
+
+		if (lambda == 0d)
+			lambda = 1d;
+
+		/*
+		 * Set of heads whose dual vars were updated in the previous iteration.
+		 * We only need to recalculate the GS structure for these heads.
+		 */
+		boolean[] updatedHeads = new boolean[numTkns];
+
 		for (int step = 0; step < maxNumberOfSubgradientSteps; ++step) {
-			// Value of the dual objective function in this step.
-			double dualObjectiveValue = 0d;
-
-			if (step == 0) {
-				// Fill the maximum branching for the current dual values.
-				dualObjectiveValue = maxBranchAlgorithm.findMaxBranching(
-						numTkns, graph, output.getHeads());
-
-				// Fill the complete maximum grandparent/siblings structure.
-				for (int idxHead = 0; idxHead < numTkns; ++idxHead) {
-					dualObjectiveValues[idxHead] = maxGSAlgorithm
-							.findMaximumGrandparentSiblingsForHead(numTkns,
-									idxHead, grandparentFactorWeights[idxHead],
-									siblingsFactorWeights[idxHead],
-									dualGrandparentVariables,
-									dualModifierVariables,
-									output.getGrandparents(),
-									output.getModifiers());
-					dualObjectiveValue += dualObjectiveValues[idxHead];
-				}
-
-				/*
-				 * The first step size is equal to the difference between the
-				 * weights of the grandparent/siblings structure and the parse
-				 * structure under the grandparent/siblings objective function.
-				 */
-				lambda = dualObjectiveValue
-						- maxGSAlgorithm
-								.calcObjectiveValueOfParse(output,
-										grandparentFactorWeights,
-										siblingsFactorWeights,
-										dualGrandparentVariables,
-										dualModifierVariables);
-
-				if (lambda == 0d)
-					lambda = 1d;
-
-			} else {
-				/*
-				 * Set of heads whose dual vars were updated in the previous
-				 * iteration. We only need to recalculate the GS structure for
-				 * these heads.
-				 */
-				HashSet<Integer> updatedHeads = new HashSet<Integer>();
-
-				// Update grandparent dual variables.
-				for (Entry<Integer, HashMap<Integer, Double>> headEntry : dualGrandparentDelta
-						.entrySet()) {
-					int idxHead = headEntry.getKey();
-					for (Entry<Integer, Double> entryModifier : headEntry
-							.getValue().entrySet()) {
-						int idxModifier = entryModifier.getKey();
-
-						/*
-						 * GS structure must be recalculated for this modifier
-						 * index due to this grandparent dual variable update.
-						 */
-						updatedHeads.add(idxModifier);
-
-						double inc = entryModifier.getValue();
-						dualGrandparentVariables[idxHead][idxModifier] += inc;
-						graph[idxHead][idxModifier] += inc;
-					}
-				}
-
-				// Update modifier dual variables.
-				for (Entry<Integer, HashMap<Integer, Double>> headEntry : dualModifierDelta
-						.entrySet()) {
-					int idxHead = headEntry.getKey();
-
-					/*
-					 * GS structure must be recalculated for this head due to
-					 * this modifier dual variable update.
-					 */
-					updatedHeads.add(idxHead);
-
-					for (Entry<Integer, Double> entryModifier : headEntry
-							.getValue().entrySet()) {
-						int idxModifier = entryModifier.getKey();
-						double inc = entryModifier.getValue();
-						dualModifierVariables[idxHead][idxModifier] += inc;
-						graph[idxHead][idxModifier] += inc;
-					}
-				}
-
-				// Clear updated heads.
-				dualGrandparentDelta.clear();
-				dualModifierDelta.clear();
-
-				// Fill the maximum branching for the current dual values.
-				dualObjectiveValue = maxBranchAlgorithm.findMaxBranching(
-						numTkns, graph, output.getHeads());
-
-				for (int idxHead = 0; idxHead < numTkns; ++idxHead) {
-					if (updatedHeads.contains(idxHead))
-						// Recompute GS structure only for updated heads.
-						dualObjectiveValues[idxHead] = maxGSAlgorithm
-								.findMaximumGrandparentSiblingsForHead(numTkns,
-										idxHead,
-										grandparentFactorWeights[idxHead],
-										siblingsFactorWeights[idxHead],
-										dualGrandparentVariables,
-										dualModifierVariables,
-										output.getGrandparents(),
-										output.getModifiers());
-
-					dualObjectiveValue += dualObjectiveValues[idxHead];
-				}
-
-				if (dualObjectiveValue > prevDualObjectiveValue)
-					/*
-					 * Decrement step size whenever the dual function increases.
-					 * An increase in the dual function means that the algorithm
-					 * passed over the optimum. Thus, the step size is too
-					 * large.
-					 */
-					++numDualObjectiveIncrements;
-			}
-
-			// Update previous solution weight.
-			prevDualObjectiveValue = dualObjectiveValue;
 
 			// Step size.
 			double stepSize = lambda / (1 + numDualObjectiveIncrements);
 
-			// double stepSize = lambda;
-			// if (numDualObjectiveIncrements > 2)
-			// stepSize /= Math.log(1 + numDualObjectiveIncrements)
-			// / Math.log(2);
-
-			// Compute updates on dual variables.
+			// Update dual variables.
+			boolean updated = false;
 			for (int idxHead = 0; idxHead < numTkns; ++idxHead) {
-				HashMap<Integer, Double> dualGrandparentDeltaOfHead = null;
-				HashMap<Integer, Double> dualModifierDeltaOfHead = null;
 				for (int idxModifier = 0; idxModifier < numTkns; ++idxModifier) {
 					/*
 					 * Get value of edge variable (idxHead, idxModifier) in the
@@ -372,113 +269,103 @@ public class DPGSDualInference implements Inference {
 					boolean isModifier = output
 							.isModifier(idxHead, idxModifier);
 
+					// Grandparent variable differs from parse.
 					if (isGrandparent != isBranching) {
-						// Grandparent variable differs from parse.
-						if (dualGrandparentDeltaOfHead == null) {
-							dualGrandparentDeltaOfHead = new HashMap<Integer, Double>();
-							dualGrandparentDelta.put(idxHead,
-									dualGrandparentDeltaOfHead);
-						}
+						// The subproblem for idxModifier head token changed.
+						updatedHeads[idxModifier] = true;
+						updated = true;
 
 						if (isBranching)
-							incrementSparseArrayItem(
-									dualGrandparentDeltaOfHead, idxModifier,
-									-stepSize);
+							dualGrandparentVariables[idxHead][idxModifier] -= stepSize;
 						else
-							incrementSparseArrayItem(
-									dualGrandparentDeltaOfHead, idxModifier,
-									stepSize);
+							dualGrandparentVariables[idxHead][idxModifier] += stepSize;
 					}
 
+					// Modifier variable differs from parse.
 					if (isModifier != isBranching) {
-						// Modifier variable differs from parse.
-						if (dualModifierDeltaOfHead == null) {
-							dualModifierDeltaOfHead = new HashMap<Integer, Double>();
-							dualModifierDelta.put(idxHead,
-									dualModifierDeltaOfHead);
-						}
+						// The subproblem for idxHead head token changed.
+						updatedHeads[idxHead] = true;
+						updated = true;
 
 						if (isBranching)
-							incrementSparseArrayItem(dualModifierDeltaOfHead,
-									idxModifier, -stepSize);
+							dualModifierVariables[idxHead][idxModifier] -= stepSize;
 						else
-							incrementSparseArrayItem(dualModifierDeltaOfHead,
-									idxModifier, stepSize);
+							dualModifierVariables[idxHead][idxModifier] += stepSize;
 					}
 				}
 			}
 
-			// // TODO debug
-			// System.out.println("Vars after step " + step);
-			// System.out.println("Grandparent dual vars:");
-			// printDualVars(numTkns, dualGrandparentVariables);
-			// System.out.println("\nModifier dual vars:");
-			// printDualVars(numTkns, dualModifierVariables);
-			// System.out.println("\nGrandparent factors (non NaN):");
-			// for (int idxHead = 0; idxHead < numTkns; ++idxHead)
-			// for (int idxMod = 0; idxMod < numTkns; ++idxMod)
-			// for (int idxGp = 0; idxGp < numTkns; ++idxGp)
-			// if (!Double
-			// .isNaN(grandparentFactorWeights[idxHead][idxMod][idxGp]))
-			// System.out
-			// .print(String
-			// .format("(%d,%d,%d)=%f ",
-			// idxHead,
-			// idxMod,
-			// idxGp,
-			// grandparentFactorWeights[idxHead][idxMod][idxGp]));
-			//
-			// System.out.println("\nSiblings factors (non NaN):");
-			// for (int idxHead = 0; idxHead < numTkns; ++idxHead) {
-			// for (int idxMod = 0; idxMod <= numTkns; ++idxMod) {
-			// int idxSTART = (idxMod <= idxHead ? idxHead : numTkns);
-			// if (!Double
-			// .isNaN(siblingsFactorWeights[idxHead][idxMod][idxSTART]))
-			// System.out
-			// .print(String
-			// .format("(%d,%d,%d)=%f ",
-			// idxHead,
-			// idxMod,
-			// idxSTART,
-			// siblingsFactorWeights[idxHead][idxMod][idxSTART]));
-			// int beg = (idxMod <= idxHead ? 0 : idxHead + 1);
-			// for (int idxPrevMod = beg; idxPrevMod < idxMod; ++idxPrevMod)
-			// if (!Double
-			// .isNaN(siblingsFactorWeights[idxHead][idxMod][idxPrevMod]))
-			// System.out
-			// .print(String
-			// .format("(%d,%d,%d)=%f ",
-			// idxHead,
-			// idxMod,
-			// idxPrevMod,
-			// siblingsFactorWeights[idxHead][idxMod][idxPrevMod]));
-			// }
-			// }
-
-			if (dualGrandparentDelta.size() == 0
-					&& dualModifierDelta.size() == 0) {
+			if (!updated) {
 				LOG.info(String
-						.format("Optimum found at step %d after %d dual objective increments. Weight: %f",
+						.format("Optimum found at step %d after %d dual objective increments. Dual objective: %f. Weight: %f",
 								step, numDualObjectiveIncrements,
-								maxGSAlgorithm.calcObjectiveValueOfParse(
-										output, grandparentFactorWeights,
-										siblingsFactorWeights, null, null)));
+								dualObjectiveValue, maxGSAlgorithm
+										.calcObjectiveValueOfParse(
+												output.getHeads(),
+												output.size(),
+												grandparentFactorWeights,
+												siblingsFactorWeights, null,
+												null)));
+				LOG.info("\n" + output.toString());
 				// Stop if the optimality condition is reached.
 				break;
-			}
-		}
+			} else {
 
-		// double objectiveValue = 0d;
-		// for (int idxHead = 0; idxHead < numTkns; ++idxHead)
-		// objectiveValue += dualObjectiveValues[idxHead];
-		// LOG.info(String.format(
-		// "Dual GS objective value is %f for GS structure.",
-		// objectiveValue));
-		// LOG.info(String.format(
-		// "Dual GS objective value is %f for parse structure.",
-		// maxGSAlgorithm.calcObjectiveValueOfParse(output,
-		// grandparentFactorWeights, siblingsFactorWeights,
-		// dualGrandparentVariables, dualModifierVariables)));
+				LOG.info(String
+						.format("Optimum found at step %d after %d dual objective increments. Dual objective: %f. Weight: %f",
+								step, numDualObjectiveIncrements,
+								dualObjectiveValue, maxGSAlgorithm
+										.calcObjectiveValueOfParse(
+												output.getHeads(),
+												output.size(),
+												grandparentFactorWeights,
+												siblingsFactorWeights, null,
+												null)));
+				LOG.info("\n" + output.toString());
+			}
+
+			// Value of the dual objective function in this step.
+			dualObjectiveValue = 0d;
+
+			// Fill graph for the maximum branching problem using the dual vars.
+			fillGraph(numTkns);
+
+			// Fill the maximum branching for the current dual values.
+			dualObjectiveValue = maxBranchAlgorithm.findMaxBranching(numTkns,
+					graph, output.getHeads());
+
+			/*
+			 * Compute the best GS structure for heads whose dual variables have
+			 * been updated.
+			 */
+			for (int idxHead = 0; idxHead < numTkns; ++idxHead) {
+				if (updatedHeads[idxHead])
+					dualObjectiveValues[idxHead] = maxGSAlgorithm
+							.findMaximumGrandparentSiblingsForHead(numTkns,
+									idxHead, grandparentFactorWeights[idxHead],
+									siblingsFactorWeights[idxHead],
+									dualGrandparentVariables,
+									dualModifierVariables,
+									output.getGrandparents(),
+									output.getModifiers());
+
+				dualObjectiveValue += dualObjectiveValues[idxHead];
+			}
+
+			if (dualObjectiveValue > prevDualObjectiveValue)
+				/*
+				 * Decrement step size whenever the dual function increases. An
+				 * increase in the dual function means that the algorithm passed
+				 * over the optimum. Thus, the step size is too large.
+				 */
+				++numDualObjectiveIncrements;
+
+			// Store the dual objective value for the previous solution.
+			prevDualObjectiveValue = dualObjectiveValue;
+
+			// Clear flag array of updated heads for the next iteration.
+			Arrays.fill(updatedHeads, false);
+		}
 	}
 
 	public static void printDualVars(int numTkns, double[][] vars) {
@@ -493,35 +380,17 @@ public class DPGSDualInference implements Inference {
 	}
 
 	/**
-	 * Utilitary method to increment a dictionary item. If the item is not
-	 * present in the dictionary yet, then creates a new entry.
-	 * 
-	 * @param array
-	 * @param key
-	 * @param val
-	 */
-	private void incrementSparseArrayItem(HashMap<Integer, Double> array,
-			int key, double val) {
-		Double oldVal = array.get(key);
-		if (oldVal == null)
-			array.put(key, val);
-		else
-			array.put(key, oldVal + val);
-	}
-
-	/**
 	 * Fill the underlying graph with the values of the underlying dual
 	 * variables.
 	 * 
-	 * @param model
-	 * @param input
+	 * @param numberOfTokens
 	 */
-	private void fillGraph(DPGSModel model, DPGSInput input) {
-		int numTkns = input.size();
-		for (int idxHead = 0; idxHead < numTkns; ++idxHead) {
-			for (int idxModifier = 0; idxModifier < numTkns; ++idxModifier)
+	private void fillGraph(int numberOfTokens) {
+		for (int idxHead = 0; idxHead < numberOfTokens; ++idxHead) {
+			for (int idxModifier = 0; idxModifier < numberOfTokens; ++idxModifier)
 				graph[idxHead][idxModifier] = dualGrandparentVariables[idxHead][idxModifier]
 						+ dualModifierVariables[idxHead][idxModifier];
+			graph[idxHead][idxHead] = Double.NaN;
 			if (root >= 0)
 				graph[idxHead][root] = Double.NaN;
 		}
@@ -705,27 +574,19 @@ public class DPGSDualInference implements Inference {
 		int[][][][] gFtrs = new int[5][5][5][];
 		int[][][][] sFtrs = new int[5][6][6][];
 
-		/*
-		 * Grandparent degenerated features (root node and root children have no
-		 * grandparent).
-		 */
-		gFtrs[0][0][0] = new int[] { 0 };
-		gFtrs[0][1][0] = new int[] { 0 };
-		gFtrs[0][2][0] = new int[] { 0 };
-		gFtrs[0][3][0] = new int[] { 0 };
-		gFtrs[0][4][0] = new int[] { 0 };
+		int[] zeroFtrs = new int[] { 0 };
 
-		// Siblings degenerated features (leaf nodes have no modifier).
-		sFtrs[0][0][0] = new int[] { 0 };
-		sFtrs[0][5][5] = new int[] { 0 };
-		sFtrs[1][1][1] = new int[] { 0 };
-		sFtrs[1][5][5] = new int[] { 0 };
-		sFtrs[2][2][2] = new int[] { 0 };
-		sFtrs[2][5][5] = new int[] { 0 };
-		sFtrs[3][3][3] = new int[] { 0 };
-		sFtrs[3][5][5] = new int[] { 0 };
-		sFtrs[4][4][4] = new int[] { 0 };
-		sFtrs[4][5][5] = new int[] { 0 };
+		// Initialize all siblings features.
+		for (int idxHead = 0; idxHead < 5; ++idxHead)
+			for (int idxModifier = 0; idxModifier < 6; ++idxModifier)
+				for (int idxPrevModifier = 0; idxPrevModifier < 6; ++idxPrevModifier)
+					sFtrs[idxHead][idxModifier][idxPrevModifier] = zeroFtrs;
+
+		// Initialize all grandparent features.
+		for (int idxHead = 0; idxHead < 5; ++idxHead)
+			for (int idxModifier = 0; idxModifier < 5; ++idxModifier)
+				for (int idxGrandParent = 0; idxGrandParent < 5; ++idxGrandParent)
+					gFtrs[idxHead][idxModifier][idxGrandParent] = zeroFtrs;
 
 		// Grandparent ordinary features for 1st tree.
 		gFtrs[2][3][0] = new int[] { 10 };
@@ -743,8 +604,8 @@ public class DPGSDualInference implements Inference {
 		gFtrs[2][1][0] = new int[] { 10 };
 
 		// Siblings ordinary features for 2nd tree.
-		sFtrs[2][1][2] = new int[] { 10 };
-		sFtrs[2][2][1] = new int[] { 10 };
+		sFtrs[2][1][2] = new int[] { 20 };
+		sFtrs[2][2][1] = new int[] { 0 };
 
 		// Input structure.
 		DPGSInput input = new DPGSInput(gFtrs, sFtrs);
@@ -765,10 +626,21 @@ public class DPGSDualInference implements Inference {
 		DPGSOutput output = input.createOutput();
 
 		// Inference.
-		inference.setMaxNumberOfSubgradientSteps(100000);
+		inference.setMaxNumberOfSubgradientSteps(1000);
 		inference.inference(model, input, output);
 
-		// Print output.
+		output.getHeads()[1] = 2;
+		output.getHeads()[2] = 0;
+		output.getHeads()[3] = 2;
+		output.getHeads()[4] = 2;
 		System.out.println(output);
+		LOG.info(String
+				.format("Optimum found at step %d after %d dual objective increments. Dual objective: %f. Weight: %f",
+						-1, -1, -1d, inference.maxGSAlgorithm
+								.calcObjectiveValueOfParse(output.getHeads(),
+										output.size(),
+										inference.grandparentFactorWeights,
+										inference.siblingsFactorWeights, null,
+										null)));
 	}
 }
