@@ -97,6 +97,16 @@ public class TrainDPGS implements Command {
 				.withDescription(
 						"Maximum number of steps in the subgradient method.")
 				.create());
+		options.addOption(OptionBuilder
+				.withLongOpt("beta")
+				.withArgName("real number")
+				.hasArg()
+				.withDescription(
+						"Fraction of the edge factor weights that "
+								+ "are passed to the maximum branching "
+								+ "algorithm, instead of the passing to "
+								+ "the grandparent/siblings algorithm.")
+				.create());
 		options.addOption(OptionBuilder.withLongOpt("seed")
 				.withArgName("integer").hasArg()
 				.withDescription("Random number generator seed.").create());
@@ -130,17 +140,20 @@ public class TrainDPGS implements Command {
 
 		// Training options.
 		String trainPrefix = cmdLine.getOptionValue("train");
+		String trainEdgeDatasetFileName = trainPrefix + ".edges";
 		String trainGPDatasetFileName = trainPrefix + ".grandparent";
-		String trainLSDatasetFileName = trainPrefix + ".leftsiblings";
-		String trainRSDatasetFileName = trainPrefix + ".rightsiblings";
+		String trainLSDatasetFileName = trainPrefix + ".siblings.left";
+		String trainRSDatasetFileName = trainPrefix + ".siblings.right";
 		String templatesPrefix = cmdLine.getOptionValue("templates");
+		String templatesEdgeFileName = templatesPrefix + ".edges";
 		String templatesGPFileName = templatesPrefix + ".grandparent";
-		String templatesLSFileName = templatesPrefix + ".leftsiblings";
-		String templatesRSFileName = templatesPrefix + ".rightsiblings";
+		String templatesLSFileName = templatesPrefix + ".siblings.left";
+		String templatesRSFileName = templatesPrefix + ".siblings.right";
 		int numEpochs = Integer.parseInt(cmdLine.getOptionValue("numepochs",
 				"10"));
 		int maxSubgradientSteps = Integer.valueOf(cmdLine.getOptionValue(
 				"maxsteps", "500"));
+		double beta = Double.valueOf(cmdLine.getOptionValue("beta", "0.001"));
 		// double lossWeight =
 		// Double.parseDouble(cmdLine.getOptionValue("lossweight", "0d"));
 		boolean averaged = !cmdLine.hasOption("noavg");
@@ -150,9 +163,10 @@ public class TrainDPGS implements Command {
 		String testConllFileName = cmdLine.getOptionValue("testconll");
 		String outputConllFilename = cmdLine.getOptionValue("outputconll");
 		String testPrefix = cmdLine.getOptionValue("test");
+		String testEdgeDatasetFilename = testPrefix + ".edges";
 		String testGPDatasetFilename = testPrefix + ".grandparent";
-		String testLSDatasetFilename = testPrefix + ".leftsiblings";
-		String testRSDatasetFilename = testPrefix + ".rightsiblings";
+		String testLSDatasetFilename = testPrefix + ".siblings.left";
+		String testRSDatasetFilename = testPrefix + ".siblings.right";
 		String script = cmdLine.getOptionValue("script");
 		boolean evalPerEpoch = cmdLine.hasOption("perepoch");
 
@@ -179,20 +193,27 @@ public class TrainDPGS implements Command {
 			 */
 			featureEncoding = new StringMapEncoding();
 
-			trainDataset = new DPGSDataset(new String[] { "bet-hm-postag",
-					"bet-hg-postag", "add-head-feats", "add-mod-feats",
-					"add-gp-feats" }, new String[] { "bet-hm-postag",
-					"bet-ms-postag", "add-head-feats", "add-mod-feats",
-					"add-sib-feats" }, "|", featureEncoding);
+			trainDataset = new DPGSDataset(new String[] { "bet-postag",
+					"add-head-feats", "add-mod-feats" }, new String[] {
+					"bet-hm-postag", "bet-hg-postag", "add-head-feats",
+					"add-mod-feats", "add-gp-feats" }, new String[] {
+					"bet-hm-postag", "bet-ms-postag", "add-head-feats",
+					"add-mod-feats", "add-sib-feats" }, "|", featureEncoding);
+
+			LOG.info(String.format("Loading training edge dataset (%s)...",
+					trainEdgeDatasetFileName));
+			trainDataset.loadEdgeFactors(trainEdgeDatasetFileName);
 
 			LOG.info(String.format(
 					"Loading training left siblings dataset (%s)...",
 					trainLSDatasetFileName));
 			trainDataset.loadSiblingsFactors(trainLSDatasetFileName);
+
 			LOG.info(String.format(
 					"Loading training right siblings dataset (%s)...",
 					trainRSDatasetFileName));
 			trainDataset.loadSiblingsFactors(trainRSDatasetFileName);
+
 			/*
 			 * Grandparent factors shall be the last ones to avoid problems with
 			 * short sentences (1 ordinary token), since grandparent factors do
@@ -203,6 +224,9 @@ public class TrainDPGS implements Command {
 					trainGPDatasetFileName));
 			trainDataset.loadGrandparentFactors(trainGPDatasetFileName);
 
+			// Set modifier variables in all output structures.
+			trainDataset.setModifierVariables();
+
 			// Template-based model.
 			LOG.info("Allocating initial model...");
 
@@ -210,6 +234,7 @@ public class TrainDPGS implements Command {
 			DPGSModel model = new DPGSModel(0);
 
 			// Templates.
+			model.loadEdgeTemplates(templatesEdgeFileName, trainDataset);
 			model.loadGrandparentTemplates(templatesGPFileName, trainDataset);
 			model.loadLeftSiblingsTemplates(templatesLSFileName, trainDataset);
 			model.loadRightSiblingsTemplates(templatesRSFileName, trainDataset);
@@ -229,23 +254,33 @@ public class TrainDPGS implements Command {
 				// User provided seed to random number generator.
 				alg.setSeed(Long.parseLong(seedStr));
 
-			EvaluateModelListener eval = null;
 			if (testConllFileName != null && evalPerEpoch) {
 				LOG.info("Loading test factors...");
 				DPGSDataset testset = new DPGSDataset(trainDataset);
+				testset.loadEdgeFactors(testEdgeDatasetFilename);
 				testset.loadSiblingsFactors(testLSDatasetFilename);
 				testset.loadSiblingsFactors(testRSDatasetFilename);
 				testset.loadGrandparentFactors(testGPDatasetFilename);
+				testset.setModifierVariables();
 				model.generateFeatures(testset);
 
 				LOG.info("Evaluating...");
+
 				// Use dual inference algorithm for testing.
-				DPGSDualInference inferenceDual = new DPGSDualInference(0,
+				DPGSDualInference inferenceDual = new DPGSDualInference(
 						testset.getMaxNumberOfTokens());
 				inferenceDual
 						.setMaxNumberOfSubgradientSteps(maxSubgradientSteps);
-				eval = new EvaluateModelListener(script, testConllFileName,
-						outputConllFilename, testset, averaged, inferenceDual);
+				inferenceDual.setBeta(beta);
+
+				// // TODO test
+				// DPGSInference inferenceDual = new DPGSInference(
+				// testset.getMaxNumberOfTokens());
+				// inferenceDual.setCopyPredictionToParse(true);
+
+				EvaluateModelListener eval = new EvaluateModelListener(script,
+						testConllFileName, outputConllFilename, testset,
+						averaged, inferenceDual);
 				eval.setQuiet(true);
 				alg.setListener(eval);
 			}
@@ -260,21 +295,32 @@ public class TrainDPGS implements Command {
 			if (testConllFileName != null && !evalPerEpoch) {
 				LOG.info("Loading test factors...");
 				DPGSDataset testset = new DPGSDataset(trainDataset);
+				testset.loadEdgeFactors(testEdgeDatasetFilename);
 				testset.loadSiblingsFactors(testLSDatasetFilename);
 				testset.loadSiblingsFactors(testRSDatasetFilename);
 				testset.loadGrandparentFactors(testGPDatasetFilename);
+				testset.setModifierVariables();
 				model.generateFeatures(testset);
 
 				LOG.info("Evaluating...");
+
 				// Use dual inference algorithm for testing.
-				DPGSDualInference inferenceDual = new DPGSDualInference(0,
+				DPGSDualInference inferenceDual = new DPGSDualInference(
 						testset.getMaxNumberOfTokens());
 				inferenceDual
 						.setMaxNumberOfSubgradientSteps(maxSubgradientSteps);
-				eval = new EvaluateModelListener(script, testConllFileName,
-						outputConllFilename, testset, false, inferenceDual);
+				inferenceDual.setBeta(beta);
+
+				// // TODO test
+				// DPGSInference inferenceDual = new DPGSInference(
+				// testset.getMaxNumberOfTokens());
+				// inferenceDual.setCopyPredictionToParse(true);
+
+				EvaluateModelListener eval = new EvaluateModelListener(script,
+						testConllFileName, outputConllFilename, testset, false,
+						inferenceDual);
 				eval.setQuiet(true);
-				eval.afterEpoch(inference, model, -1, -1d, -1);
+				eval.afterEpoch(inferenceDual, model, -1, -1d, -1);
 			}
 
 			LOG.info("Training done!");
@@ -410,11 +456,16 @@ public class TrainDPGS implements Command {
 			if (averaged) {
 				try {
 					// Clone the current model to average it, if necessary.
-					LOG.info("Cloning current model...");
+					LOG.info(String.format(
+							"Cloning current model with %d parameters...",
+							((DPGSModel) model).getParameters().size()));
 					model = (Model) model.clone();
 				} catch (CloneNotSupportedException e) {
-					LOG.error("Cloning current model on epoch " + epoch
-							+ " and iteration " + iteration, e);
+					LOG.error(
+							String.format(
+									"Cloning current model with %d parameters on epoch %d and iteration %d",
+									((DPGSModel) model).getParameters().size(),
+									epoch, iteration), e);
 					return true;
 				}
 
@@ -424,8 +475,11 @@ public class TrainDPGS implements Command {
 				 * temporary model here in order to have a better picture of its
 				 * current (intermediary) performance.
 				 */
+				LOG.info("Averaging model...");
 				model.average(iteration);
 			}
+
+			LOG.info("Predicting outputs...");
 
 			// Use other inference if it has been given in constructor.
 			if (inference != null)
@@ -433,9 +487,19 @@ public class TrainDPGS implements Command {
 			// Fill the list of predicted outputs.
 			DPGSInput[] inputs = testset.getInputs();
 			// DPOutput[] outputs = testset.getOutputs();
-			for (int idx = 0; idx < inputs.length; ++idx)
+			for (int idx = 0; idx < inputs.length; ++idx) {
 				// Predict (tag the output sequence).
 				inferenceImpl.inference(model, inputs[idx], predicteds[idx]);
+				if ((idx + 1) % 100 == 0) {
+					System.out.print(".");
+					System.out.flush();
+				}
+			}
+
+			// TODO test
+			LOG.info(String.format("# subgradient steps / prediction: %d",
+					((DPGSDualInference) inferenceImpl)
+							.getMaxNumberOfSubgradientSteps()));
 
 			try {
 				// Delete previous epoch output file if it exists.

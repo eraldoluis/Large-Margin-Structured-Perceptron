@@ -63,6 +63,12 @@ public class DPGSModel implements Model {
 	protected MapEncoding<Feature> explicitEncoding;
 
 	/**
+	 * Templates for edge-based features. Such features depend on two parameters
+	 * only: a head token and a modifier token, that is a dependency edge.
+	 */
+	protected DPGSTemplate[] edgeTemplates;
+
+	/**
 	 * Grandparent templates that comprise three parameters: head token,
 	 * modifier token and head of the head token (grandparent of modifier
 	 * token).
@@ -203,8 +209,13 @@ public class DPGSModel implements Model {
 	}
 
 	/**
-	 * Update this model using the differences between the correct output and
-	 * the predicted output, both given as arguments.
+	 * Update this model using the difference between the factors present in the
+	 * correct (<code>outputCorrect</code>) and in the predicted output
+	 * (</code>outputPredicted</code>). The correct factors are obtained from
+	 * the parse tree scructure ( <code>outputCorrect.getHead(...)</code>).
+	 * While the predicted factors are obtained from the grandparent structure (
+	 * <code>outputPredicted.getGrandparent(...)</code>) and the modifier
+	 * structure (<code>outputPredicted.isModifier(...)</code>).
 	 * 
 	 * @param input
 	 * @param outputCorrect
@@ -228,6 +239,17 @@ public class DPGSModel implements Model {
 			int correctGrandparent = outputCorrect.getHead(idxHead);
 			int predictedGrandparent = outputPredicted.getGrandparent(idxHead);
 
+			if (correctGrandparent != predictedGrandparent) {
+				// Update edge factor parameter.
+				loss += 1d; // Edge factor contribution.
+				if (predictedGrandparent != -1)
+					updateEdgeFactorParams(input, predictedGrandparent,
+							idxHead, -learningRate);
+				if (correctGrandparent != -1)
+					updateEdgeFactorParams(input, correctGrandparent, idxHead,
+							learningRate);
+			}
+
 			/*
 			 * Verifiy grandparent and siblings factors for differences between
 			 * correct and predicted factors.
@@ -241,9 +263,11 @@ public class DPGSModel implements Model {
 			for (int idxModifier = 0; idxModifier <= numTkns; ++idxModifier) {
 				// Is this token special (START or END).
 				boolean isSpecialToken = (idxModifier == idxHead || idxModifier == numTkns);
+
 				/*
 				 * Is this modifier included in the correct or in the predicted
 				 * structures for the current head or is it a special token.
+				 * Special tokens are always present, by definition.
 				 */
 				boolean isCorrectModifier = (isSpecialToken || (outputCorrect
 						.getHead(idxModifier) == idxHead));
@@ -252,14 +276,18 @@ public class DPGSModel implements Model {
 
 				if (!isCorrectModifier && !isPredictedModifier)
 					/*
-					 * Modifier token is neither included in the correct
+					 * Current modifier is neither included in the correct
 					 * structure nor the predicted structure. Thus, skip it.
 					 */
 					continue;
 
 				if (isCorrectModifier != isPredictedModifier) {
-					// One error.
-					loss += 1;
+					//
+					// Current modifier is misclassified.
+					//
+
+					// Siblings and grandparent factors contribution.
+					loss += 2d;
 
 					if (isCorrectModifier) {
 						/*
@@ -290,17 +318,18 @@ public class DPGSModel implements Model {
 									idxModifier, predictedGrandparent,
 									-learningRate);
 					}
-				} else {
-					// Error flag.
-					boolean error = false;
 
+				} else {
 					/*
 					 * The current modifier has been correctly predicted for the
-					 * current head. Then, addtionally check the previous
-					 * modifier and the grandparent head.
+					 * current head. Now, additionally check the previous
+					 * modifier and the grandparent factor.
 					 */
 
 					if (correctPreviousModifier != predictedPreviousModifier) {
+						// Siblings factor contribution.
+						loss += 1d;
+
 						/*
 						 * Modifier is correctly predited but previous modifier
 						 * is NOT. Thus, the corresponding correct siblings
@@ -311,11 +340,13 @@ public class DPGSModel implements Model {
 								correctPreviousModifier, learningRate);
 						updateSiblingsFactorParams(input, idxHead, idxModifier,
 								predictedPreviousModifier, -learningRate);
-						error = true;
 					}
 
 					if (!isSpecialToken
 							&& correctGrandparent != predictedGrandparent) {
+						// Grandparent factor contribution.
+						loss += 1d;
+
 						/*
 						 * Predicted modifier is correct but grandparent head is
 						 * NOT. Thus, the corresponding correct grandparent
@@ -330,11 +361,7 @@ public class DPGSModel implements Model {
 							updateGrandparentFactorParams(input, idxHead,
 									idxModifier, predictedGrandparent,
 									-learningRate);
-						error = true;
 					}
-
-					if (error)
-						loss += 1;
 				}
 
 				if (isCorrectModifier) {
@@ -371,8 +398,25 @@ public class DPGSModel implements Model {
 	}
 
 	/**
-	 * Update all feature parameters in the given grandparent factor of the
-	 * given input.
+	 * Update all feature parameters in the given edge factor.
+	 * 
+	 * @param input
+	 * @param idxHead
+	 * @param idxModifier
+	 * @param learnRate
+	 */
+	protected void updateEdgeFactorParams(DPGSInput input, int idxHead,
+			int idxModifier, double learnRate) {
+		int[] ftrs = input.getEdgeFeatures(idxHead, idxModifier);
+		if (ftrs == null)
+			// Inexistent factor. Do nothing.
+			return;
+		for (int idxFtr = 0; idxFtr < ftrs.length; ++idxFtr)
+			updateFeatureParam(ftrs[idxFtr], learnRate);
+	}
+
+	/**
+	 * Update all feature parameters in the given grandparent factor.
 	 * 
 	 * @param input
 	 * @param idxHead
@@ -385,15 +429,14 @@ public class DPGSModel implements Model {
 		int[] ftrs = input.getGrandparentFeatures(idxHead, idxModifier,
 				idxGrandparent);
 		if (ftrs == null)
-			// Inexistent factor.
+			// Inexistent factor. Do nothing.
 			return;
 		for (int idxFtr = 0; idxFtr < ftrs.length; ++idxFtr)
 			updateFeatureParam(ftrs[idxFtr], learnRate);
 	}
 
 	/**
-	 * Update all feature parameters in the given grandparent factor of the
-	 * given input.
+	 * Update all feature parameters in the given siblings factor.
 	 * 
 	 * @param input
 	 * @param idxHead
@@ -447,8 +490,8 @@ public class DPGSModel implements Model {
 
 	@Override
 	public void average(int numberOfIterations) {
-		for (AveragedParameter parm : parameters.values())
-			parm.average(numberOfIterations);
+		for (AveragedParameter param : parameters.values())
+			param.average(numberOfIterations);
 	}
 
 	@Override
@@ -495,6 +538,28 @@ public class DPGSModel implements Model {
 		return explicitEncoding;
 	}
 
+	public DPGSTemplate[] loadEdgeTemplates(BufferedReader reader,
+			DPGSDataset dataset) throws IOException, DPGSException {
+		LinkedList<DPGSTemplate> templatesList = new LinkedList<DPGSTemplate>();
+		String line = DPGSDataset.skipBlanksAndComments(reader);
+		while (line != null) {
+			String[] ftrsStr = line.split("[ ]");
+			int[] ftrs = new int[ftrsStr.length];
+			for (int idx = 0; idx < ftrs.length; ++idx) {
+				ftrs[idx] = dataset.getEdgeFeatureIndex(ftrsStr[idx]);
+				if (ftrs[idx] == -1)
+					throw new DPGSException(String.format(
+							"Feature label %s does not exist", ftrsStr[idx]));
+			}
+			templatesList.add(new DPEdgeTemplate(templatesList.size(), ftrs));
+			// Read next line.
+			line = DPGSDataset.skipBlanksAndComments(reader);
+		}
+
+		// Convert list to array.
+		return templatesList.toArray(new DPGSTemplate[0]);
+	}
+
 	public DPGSTemplate[] loadSiblingsTemplates(BufferedReader reader,
 			DPGSDataset dataset, int type) throws IOException, DPGSException {
 		LinkedList<DPGSTemplate> templatesList = new LinkedList<DPGSTemplate>();
@@ -527,7 +592,7 @@ public class DPGSModel implements Model {
 	 * @throws IOException
 	 * @throws DPGSException
 	 */
-	public void loadGrandparentTemplates(BufferedReader reader,
+	public DPGSTemplate[] loadGrandparentTemplates(BufferedReader reader,
 			DPGSDataset dataset) throws IOException, DPGSException {
 		LinkedList<DPGSTemplate> templatesList = new LinkedList<DPGSTemplate>();
 		String line = DPGSDataset.skipBlanksAndComments(reader);
@@ -547,14 +612,22 @@ public class DPGSModel implements Model {
 		}
 
 		// Convert list to array.
-		grandparentTemplates = templatesList.toArray(new DPGSTemplate[0]);
+		return templatesList.toArray(new DPGSTemplate[0]);
+	}
+
+	public void loadEdgeTemplates(String templatesFileName, DPGSDataset dataset)
+			throws IOException, DPGSException {
+		BufferedReader reader = new BufferedReader(new FileReader(
+				templatesFileName));
+		edgeTemplates = loadEdgeTemplates(reader, dataset);
+		reader.close();
 	}
 
 	public void loadGrandparentTemplates(String templatesFileName,
 			DPGSDataset dataset) throws IOException, DPGSException {
 		BufferedReader reader = new BufferedReader(new FileReader(
 				templatesFileName));
-		loadGrandparentTemplates(reader, dataset);
+		grandparentTemplates = loadGrandparentTemplates(reader, dataset);
 		reader.close();
 	}
 
@@ -607,18 +680,74 @@ public class DPGSModel implements Model {
 				ftrVals);
 	}
 
+	/**
+	 * Generate derived features for the input structures in the given dataset (
+	 * <code>dataset</code>). The derived features are specified by this model
+	 * templates.
+	 * 
+	 * @param dataset
+	 */
 	public void generateFeatures(DPGSDataset dataset) {
+		// // TODO test
+		// int[] ftrs0 = new int[] { 0 };
+		// int[] ftrs1 = new int[] { 1 };
+
+		// Number of examples in the given dataset.
 		int numExs = dataset.getNumberOfExamples();
+
 		for (int idxEx = 0; idxEx < numExs; ++idxEx) {
 			// Current input structure.
 			DPGSInput input = dataset.getInput(idxEx);
+
+			// // TODO test
+			// DPGSOutput output = dataset.getOutput(idxEx);
 
 			// Number of tokens within the current input.
 			int numTkns = input.size();
 
 			for (int idxHead = 0; idxHead < numTkns; ++idxHead) {
-				// Grandparent features.
 				for (int idxModifier = 0; idxModifier < numTkns; ++idxModifier) {
+					//
+					// Edge features.
+					//
+					if (input.getBasicEdgeFeatures(idxHead, idxModifier) != null) {
+						// List of generated features for the current factor.
+						LinkedList<Integer> ftrs = new LinkedList<Integer>();
+
+						/*
+						 * Instantiate edge features and add them to active
+						 * features list.
+						 */
+						for (int idxTpl = 0; idxTpl < edgeTemplates.length; ++idxTpl) {
+							DPEdgeTemplate tpl = (DPEdgeTemplate) edgeTemplates[idxTpl];
+							try {
+								tpl.instantiateEdgeDerivedFeatures(input, ftrs,
+										explicitEncoding, idxHead, idxModifier);
+							} catch (CloneNotSupportedException e) {
+								LOG.error("Instantiating feature", e);
+							}
+						}
+
+						// Convert the list of feature codes to an array.
+						int numFtrs = ftrs.size();
+						int[] ftrVals = new int[numFtrs];
+						Iterator<Integer> itFtrVals = ftrs.iterator();
+						for (int idxFtr = 0; idxFtr < numFtrs; ++idxFtr)
+							ftrVals[idxFtr] = itFtrVals.next();
+
+						// Set feature vector of this input.
+						input.setEdgeFeatures(idxHead, idxModifier, ftrVals);
+
+						// // TODO test
+						// if (output.getHead(idxModifier) == idxHead)
+						// input.setEdgeFeatures(idxHead, idxModifier, ftrs1);
+						// else
+						// input.setEdgeFeatures(idxHead, idxModifier, ftrs0);
+					}
+
+					//
+					// Grandparent features.
+					//
 					for (int idxGrandparent = 0; idxGrandparent < numTkns; ++idxGrandparent) {
 						// Skip non-existent edges.
 						if (input.getBasicGrandparentFeatures(idxHead,
@@ -651,25 +780,100 @@ public class DPGSModel implements Model {
 							ftrVals[idxFtr] = itFtrVals.next();
 						input.setGrandparentFeatures(idxHead, idxModifier,
 								idxGrandparent, ftrVals);
+
+						// // TODO test
+						// if (output.getHead(idxModifier) == idxHead
+						// && output.getHead(idxHead) == idxGrandparent)
+						// input.setGrandparentFeatures(idxHead, idxModifier,
+						// idxGrandparent, ftrs1);
+						// else
+						// input.setGrandparentFeatures(idxHead, idxModifier,
+						// idxGrandparent, ftrs0);
 					}
 				}
 
+				//
 				// Left siblings features.
+				//
+
+				// // TODO test
+				// int previousCorrectModifier = idxHead;
+
 				for (int idxModifier = 0; idxModifier <= idxHead; ++idxModifier) {
+					// Special factors: (idxHead, idxModifier, START).
 					instantiateSiblingsFeatures(input, idxHead, idxModifier,
 							idxHead);
-					for (int idxPrevModifier = 0; idxPrevModifier < idxModifier; ++idxPrevModifier)
+
+					// // TODO test
+					// boolean isModifier = (idxModifier == idxHead || output
+					// .getHead(idxModifier) == idxHead);
+					// if (isModifier && previousCorrectModifier == idxHead)
+					// input.setSiblingsFeatures(idxHead, idxModifier,
+					// idxHead, ftrs1);
+					// else
+					// input.setSiblingsFeatures(idxHead, idxModifier,
+					// idxHead, ftrs0);
+
+					// Remaining factors.
+					for (int idxPrevModifier = 0; idxPrevModifier < idxModifier; ++idxPrevModifier) {
 						instantiateSiblingsFeatures(input, idxHead,
 								idxModifier, idxPrevModifier);
+
+						// // TODO test
+						// if (isModifier
+						// && previousCorrectModifier == idxPrevModifier)
+						// input.setSiblingsFeatures(idxHead, idxModifier,
+						// idxPrevModifier, ftrs1);
+						// else
+						// input.setSiblingsFeatures(idxHead, idxModifier,
+						// idxPrevModifier, ftrs0);
+					}
+
+					// // TODO test
+					// if (isModifier)
+					// previousCorrectModifier = idxModifier;
 				}
 
+				//
 				// Right siblings features.
+				//
+
+				// // TODO teste
+				// previousCorrectModifier = numTkns;
+
 				for (int idxModifier = idxHead + 1; idxModifier <= numTkns; ++idxModifier) {
+					// Special factors: (idxHead, idxModifier, START).
 					instantiateSiblingsFeatures(input, idxHead, idxModifier,
 							numTkns);
-					for (int idxPrevModifier = 0; idxPrevModifier < idxModifier; ++idxPrevModifier)
+
+					// // TODO test
+					// boolean isModifier = (idxModifier == numTkns || output
+					// .getHead(idxModifier) == idxHead);
+					// if (isModifier && previousCorrectModifier == numTkns)
+					// input.setSiblingsFeatures(idxHead, idxModifier,
+					// numTkns, ftrs1);
+					// else
+					// input.setSiblingsFeatures(idxHead, idxModifier,
+					// numTkns, ftrs0);
+
+					// Remaining factors.
+					for (int idxPrevModifier = idxHead + 1; idxPrevModifier < idxModifier; ++idxPrevModifier) {
 						instantiateSiblingsFeatures(input, idxHead,
 								idxModifier, idxPrevModifier);
+
+						// // TODO test
+						// if (isModifier
+						// && idxPrevModifier == previousCorrectModifier)
+						// input.setSiblingsFeatures(idxHead, idxModifier,
+						// idxPrevModifier, ftrs1);
+						// else
+						// input.setSiblingsFeatures(idxHead, idxModifier,
+						// idxPrevModifier, ftrs0);
+					}
+
+					// // TODO test
+					// if (isModifier)
+					// previousCorrectModifier = idxModifier;
 				}
 			}
 

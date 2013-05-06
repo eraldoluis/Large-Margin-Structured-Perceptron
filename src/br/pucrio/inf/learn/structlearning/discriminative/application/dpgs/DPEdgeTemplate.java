@@ -5,44 +5,38 @@ import java.util.List;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.Feature;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.MapEncoding;
 
-public class DPSiblingsTemplate extends DPGSTemplate {
+public class DPEdgeTemplate extends DPGSTemplate {
 
 	/**
-	 * Create a grandparent template with the given feature combination.
+	 * Create an edge template with the given feature combination.
 	 * 
-	 * @param type
-	 *            it must be 2 for left siblings factors and 3 for right
-	 *            siblings factors.
 	 * @param index
 	 * @param featureIndexes
 	 */
-	public DPSiblingsTemplate(int type, int index, int[] featureIndexes) {
+	public DPEdgeTemplate(int index, int[] featureIndexes) {
 		this.index = index;
 		this.featureIndexes = featureIndexes;
 		int[] vals = new int[featureIndexes.length + 1];
 		this.tempFeature = new Feature(index, vals);
-		// Template type is 2 for LEFT siblings and 3 for RIGHT siblings.
-		vals[featureIndexes.length] = type;
+		// Template type is 0 for edge templates.
+		vals[featureIndexes.length] = 0;
 	}
 
 	/**
-	 * Instantiate siblings features for the grandparent factor of the given
-	 * input.
+	 * Instantiate edge features for the edge factor of the given input.
 	 * 
 	 * @param input
 	 * @param derivedFeatures
 	 * @param encoding
 	 * @param idxHead
 	 * @param idxModifier
-	 * @param idxGrandparent
 	 * @throws CloneNotSupportedException
 	 */
-	public void instantiateSiblingsDerivedFeatures(DPGSInput input,
+	public void instantiateEdgeDerivedFeatures(DPGSInput input,
 			List<Integer> derivedFeatures, MapEncoding<Feature> encoding,
-			int idxHead, int idxModifier, int idxGrandparent)
-			throws CloneNotSupportedException {
-		int[][] basicFeatures = input.getBasicSiblingsFeatures(idxHead,
-				idxModifier, idxGrandparent);
+			int idxHead, int idxModifier) throws CloneNotSupportedException {
+		int[][] basicFeatures = input
+				.getBasicEdgeFeatures(idxHead, idxModifier);
 		instantiateDerivedFeatures(basicFeatures, 0, derivedFeatures, encoding);
 	}
 

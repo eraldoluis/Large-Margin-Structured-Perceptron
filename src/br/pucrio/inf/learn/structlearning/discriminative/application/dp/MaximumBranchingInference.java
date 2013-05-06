@@ -37,7 +37,8 @@ public class MaximumBranchingInference implements Inference {
 	 * @param maxNumberOfTokens
 	 */
 	public MaximumBranchingInference(int maxNumberOfTokens) {
-		maxBranchingAlgorithm = new DirectedMaxBranchAlgorithm(maxNumberOfTokens);
+		maxBranchingAlgorithm = new DirectedMaxBranchAlgorithm(
+				maxNumberOfTokens);
 		graph = new double[maxNumberOfTokens][maxNumberOfTokens];
 	}
 
@@ -140,4 +141,7 @@ public class MaximumBranchingInference implements Inference {
 		throw new NotImplementedException();
 	}
 
+	public void setCheckUniqueRoot(boolean val) {
+		maxBranchingAlgorithm.setCheckUniqueRoot(val);
+	}
 }

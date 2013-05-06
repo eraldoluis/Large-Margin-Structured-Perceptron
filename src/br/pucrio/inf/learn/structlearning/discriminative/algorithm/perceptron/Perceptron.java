@@ -345,9 +345,22 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 			 * Update the current model weights according with the predicted
 			 * output for this training example.
 			 */
-			loss += train(inputs[indexCurrentExample],
+			double loss1 = train(inputs[indexCurrentExample],
 					outputs[indexCurrentExample],
 					predicteds[indexCurrentExample]);
+
+			loss += loss1;
+
+			// // TODO test
+			// if (loss1 > 0d) {
+			// System.out.println(String.format(
+			// "ERROR on iteration %d of example %d", idx,
+			// indexCurrentExample));
+			// System.out
+			// .println("Correct:\n" + outputs[indexCurrentExample]);
+			// System.out.println("Predicted:\n"
+			// + predicteds[indexCurrentExample]);
+			// }
 
 			// Progress report.
 			if (reportProgressInterval > 0

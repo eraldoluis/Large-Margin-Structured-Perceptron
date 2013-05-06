@@ -46,7 +46,6 @@ public class DPGrandparentTemplate extends DPGSTemplate {
 			throws CloneNotSupportedException {
 		int[][] basicFeatures = input.getBasicGrandparentFeatures(idxHead,
 				idxModifier, idxGrandparent);
-		instantiateDerivedFeatures(basicFeatures, 0, derivedFeatures, encoding,
-				tempFeature.getValues());
+		instantiateDerivedFeatures(basicFeatures, 0, derivedFeatures, encoding);
 	}
 }

@@ -561,6 +561,8 @@ public class TrainDP implements Command {
 		// Inference algorithm.
 		inference = new MaximumBranchingInference(
 				trainset.getMaxNumberOfTokens());
+		// TODO test
+		((MaximumBranchingInference) inference).setCheckUniqueRoot(false);
 
 		// Learning rate update strategy.
 		LearnRateUpdateStrategy learningRateUpdateStrategy = LearnRateUpdateStrategy.NONE;

@@ -37,11 +37,6 @@ public class DPGSDualInference implements Inference {
 	private final static Log LOG = LogFactory.getLog(DPGSDualInference.class);
 
 	/**
-	 * Special root node.
-	 */
-	private int root;
-
-	/**
 	 * Chu-Liu-Edmonds algoritmo to maximum branching.
 	 */
 	private DirectedMaxBranchAlgorithm maxBranchAlgorithm;
@@ -52,10 +47,25 @@ public class DPGSDualInference implements Inference {
 	private MaximumGrandparentSiblingsAlgorithm maxGSAlgorithm;
 
 	/**
+	 * Parameter between 0 and 1 that indicates the fraction of edge factor
+	 * weights that are passed to the maximum branching problem. The remaining
+	 * weight is left to the grandparent/siblings algorithm.
+	 */
+	private double beta;
+
+	/**
 	 * Graph weights for the maximum branching algorithm. Nodes are tokens. The
 	 * index for this array is (idxHead, idxModifier).
 	 */
 	private double[][] graph;
+
+	/**
+	 * Edge factor weights. The index for this array is (idxHead, idxModifier).
+	 * A fraction of these weights (given by <code>beta</code>) is passed to the
+	 * maximum branching algorithm and the remaining (<code>1 - beta</code>)
+	 * goes to the grandparent/siblings algorithm.
+	 */
+	private double[][] edgeFactorWeights;
 
 	/**
 	 * Grandparent factor weights for grandparent/siblings algorithm. The index
@@ -108,23 +118,35 @@ public class DPGSDualInference implements Inference {
 	 */
 	private int maxNumberOfSubgradientSteps;
 
+	private int numPredictions;
+
+	private int numSubGradSteps;
+
 	/**
 	 * Create a grandparent/sibling inference object that allocates the internal
 	 * data structures to support the given maximum number of tokens.
 	 * 
 	 * @param maxNumberOfTokens
 	 */
-	public DPGSDualInference(int root, int maxNumberOfTokens) {
-		this.root = root;
+	public DPGSDualInference(int maxNumberOfTokens) {
+		// Fraction of the edge factor weights used in the maxbranch alg.
+		this.beta = 0.5d;
+		// Maximum branching algorithm.
 		maxBranchAlgorithm = new DirectedMaxBranchAlgorithm(maxNumberOfTokens);
 		maxBranchAlgorithm.setCheckUniqueRoot(false);
+		// Grandparent/siblings algorithm.
 		maxGSAlgorithm = new MaximumGrandparentSiblingsAlgorithm(
 				maxNumberOfTokens);
+		// Branching weights.
 		graph = new double[maxNumberOfTokens][maxNumberOfTokens];
+		// Factor weights.
+		edgeFactorWeights = new double[maxNumberOfTokens][maxNumberOfTokens];
 		grandparentFactorWeights = new double[maxNumberOfTokens][maxNumberOfTokens][maxNumberOfTokens];
 		siblingsFactorWeights = new double[maxNumberOfTokens][maxNumberOfTokens + 1][maxNumberOfTokens + 1];
+		// Dual variables.
 		dualGrandparentVariables = new double[maxNumberOfTokens][maxNumberOfTokens];
 		dualModifierVariables = new double[maxNumberOfTokens][maxNumberOfTokens];
+
 		maxNumberOfSubgradientSteps = 2;
 		maxBranchAlgorithm.setOnlyPositiveEdges(false);
 	}
@@ -136,11 +158,17 @@ public class DPGSDualInference implements Inference {
 	 * @param maxNumberOfTokens
 	 */
 	public void realloc(int maxNumberOfTokens) {
+		// Maximum branching algorithm.
 		maxBranchAlgorithm.realloc(maxNumberOfTokens);
+		// Grandparent/siblings algorithm.
 		maxGSAlgorithm.realloc(maxNumberOfTokens);
+		// Maximum branching graph weights.
 		graph = new double[maxNumberOfTokens][maxNumberOfTokens];
+		// Factor weights.
+		edgeFactorWeights = new double[maxNumberOfTokens][maxNumberOfTokens];
 		grandparentFactorWeights = new double[maxNumberOfTokens][maxNumberOfTokens][maxNumberOfTokens];
 		siblingsFactorWeights = new double[maxNumberOfTokens][maxNumberOfTokens + 1][maxNumberOfTokens + 1];
+		// Dual variables.
 		dualGrandparentVariables = new double[maxNumberOfTokens][maxNumberOfTokens];
 		dualModifierVariables = new double[maxNumberOfTokens][maxNumberOfTokens];
 	}
@@ -162,6 +190,7 @@ public class DPGSDualInference implements Inference {
 		clearDualVars(input.size());
 
 		// Generate inference problem for the given input.
+		fillEdgeFactorWeights(model, input);
 		fillGraph(input.size());
 		fillGrandparentFactorWeights(model, input, null, 0d);
 		fillSiblingsFactorWeights(model, input);
@@ -188,6 +217,7 @@ public class DPGSDualInference implements Inference {
 		clearDualVars(input.size());
 
 		// Generate loss-augmented inference problem for the given input.
+		fillEdgeFactorWeights(model, input);
 		fillGraph(input.size());
 		fillGrandparentFactorWeights(model, input, referenceOutput, lossWeight);
 		fillSiblingsFactorWeights(model, input);
@@ -205,6 +235,9 @@ public class DPGSDualInference implements Inference {
 	 * @param output
 	 */
 	private void subgradientMethod(DPGSInput input, DPGSOutput output) {
+		// Number of predictions performed.
+		++numPredictions;
+
 		// Dual objetive function value in the previous iteration.
 		double prevDualObjectiveValue = Double.NaN;
 		// Number of tokens in the current input.
@@ -224,6 +257,7 @@ public class DPGSDualInference implements Inference {
 		for (int idxHead = 0; idxHead < numTkns; ++idxHead) {
 			dualObjectiveValues[idxHead] = maxGSAlgorithm
 					.findMaximumGrandparentSiblingsForHead(numTkns, idxHead,
+							edgeFactorWeights,
 							grandparentFactorWeights[idxHead],
 							siblingsFactorWeights[idxHead],
 							dualGrandparentVariables, dualModifierVariables,
@@ -231,16 +265,18 @@ public class DPGSDualInference implements Inference {
 			dualObjectiveValue += dualObjectiveValues[idxHead];
 		}
 
+		// Current best solution.
+		double bestOutputWeight = maxGSAlgorithm.calcObjectiveValueOfParse(
+				output.getHeads(), output.size(), edgeFactorWeights,
+				grandparentFactorWeights, siblingsFactorWeights, null, null);
+		int[] bestOutput = output.getHeads().clone();
+
 		/*
 		 * The first step size is equal to the difference between the weights of
 		 * the grandparent/siblings structure and the parse structure under the
 		 * grandparent/siblings objective function.
 		 */
-		lambda = dualObjectiveValue
-				- maxGSAlgorithm.calcObjectiveValueOfParse(output.getHeads(),
-						output.size(), grandparentFactorWeights,
-						siblingsFactorWeights, dualGrandparentVariables,
-						dualModifierVariables);
+		lambda = dualObjectiveValue - bestOutputWeight;
 
 		if (lambda == 0d)
 			lambda = 1d;
@@ -252,6 +288,9 @@ public class DPGSDualInference implements Inference {
 		boolean[] updatedHeads = new boolean[numTkns];
 
 		for (int step = 0; step < maxNumberOfSubgradientSteps; ++step) {
+
+			// Number of subgradient steps performed.
+			++numSubGradSteps;
 
 			// Step size.
 			double stepSize = lambda / (1 + numDualObjectiveIncrements);
@@ -303,25 +342,26 @@ public class DPGSDualInference implements Inference {
 										.calcObjectiveValueOfParse(
 												output.getHeads(),
 												output.size(),
+												edgeFactorWeights,
 												grandparentFactorWeights,
 												siblingsFactorWeights, null,
 												null)));
-				LOG.info("\n" + output.toString());
+				// LOG.info("\n" + output.toString());
+
 				// Stop if the optimality condition is reached.
 				break;
 			} else {
-
-				LOG.info(String
-						.format("Optimum found at step %d after %d dual objective increments. Dual objective: %f. Weight: %f",
-								step, numDualObjectiveIncrements,
-								dualObjectiveValue, maxGSAlgorithm
-										.calcObjectiveValueOfParse(
-												output.getHeads(),
-												output.size(),
-												grandparentFactorWeights,
-												siblingsFactorWeights, null,
-												null)));
-				LOG.info("\n" + output.toString());
+				// LOG.info(String
+				// .format("Solution at step %d after %d dual objective increments. Dual objective: %f. Weight: %f",
+				// step, numDualObjectiveIncrements,
+				// dualObjectiveValue, maxGSAlgorithm
+				// .calcObjectiveValueOfParse(
+				// output.getHeads(),
+				// output.size(),
+				// grandparentFactorWeights,
+				// siblingsFactorWeights, null,
+				// null)));
+				// LOG.info("\n" + output.toString());
 			}
 
 			// Value of the dual objective function in this step.
@@ -334,6 +374,17 @@ public class DPGSDualInference implements Inference {
 			dualObjectiveValue = maxBranchAlgorithm.findMaxBranching(numTkns,
 					graph, output.getHeads());
 
+			// Update the best output up to this iteration.
+			double outputWeight = maxGSAlgorithm
+					.calcObjectiveValueOfParse(output.getHeads(), numTkns,
+							edgeFactorWeights, grandparentFactorWeights,
+							siblingsFactorWeights, null, null);
+			if (outputWeight > bestOutputWeight) {
+				bestOutputWeight = outputWeight;
+				for (int tkn = 0; tkn < numTkns; ++tkn)
+					bestOutput[tkn] = output.getHead(tkn);
+			}
+
 			/*
 			 * Compute the best GS structure for heads whose dual variables have
 			 * been updated.
@@ -342,7 +393,8 @@ public class DPGSDualInference implements Inference {
 				if (updatedHeads[idxHead])
 					dualObjectiveValues[idxHead] = maxGSAlgorithm
 							.findMaximumGrandparentSiblingsForHead(numTkns,
-									idxHead, grandparentFactorWeights[idxHead],
+									idxHead, edgeFactorWeights,
+									grandparentFactorWeights[idxHead],
 									siblingsFactorWeights[idxHead],
 									dualGrandparentVariables,
 									dualModifierVariables,
@@ -366,6 +418,10 @@ public class DPGSDualInference implements Inference {
 			// Clear flag array of updated heads for the next iteration.
 			Arrays.fill(updatedHeads, false);
 		}
+
+		// Copy the best parse tree to the output structure.
+		for (int tkn = 0; tkn < numTkns; ++tkn)
+			output.setHead(tkn, bestOutput[tkn]);
 	}
 
 	public static void printDualVars(int numTkns, double[][] vars) {
@@ -380,19 +436,43 @@ public class DPGSDualInference implements Inference {
 	}
 
 	/**
+	 * Fill the underlying weights of the edge factors that are used by the
+	 * optimization algorithms.
+	 * 
+	 * @param model
+	 * @param input
+	 */
+	private void fillEdgeFactorWeights(DPGSModel model, DPGSInput input) {
+		int numTkns = input.size();
+		for (int idxHead = 0; idxHead < numTkns; ++idxHead)
+			for (int idxModifier = 0; idxModifier < numTkns; ++idxModifier)
+				edgeFactorWeights[idxHead][idxModifier] = model
+						.getFeatureListScore(input.getEdgeFeatures(idxHead,
+								idxModifier));
+	}
+
+	/**
 	 * Fill the underlying graph with the values of the underlying dual
-	 * variables.
+	 * variables and, possibly, a fraction (<code>beta</code>) of the edge
+	 * factor weights.
 	 * 
 	 * @param numberOfTokens
 	 */
 	private void fillGraph(int numberOfTokens) {
 		for (int idxHead = 0; idxHead < numberOfTokens; ++idxHead) {
-			for (int idxModifier = 0; idxModifier < numberOfTokens; ++idxModifier)
+			for (int idxModifier = 0; idxModifier < numberOfTokens; ++idxModifier) {
+				double edgeFactorWeight = edgeFactorWeights[idxHead][idxModifier];
+				if (Double.isNaN(edgeFactorWeight)) {
+					// Skip invalid edges.
+					graph[idxHead][idxModifier] = Double.NaN;
+					continue;
+				}
+				// Dual variables.
 				graph[idxHead][idxModifier] = dualGrandparentVariables[idxHead][idxModifier]
 						+ dualModifierVariables[idxHead][idxModifier];
-			graph[idxHead][idxHead] = Double.NaN;
-			if (root >= 0)
-				graph[idxHead][root] = Double.NaN;
+				// A fraction of the edge factor weight.
+				graph[idxHead][idxModifier] += beta * edgeFactorWeight;
+			}
 		}
 	}
 
@@ -513,7 +593,7 @@ public class DPGSDualInference implements Inference {
 
 	/**
 	 * Return the maximum number of steps that the subgradient method can
-	 * perform before returning. That method can still return before whenever it
+	 * perform before returning. That method can still return sooner whenever it
 	 * finds the optimum solution.
 	 * 
 	 * @return
@@ -565,22 +645,46 @@ public class DPGSDualInference implements Inference {
 	}
 
 	/**
+	 * Set the value for the beta parameter. This parameter determines the
+	 * fraction of the edge factor weights that is passed to the maximum
+	 * branching algorithm. The remaining weights are given to the
+	 * grandparent/siblings algorithm.
+	 * 
+	 * @param beta
+	 */
+	public void setBeta(double beta) {
+		this.beta = beta;
+		maxGSAlgorithm.setBeta(beta);
+	}
+
+	public double getAverageSubGradStepsPerPrediction() {
+		return ((double) numSubGradSteps) / ((double) numPredictions);
+	}
+
+	/**
 	 * Test code.
 	 * 
 	 * @param args
 	 * @throws DPGSException
 	 */
 	public static void main(String[] args) throws DPGSException {
+		// Feature arrays.
+		int[][][] eFtrs = new int[5][5][];
 		int[][][][] gFtrs = new int[5][5][5][];
 		int[][][][] sFtrs = new int[5][6][6][];
 
 		int[] zeroFtrs = new int[] { 0 };
 
-		// Initialize all siblings features.
-		for (int idxHead = 0; idxHead < 5; ++idxHead)
-			for (int idxModifier = 0; idxModifier < 6; ++idxModifier)
-				for (int idxPrevModifier = 0; idxPrevModifier < 6; ++idxPrevModifier)
+		// Initialize all edge and siblings features.
+		for (int idxHead = 0; idxHead < 5; ++idxHead) {
+			for (int idxModifier = 0; idxModifier < 6; ++idxModifier) {
+				// Edge features.
+				eFtrs[idxHead][idxModifier] = zeroFtrs;
+				for (int idxPrevModifier = 0; idxPrevModifier < 6; ++idxPrevModifier) {
 					sFtrs[idxHead][idxModifier][idxPrevModifier] = zeroFtrs;
+				}
+			}
+		}
 
 		// Initialize all grandparent features.
 		for (int idxHead = 0; idxHead < 5; ++idxHead)
@@ -608,10 +712,10 @@ public class DPGSDualInference implements Inference {
 		sFtrs[2][2][1] = new int[] { 0 };
 
 		// Input structure.
-		DPGSInput input = new DPGSInput(gFtrs, sFtrs);
+		DPGSInput input = new DPGSInput(eFtrs, gFtrs, sFtrs);
 
 		// Inference object.
-		DPGSDualInference inference = new DPGSDualInference(0, input.size());
+		DPGSDualInference inference = new DPGSDualInference(input.size());
 
 		// Model.
 		DPGSModel model = new DPGSModel(0);
@@ -639,6 +743,7 @@ public class DPGSDualInference implements Inference {
 						-1, -1, -1d, inference.maxGSAlgorithm
 								.calcObjectiveValueOfParse(output.getHeads(),
 										output.size(),
+										inference.edgeFactorWeights,
 										inference.grandparentFactorWeights,
 										inference.siblingsFactorWeights, null,
 										null)));
