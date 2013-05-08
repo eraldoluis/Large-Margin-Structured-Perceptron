@@ -92,27 +92,38 @@ public class RankInput implements ExampleInput {
 	 * 
 	 * @param itemsList
 	 */
-	public void setFeatures(Collection<? extends Collection<Integer>> itemsList) {
-		int numItems = itemsList.size();
-		features = new int[numItems][];
-		Iterator<? extends Collection<Integer>> itItems = itemsList.iterator();
-		for (int idxItem = 0; idxItem < numItems; ++idxItem) {
-			Collection<Integer> featuresList = itItems.next();
-			int numFtrs = featuresList.size();
-			features[idxItem] = new int[numFtrs];
-			Iterator<Integer> it = featuresList.iterator();
-			for (int idxFtr = 0; idxFtr < numFtrs; ++idxFtr)
-				features[idxItem][idxFtr] = it.next().intValue();
-		}
+	public void setFeatures(int item, Collection<Integer> featuresList) {
+		int numFtrs = featuresList.size();
+		features[item] = new int[numFtrs];
+		Iterator<Integer> it = featuresList.iterator();
+		for (int idxFtr = 0; idxFtr < numFtrs; ++idxFtr)
+			features[item][idxFtr] = it.next().intValue();
 	}
 
 	/**
-	 * Return the array of the given item.
+	 * Return the derived features array of the given item.
 	 * 
 	 * @param item
 	 * @return
 	 */
-	public int[] getItemFeatures(int item) {
+	public int[] getFeatures(int item) {
 		return features[item];
+	}
+
+	/**
+	 * Return the basic features array for the given item.
+	 * 
+	 * @param item
+	 * @return
+	 */
+	public int[] getBasicFeatures(int item) {
+		return basicFeatures[item];
+	}
+
+	/**
+	 * Allocate memory for the derived features array
+	 */
+	public void allocFeatureArray() {
+		features = new int[size()][];
 	}
 }

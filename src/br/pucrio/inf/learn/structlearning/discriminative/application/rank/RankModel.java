@@ -86,7 +86,7 @@ public class RankModel implements Model {
 				 * number of irrelevant items before rank k.
 				 */
 				if (numIrrelevant > 0) {
-					updateParameters(input.getItemFeatures(item), learningRate
+					updateParameters(input.getFeatures(item), learningRate
 							* numIrrelevant);
 				}
 			} else {
@@ -99,7 +99,7 @@ public class RankModel implements Model {
 				 */
 				int numRelItemsAfterK = numTotalRelevant - (k - numIrrelevant);
 				if (numRelItemsAfterK > 0) {
-					updateParameters(input.getItemFeatures(item), learningRate
+					updateParameters(input.getFeatures(item), learningRate
 							* numRelItemsAfterK);
 				}
 			}

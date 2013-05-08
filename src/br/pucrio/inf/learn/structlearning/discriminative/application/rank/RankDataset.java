@@ -1,61 +1,96 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.rank;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.PrintStream;
+import java.io.OutputStream;
 import java.util.Collection;
 import java.util.LinkedList;
+import java.util.List;
+import java.util.regex.Pattern;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import sun.reflect.generics.reflectiveObjects.NotImplementedException;
+import br.pucrio.inf.learn.structlearning.discriminative.application.dp.Feature;
+import br.pucrio.inf.learn.structlearning.discriminative.application.dp.FeatureTemplate;
+import br.pucrio.inf.learn.structlearning.discriminative.data.Dataset;
 import br.pucrio.inf.learn.structlearning.discriminative.data.DatasetException;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
+import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.MapEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.StringMapEncoding;
 
 /**
- * Represent a text dataset.
+ * Represent a query-items dataset in column format.
  * 
- * Provide methods for manipulating a text dataset. Some operations are: create
- * new features, remove features, get feature values, get a complete example,
- * change feature values.
+ * Provide methods for manipulating the dataset. Some operations are: load
+ * examples from file, create new features, remove features, get feature values,
+ * get a complete example, change feature values.
  * 
  * The feature values are stored as integer. We use a feature-value mapping to
  * encode the string values.
  * 
  */
-public class RankDataset {
+public class RankDataset implements Dataset {
 
+	/**
+	 * Loging object.
+	 */
 	private static final Log LOG = LogFactory.getLog(RankDataset.class);
 
 	/**
-	 * Indicate whether this is a training dataset or not.
+	 * Regular expression pattern to parse spaces.
 	 */
-	protected boolean training;
+	protected static final Pattern REGEX_SPACE = Pattern.compile("[ ]");
 
 	/**
-	 * Map string feature values to integer values (codes).
+	 * Map basic feature values (string) to codes (integer).
 	 */
-	protected FeatureEncoding<String> featureEncoding;
+	protected FeatureEncoding<String> basicEncoding;
 
 	/**
-	 * Vector of the input-part of the examples.
+	 * Encoding for explicit features, i.e., features created from templates by
+	 * conjoining basic features.
+	 */
+	protected MapEncoding<Feature> explicitEncoding;
+
+	/**
+	 * Array of input structures.
 	 */
 	protected RankInput[] inputExamples;
 
 	/**
-	 * Vector of the output-part of the examples (correct predictions).
+	 * Array of golden output structures (correct prediction for the input
+	 * structures).
 	 */
 	protected RankOutput[] outputExamples;
+
+	/**
+	 * Indicate whether the output structures in this dataset have golden
+	 * information.
+	 */
+	protected boolean hasGoldenOutput;
+
+	/**
+	 * Feature templates to generate complex features from basic features.
+	 */
+	protected FeatureTemplate[] templates;
+
+	/**
+	 * Labels of this dataset columns (basic features).
+	 */
+	protected String[] featureLabels;
 
 	/**
 	 * Default constructor.
 	 */
 	public RankDataset() {
 		this(new StringMapEncoding());
+		this.explicitEncoding = new MapEncoding<Feature>();
 	}
 
 	/**
@@ -63,16 +98,11 @@ public class RankDataset {
 	 * this constructor to create a dataset compatible with a previous loaded
 	 * model, for instance.
 	 * 
-	 * @param featureEncoding
+	 * @param basicFeatureEncoding
 	 */
-	public RankDataset(FeatureEncoding<String> featureEncoding) {
-		this.featureEncoding = featureEncoding;
-		this.training = false;
-	}
-
-	public RankDataset(FeatureEncoding<String> featureEncoding, boolean training) {
-		this.featureEncoding = featureEncoding;
-		this.training = training;
+	public RankDataset(FeatureEncoding<String> basicFeatureEncoding) {
+		this.basicEncoding = basicFeatureEncoding;
+		this.explicitEncoding = new MapEncoding<Feature>();
 	}
 
 	/**
@@ -122,39 +152,6 @@ public class RankDataset {
 		load(fileName);
 	}
 
-	public RankInput getPQInput2(int index) {
-		return inputExamples[index];
-	}
-
-	/**
-	 * Return the number of examples within this dataset.
-	 * 
-	 * @return the number of examples within this dataset
-	 */
-	public int getNumberOfExamples() {
-		return inputExamples.length;
-	}
-
-	public FeatureEncoding<String> getFeatureEncoding() {
-		return featureEncoding;
-	}
-
-	public RankInput[] getInputs() {
-		return inputExamples;
-	}
-
-	public RankOutput[] getOutputs() {
-		return outputExamples;
-	}
-
-	public RankInput getInput(int index) {
-		return inputExamples[index];
-	}
-
-	public RankOutput getOutput(int index) {
-		return outputExamples[index];
-	}
-
 	/**
 	 * Load a dataset from the given stream.
 	 * 
@@ -184,67 +181,262 @@ public class RankDataset {
 	}
 
 	/**
-	 * Load a dataset from the given buffered reader.
+	 * Load templates from the given file and, optionally, generate explicit
+	 * features.
 	 * 
-	 * @param reader
+	 * @param templatesFileName
+	 * @param generateFeatures
 	 * @throws IOException
-	 * @throws DatasetException
 	 */
-	public void load(BufferedReader reader) throws IOException,
-			DatasetException {
-		LinkedList<RankInput> inputExamples = new LinkedList<RankInput>();
-		LinkedList<RankOutput> outputExamples = new LinkedList<RankOutput>();
-
-		// Parse each example.
-		int numTotal = 0;
-		int numAdded = 0;
-		String buff;
-		while ((buff = skipBlanksAndComments(reader)) != null) {
-			if (parseExample(inputExamples, outputExamples, buff))
-				++numAdded;
-			++numTotal;
-		}
-
-		LOG.info("Skipped " + (numTotal - numAdded) + " examples of "
-				+ numTotal + " (" + (numTotal - numAdded) * 100d / numTotal
-				+ "%)");
-
-		this.inputExamples = inputExamples.toArray(new RankInput[0]);
-		this.outputExamples = outputExamples.toArray(new RankOutput[0]);
+	public void loadTemplates(String templatesFileName, boolean generateFeatures)
+			throws IOException {
+		BufferedReader reader = new BufferedReader(new FileReader(
+				templatesFileName));
+		loadTemplates(reader, generateFeatures);
+		reader.close();
 	}
 
 	/**
-	 * Add the examples in the given dataset to this dataset.
+	 * Load templates from the given reader and, optionally, generate explicit
+	 * features.
 	 * 
-	 * @param other
+	 * @param reader
+	 * @param generateFeatures
+	 * @throws IOException
 	 */
-	public void add(RankDataset other) throws DatasetException {
-		if (!featureEncoding.equals(other.featureEncoding))
-			throw new DatasetException("Different encodings");
-
-		// Alloc room to store both datasets (this one and the given one).
-		RankInput[] newInputExamples = new RankInput[inputExamples.length
-				+ other.inputExamples.length];
-		RankOutput[] newOutputExamples = new RankOutput[outputExamples.length
-				+ other.outputExamples.length];
-
-		// Copy (only reference) the examples in this dataset to the new arrays.
-		int idx = 0;
-		for (; idx < inputExamples.length; ++idx) {
-			newInputExamples[idx] = inputExamples[idx];
-			newOutputExamples[idx] = outputExamples[idx];
+	public void loadTemplates(BufferedReader reader, boolean generateFeatures)
+			throws IOException {
+		LinkedList<FeatureTemplate> templatesList = new LinkedList<FeatureTemplate>();
+		String line = skipBlanksAndComments(reader);
+		while (line != null) {
+			String[] ftrsStr = REGEX_SPACE.split(line);
+			int[] ftrs = new int[ftrsStr.length];
+			for (int idx = 0; idx < ftrs.length; ++idx)
+				ftrs[idx] = getFeatureIndex(ftrsStr[idx]);
+			templatesList.add(new RankTemplate(templatesList.size(), ftrs));
+			// Read next line.
+			line = skipBlanksAndComments(reader);
 		}
 
-		// Copy (only reference) the examples in the given dataset to the new
-		// arrays.
-		for (int idxO = 0; idxO < other.inputExamples.length; ++idxO, ++idx) {
-			newInputExamples[idx] = other.inputExamples[idxO];
-			newOutputExamples[idx] = other.outputExamples[idxO];
+		// Convert list to array.
+		templates = templatesList.toArray(new FeatureTemplate[0]);
+
+		if (generateFeatures)
+			// Generate explicit features.
+			generateFeatures();
+	}
+
+	/**
+	 * Generate features for the current template partition.
+	 */
+	public void generateFeatures() {
+		LinkedList<Integer> ftrs = new LinkedList<Integer>();
+		FeatureTemplate[] tpls = templates;
+		int numExs = inputExamples.length;
+		for (int idxEx = 0; idxEx < numExs; ++idxEx) {
+			// Current input structure.
+			RankInput input = inputExamples[idxEx];
+
+			// Allocate explicit features matrix.
+			input.allocFeatureArray();
+
+			// Number of tokens within the current input.
+			int size = input.size();
+
+			for (int item = 0; item < size; ++item) {
+
+				// Clear previous used list of features.
+				ftrs.clear();
+
+				/*
+				 * Instantiate edge features and add them to active features
+				 * list.
+				 */
+				for (int idxTpl = 0; idxTpl < tpls.length; ++idxTpl) {
+					// Current template.
+					FeatureTemplate tpl = tpls[idxTpl];
+					// Get temporary feature instance.
+					Feature ftr = tpl.getInstance(input, item);
+					// Lookup the feature in the encoding.
+					int code = explicitEncoding.getCodeByValue(ftr);
+					/*
+					 * Instantiate a new feature, if it is not present in the
+					 * encoding.
+					 */
+					if (code == FeatureEncoding.UNSEEN_VALUE_CODE)
+						code = explicitEncoding.put(tpl
+								.newInstance(input, item));
+					// Add feature code to active features list.
+					ftrs.add(code);
+				}
+
+				// Set feature vector of this input.
+				input.setFeatures(item, ftrs);
+			}
+
+			// Progess report.
+			if ((idxEx + 1) % 100 == 0) {
+				System.out.print('.');
+				System.out.flush();
+			}
 		}
 
-		// Adjust the pointers of this dataset to the new arrays.
-		this.inputExamples = newInputExamples;
-		this.outputExamples = newOutputExamples;
+		System.out.println();
+		System.out.flush();
+	}
+
+	/**
+	 * Return the index of the given feature label. Return -1 if there is no
+	 * feature labeled like this.
+	 * 
+	 * @param label
+	 * @return
+	 */
+	private int getFeatureIndex(String label) {
+		for (int idx = 0; idx < featureLabels.length; ++idx)
+			if (label.equals(featureLabels[idx]))
+				return idx;
+		return -1;
+	}
+
+	@Override
+	public void load(BufferedReader reader) throws IOException,
+			DatasetException {
+		// Read feature labels in the first line of the file.
+		String line = reader.readLine();
+		reader.readLine();
+		int eq = line.indexOf('=');
+		int end = line.indexOf(']');
+		String[] labels = line.substring(eq + 1, end).split(",");
+		// Do not include the last feature (relevant).
+		featureLabels = new String[labels.length - 1];
+		for (int i = 0; i < labels.length - 1; ++i)
+			featureLabels[i - 1] = labels[i].trim();
+
+		// Examples.
+		List<RankInput> inputList = new LinkedList<RankInput>();
+		List<RankOutput> outputList = new LinkedList<RankOutput>();
+		int numExs = 0;
+		while (parseExample(reader, inputList, outputList)) {
+			++numExs;
+			if ((numExs + 1) % 100 == 0) {
+				System.out.print(".");
+				System.out.flush();
+			}
+		}
+		System.out.println();
+
+		// Convert the list of examples (input and output) to arrays.
+		inputExamples = inputList.toArray(new RankInput[0]);
+		outputExamples = outputList.toArray(new RankOutput[0]);
+
+		LOG.info("Read " + numExs + " examples.");
+	}
+
+	/**
+	 * Parse an example in the next lines of the given reader. An example
+	 * comprises a list of items. Each item is represented in one line. An item
+	 * comprises a list of feature values.
+	 * 
+	 * @param reader
+	 * @param exampleInputs
+	 * @param exampleOutputs
+	 * @return
+	 * @throws DatasetException
+	 * @throws NumberFormatException
+	 * @throws IOException
+	 */
+	public boolean parseExample(BufferedReader reader,
+			Collection<RankInput> exampleInputs,
+			Collection<RankOutput> exampleOutputs) throws DatasetException,
+			NumberFormatException, IOException {
+		// List of items of this query. Each item is a list of features.
+		LinkedList<LinkedList<Integer>> items = new LinkedList<LinkedList<Integer>>();
+
+		// Relevant and irrelevant items for this query.
+		LinkedList<Integer> relevantItems = new LinkedList<Integer>();
+		LinkedList<Integer> irrelevantItems = new LinkedList<Integer>();
+
+		// Read next line.
+		String line;
+		long prevQueryId = Long.MAX_VALUE;
+		while ((line = reader.readLine()) != null) {
+			// Trim read line.
+			line = line.trim();
+			if (line.length() == 0)
+				// Stop on blank lines.
+				break;
+
+			// Split edge in feature values.
+			String[] ftrValues = REGEX_SPACE.split(line);
+
+			// Head and dependent tokens indexes.
+			long queryId = Long.parseLong(ftrValues[0]);
+			if (prevQueryId != Long.MAX_VALUE && prevQueryId != queryId)
+				System.err
+						.println("Different query IDs within the same example!");
+			prevQueryId = queryId;
+
+			// List of feature codes.
+			LinkedList<Integer> ftrCodes = new LinkedList<Integer>();
+			// Add it already to the list of items.
+			items.add(ftrCodes);
+
+			// Encode the edge features and add the codes to the list.
+			for (int idxFtr = 0; idxFtr < ftrValues.length - 1; ++idxFtr) {
+				String str = ftrValues[idxFtr];
+				int code = basicEncoding.put(new String(str));
+				ftrCodes.add(code);
+			}
+
+			// Index of the current item.
+			int item = items.size() - 1;
+
+			// The last value is the relevant feature (1 or -1).
+			String isRelevant = ftrValues[ftrValues.length - 1];
+			if (isRelevant.equals("1")) {
+
+				/*
+				 * Add the index of the current item to the list of relevant
+				 * items.
+				 */
+				relevantItems.add(item);
+
+			} else if (isRelevant.equals("-1")) {
+
+				/*
+				 * Add the index of the current item to the list of irrelevant
+				 * items.
+				 */
+				irrelevantItems.add(item);
+
+			} else {
+				// Invalid feature value.
+				throw new DatasetException(
+						"Last feature value must be 1 or -1 to indicate "
+								+ "whether the item is relevant or not. "
+								+ "However, for item " + item
+								+ " this feature value is " + isRelevant);
+			}
+		}
+
+		if (items.size() == 0)
+			return line != null;
+
+		/*
+		 * Create a new string to store the input id to avoid memory leaks,
+		 * since the id string keeps a reference to the line string.
+		 */
+		RankInput input = new RankInput(prevQueryId, items);
+
+		// Allocate the output structure.
+		RankOutput output = new RankOutput(relevantItems, irrelevantItems);
+
+		exampleInputs.add(input);
+		exampleOutputs.add(output);
+
+		// Return true if there are more lines.
+		return line != null;
 	}
 
 	/**
@@ -269,204 +461,54 @@ public class RankDataset {
 		return buff;
 	}
 
-	/**
-	 * Parse the given string and load an example.
-	 * 
-	 * @param buff
-	 *            a string that contains an example.
-	 * 
-	 * @return <code>true</code> if the given string is a valid example.
-	 * 
-	 * @throws DatasetException
-	 *             if there is some format problem with the given string.
-	 */
-	public boolean parseExample(Collection<RankInput> exampleInputs,
-			Collection<RankOutput> exampleOutputs, String buff)
-			throws DatasetException {
-		// Split quotations.
-		String quotationsInput[] = buff.split("§");
-		if (quotationsInput.length == 0)
-			return false;
-
-		// First field: document ID.
-		if (quotationsInput[0].trim().length() == 0)
-			return false;
-		String docId = quotationsInput[0];
-
-		LinkedList<LinkedList<LinkedList<Integer>>> exampleInputAsList = new LinkedList<LinkedList<LinkedList<Integer>>>();
-		LinkedList<Integer> exampleOutputAsList = new LinkedList<Integer>();
-		LinkedList<Quotation> quotationsAsList = new LinkedList<Quotation>();
-
-		// Walk into the document quotations.
-		for (int idxQuote = 1; idxQuote < quotationsInput.length; idxQuote++) {
-			// Split candidate coreferences of the given quotation.
-			String coreferences[] = quotationsInput[idxQuote].split("\\t");
-
-			if (coreferences.length == 0)
-				return false;
-
-			// First field: quotation start index, quotation end index,
-			// right coreference index.
-			String firstField[] = coreferences[0].split("[ ]");
-			if (firstField.length != 3)
-				return false;
-
-			// Quotation start index, quotation end index.
-			if ((firstField[0].trim().length() == 0)
-					|| (firstField[1].trim().length() == 0))
-				return false;
-
-			Quotation quotation = new Quotation(coreferences.length - 1);
-			quotation.setQuotationIndex(Integer.parseInt(firstField[0]),
-					Integer.parseInt(firstField[1]));
-
-			// Right coreference index.
-			if (firstField[2].trim().length() == 0)
-				return false;
-			int rightCoref = Integer.parseInt(firstField[2]) + 1;
-
-			// Walk into the coreference feature list.
-			LinkedList<LinkedList<Integer>> corefFeatureList = new LinkedList<LinkedList<Integer>>();
-			for (int idxCoref = 1; idxCoref < coreferences.length; ++idxCoref) {
-				String coreference = coreferences[idxCoref];
-
-				// Parse the given coreference features.
-				String[] features = coreference.split("[ ]");
-				if (firstField.length < 2)
-					return false;
-
-				// First field: coreference start index, coreference end index.
-				if ((features[0].trim().length() == 0)
-						|| (features[1].trim().length() == 0))
-					return false;
-
-				quotation.setCoreferenceIndex(idxCoref - 1,
-						Integer.parseInt(features[0]),
-						Integer.parseInt(features[1]));
-
-				// Encode the features.
-				LinkedList<Integer> featureList = new LinkedList<Integer>();
-				for (int idxFtr = 2; idxFtr < features.length; ++idxFtr) {
-					int code = featureEncoding.put(features[idxFtr]);
-					if (code >= 0)
-						featureList.add(code);
-				}
-				corefFeatureList.add(featureList);
-			}
-
-			// Example input.
-			exampleInputAsList.add(corefFeatureList);
-
-			// Example output.
-			exampleOutputAsList.add(rightCoref);
-
-			// Quotation index information.
-			quotationsAsList.add(quotation);
-		}
-
-		// Store the loaded example.
-		if (training) {
-			/*
-			 * Training examples must store internally their indexes in the
-			 * array of training examples.
-			 */
-			exampleInputs.add(new RankInput(docId, exampleInputAsList,
-					quotationsAsList));
-			exampleOutputs.add(new RankOutput(exampleOutputAsList));
-		} else {
-			exampleInputs.add(new RankInput(docId, exampleInputAsList,
-					quotationsAsList));
-			exampleOutputs.add(new RankOutput(exampleOutputAsList));
-		}
-		return true;
+	public FeatureEncoding<String> getBasicFeatureEncoding() {
+		return basicEncoding;
 	}
 
-	/**
-	 * Save this dataset in the given file.
-	 * 
-	 * @param fileName
-	 *            name of the file to save this dataset.
-	 * 
-	 * @throws IOException
-	 *             if some problem occurs when opening or writing to the file.
-	 */
+	@Override
+	public int getNumberOfExamples() {
+		return inputExamples.length;
+	}
+
+	@Override
+	public RankInput[] getInputs() {
+		return inputExamples;
+	}
+
+	@Override
+	public RankOutput[] getOutputs() {
+		return outputExamples;
+	}
+
+	@Override
+	public RankInput getInput(int index) {
+		return inputExamples[index];
+	}
+
+	@Override
+	public RankOutput getOutput(int index) {
+		return outputExamples[index];
+	}
+
+	@Override
 	public void save(String fileName) throws IOException {
-		PrintStream ps = new PrintStream(fileName);
-		save(ps);
-		ps.close();
+		throw new NotImplementedException();
 	}
 
-	/**
-	 * Save the dataset to the given stream.
-	 * 
-	 * @param os
-	 *            an output stream to where the dataset is saved.
-	 */
-	public void save(PrintStream ps) {
-		for (int idxExample = 0; idxExample < getNumberOfExamples(); ++idxExample) {
-			RankInput input = inputExamples[idxExample];
-			RankOutput output = outputExamples[idxExample];
-
-			// The sentence identifier string.
-			ps.print(input.getId());
-
-			int numberOfQuotations = input.getNumberOfQuotations();
-			for (int quotationIdx = 0; quotationIdx < numberOfQuotations; ++quotationIdx) {
-				// Quotation separator.
-				ps.print("§");
-
-				int numberOfCoreferences = input
-						.getNumberOfCoreferences(quotationIdx);
-				for (int coreferenceIdx = 0; coreferenceIdx < numberOfCoreferences; ++coreferenceIdx) {
-					// Coreference features.
-					for (int ftr : input.getFeatureCodes(quotationIdx,
-							coreferenceIdx))
-						ps.print(featureEncoding.getValueByCode(ftr) + " ");
-
-					// Coreference separator.
-					ps.print("\t");
-				}
-
-				// Quotation author.
-				ps.println(featureEncoding.getValueByCode(output
-						.getAuthor(quotationIdx)));
-			}
-
-			// Next line for the next example.
-			ps.println();
-		}
+	@Override
+	public boolean isTraining() {
+		throw new NotImplementedException();
 	}
 
-	/**
-	 * Return the number of symbols in the dataset feature-value encoding
-	 * object. In general, this corresponds to the total number of different
-	 * symbols in the dataset, but can be a different number if the encoding was
-	 * used by other code despite this dataset.
-	 * 
-	 * @return
-	 */
-	public int getNumberOfSymbols() {
-		return featureEncoding.size();
+	@Override
+	public void save(BufferedWriter writer) throws IOException,
+			DatasetException {
+		throw new NotImplementedException();
 	}
 
-	/**
-	 * Normalize all the input structures within this dataset to have the same
-	 * given norm.
-	 * 
-	 * @param norm
-	 */
-	public void normalizeInputStructures(double norm) {
-		for (RankInput in : inputExamples)
-			in.normalize(norm);
-	}
-
-	/**
-	 * Sort feature values of each token to speedup kernel functions
-	 * computations.
-	 */
-	public void sortFeatureValues() {
-		for (RankInput seq : inputExamples)
-			seq.sortFeatures();
+	@Override
+	public void save(OutputStream os) throws IOException, DatasetException {
+		throw new NotImplementedException();
 	}
 
 }

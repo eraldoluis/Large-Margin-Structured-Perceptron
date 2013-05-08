@@ -40,6 +40,12 @@ public class RankOutput implements ExampleOutput {
 	private int size;
 
 	/**
+	 * Auxiliary array to be used by the inference algorithm. Only for predicted
+	 * outputs.
+	 */
+	public double[] weights;
+
+	/**
 	 * Create an output structure with the given size (number of items). This
 	 * structure is based on strict ordering, i.e., it is used for prediction.
 	 * 
@@ -47,6 +53,7 @@ public class RankOutput implements ExampleOutput {
 	 */
 	public RankOutput(int size) {
 		this.orderedItems = new int[size];
+		this.weights = new double[size];
 	}
 
 	/**
