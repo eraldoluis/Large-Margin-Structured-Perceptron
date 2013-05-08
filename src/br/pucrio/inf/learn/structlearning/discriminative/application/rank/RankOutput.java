@@ -2,7 +2,6 @@ package br.pucrio.inf.learn.structlearning.discriminative.application.rank;
 
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.Set;
 
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
@@ -20,7 +19,7 @@ public class RankOutput implements ExampleOutput {
 	 * Ordered list of items. Each element in this array is an item index in the
 	 * corresponding input structure. This array is used for predictions.
 	 */
-	private int[] orderedItems;
+	public WeightedItem[] weightedItems;
 
 	/**
 	 * Set of relevant items. These should be ranked above of all irrelevant
@@ -40,34 +39,16 @@ public class RankOutput implements ExampleOutput {
 	private int size;
 
 	/**
-	 * Auxiliary array to be used by the inference algorithm. Only for predicted
-	 * outputs.
-	 */
-	public double[] weights;
-
-	/**
 	 * Create an output structure with the given size (number of items). This
 	 * structure is based on strict ordering, i.e., it is used for prediction.
 	 * 
 	 * @param size
 	 */
 	public RankOutput(int size) {
-		this.orderedItems = new int[size];
-		this.weights = new double[size];
-	}
-
-	/**
-	 * Create a prediction output structure with the given ordered list of
-	 * items.
-	 * 
-	 * @param orderedItemsList
-	 */
-	public RankOutput(Collection<Integer> orderedItemsList) {
-		int size = orderedItemsList.size();
-		this.orderedItems = new int[size];
-		Iterator<Integer> it = orderedItemsList.iterator();
-		for (int idxItem = 0; idxItem < size; ++idxItem)
-			orderedItems[idxItem] = it.next().intValue();
+		this.size = size;
+		this.weightedItems = new WeightedItem[size];
+		for (int item = 0; item < size; ++item)
+			weightedItems[item] = new WeightedItem(item, 0);
 	}
 
 	/**
@@ -153,7 +134,7 @@ public class RankOutput implements ExampleOutput {
 	 * @return
 	 */
 	public int getItemAtIndex(int index) {
-		return orderedItems[index];
+		return weightedItems[index].item;
 	}
 
 	/**
@@ -175,4 +156,44 @@ public class RankOutput implements ExampleOutput {
 	public int getNumberOfIrrelevantItems() {
 		return irrelevantItems.size();
 	}
+
+	/**
+	 * Represent a item and its weight to be used to sort the list of items
+	 * according to the weights given by a model.
+	 * 
+	 * @author eraldo
+	 * 
+	 */
+	public static class WeightedItem implements Comparable<WeightedItem> {
+		/**
+		 * Item index as in the input structure.
+		 */
+		public int item;
+
+		/**
+		 * Weight of the item.
+		 */
+		public double weight;
+
+		/**
+		 * Create an weighted item.
+		 * 
+		 * @param item
+		 * @param weight
+		 */
+		public WeightedItem(int item, double weight) {
+			this.item = item;
+			this.weight = weight;
+		}
+
+		@Override
+		public int compareTo(WeightedItem o) {
+			if (weight > o.weight)
+				return -1;
+			if (weight < o.weight)
+				return 1;
+			return 0;
+		}
+	}
+
 }

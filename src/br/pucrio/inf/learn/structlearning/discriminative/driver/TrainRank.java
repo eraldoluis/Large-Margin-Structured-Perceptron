@@ -1,5 +1,6 @@
 package br.pucrio.inf.learn.structlearning.discriminative.driver;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 
 import org.apache.commons.cli.CommandLine;
@@ -14,7 +15,9 @@ import br.pucrio.inf.learn.structlearning.discriminative.algorithm.OnlineStructu
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.Perceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.application.rank.RankDataset;
 import br.pucrio.inf.learn.structlearning.discriminative.application.rank.RankInference;
+import br.pucrio.inf.learn.structlearning.discriminative.application.rank.RankInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.rank.RankModel;
+import br.pucrio.inf.learn.structlearning.discriminative.application.rank.RankOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.DatasetException;
 import br.pucrio.inf.learn.structlearning.discriminative.driver.Driver.Command;
 import br.pucrio.inf.learn.util.CommandLineOptionsUtil;
@@ -65,9 +68,13 @@ public class TrainRank implements Command {
 		// .withArgName("filename").hasArg()
 		// .withDescription("File name to save final model.").create());
 
-		// options.addOption(OptionBuilder.withLongOpt("test")
-		// .withArgName("filename").hasArg()
-		// .withDescription("Test dataset file name.").create());
+		options.addOption(OptionBuilder.withLongOpt("testin")
+				.withArgName("filename").hasArg()
+				.withDescription("Input test dataset file name.").create());
+
+		options.addOption(OptionBuilder.withLongOpt("testout")
+				.withArgName("filename").hasArg()
+				.withDescription("Output test dataset file name.").create());
 
 		// options.addOption(OptionBuilder.withLongOpt("scriptpath")
 		// .withArgName("path").hasArg()
@@ -127,7 +134,8 @@ public class TrainRank implements Command {
 		int numEpochs = Integer.parseInt(cmdLine.getOptionValue("numepochs",
 				"10"));
 		// String modelFileName = cmdLine.getOptionValue("model");
-		// String testDatasetFileName = cmdLine.getOptionValue("test");
+		String testInFilename = cmdLine.getOptionValue("testin");
+		String testOutFilename = cmdLine.getOptionValue("testout");
 		// String scriptBasePathStr = cmdLine.getOptionValue("scriptpath");
 		// File conllBasePath = null;
 		// if (scriptBasePathStr != null)
@@ -146,15 +154,18 @@ public class TrainRank implements Command {
 			inDataset = new RankDataset(inputCorpusFileName);
 		} catch (IOException e) {
 			LOG.error("Loading train dataset", e);
+			System.exit(1);
 		} catch (DatasetException e) {
 			LOG.error("Loading train dataset", e);
+			System.exit(1);
 		}
 
 		try {
 			LOG.info("Loading templates and generating features...");
 			inDataset.loadTemplates(templatesFileName, true);
 		} catch (IOException e) {
-			LOG.error("Loading train dataset", e);
+			LOG.error("Loading templates and generating features", e);
+			System.exit(1);
 		}
 
 		// Inference (prediction) algorithm.
@@ -182,6 +193,45 @@ public class TrainRank implements Command {
 				model.getNumberOfUpdatedParameters()));
 
 		LOG.info("Training done!");
+
+		if (testInFilename != null && testOutFilename != null) {
+
+			RankDataset testDataset = null;
+			try {
+				LOG.info("Loading test dataset...");
+				testDataset = new RankDataset(inDataset);
+				testDataset.load(testInFilename);
+				LOG.info("Generating features...");
+				testDataset.generateFeatures();
+			} catch (IOException e) {
+				LOG.error("Loading test dataset", e);
+				System.exit(1);
+			} catch (DatasetException e) {
+				LOG.error("Loading test dataset", e);
+				System.exit(1);
+			}
+
+			LOG.info("Predicting test examples...");
+			int numExs = testDataset.getNumberOfExamples();
+			RankInput[] inputs = testDataset.getInputs();
+			RankOutput[] predicteds = new RankOutput[numExs];
+			for (int idxEx = 0; idxEx < numExs; ++idxEx) {
+				predicteds[idxEx] = inputs[idxEx].createOutput();
+				inference.inference(model, inputs[idxEx], predicteds[idxEx]);
+			}
+
+			LOG.info(String.format("Saving predicted examples to %s...",
+					testOutFilename));
+			try {
+				testDataset.save(testOutFilename, predicteds);
+			} catch (FileNotFoundException e) {
+				LOG.error("Saving predicted test dataset", e);
+				System.exit(1);
+			}
+
+			LOG.info("Test dataset predicted.");
+
+		}
 	}
 
 }

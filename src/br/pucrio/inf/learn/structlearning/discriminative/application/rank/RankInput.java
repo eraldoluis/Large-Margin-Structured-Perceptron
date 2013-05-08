@@ -5,6 +5,7 @@ import java.util.Iterator;
 
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
+import br.pucrio.inf.learn.structlearning.discriminative.data.DatasetException;
 
 /**
  * Ranking input structure. It prepresents a query and a list of items
@@ -38,14 +39,37 @@ public class RankInput implements ExampleInput {
 	 * 
 	 * @param queryId
 	 * @param items
+	 * @throws DatasetException
 	 */
 	public RankInput(long queryId,
-			Collection<? extends Collection<Integer>> items) {
+			Collection<? extends Collection<Integer>> items)
+			throws DatasetException {
 		// Query ID.
 		this.queryId = queryId;
 
 		// Array of items basic features.
 		this.basicFeatures = new int[items.size()][];
+		Iterator<? extends Collection<Integer>> itItems = items.iterator();
+		int item = 0;
+		int prevNumFtrs = Integer.MAX_VALUE;
+		while (itItems.hasNext()) {
+			Collection<Integer> ftrs = itItems.next();
+			Iterator<Integer> itFtrs = ftrs.iterator();
+			int idxFtr = 0;
+			int numFtrs = ftrs.size();
+			if (prevNumFtrs != Integer.MAX_VALUE && prevNumFtrs != numFtrs)
+				throw new DatasetException(
+						String.format(
+								"Item %d in query %l has a diferent number of basic features than previous items.",
+								item, queryId));
+			prevNumFtrs = numFtrs;
+			basicFeatures[item] = new int[numFtrs];
+			while (itFtrs.hasNext()) {
+				basicFeatures[item][idxFtr] = itFtrs.next();
+				++idxFtr;
+			}
+			++item;
+		}
 
 		// Array of derived features.
 		this.features = null;
@@ -125,5 +149,9 @@ public class RankInput implements ExampleInput {
 	 */
 	public void allocFeatureArray() {
 		features = new int[size()][];
+	}
+	
+	public long getQueryId() {
+		return queryId;
 	}
 }

@@ -89,8 +89,8 @@ public class RankModel implements Model {
 				// Compute precision @ k and add it to the accum variable.
 				avgPrec += (k - numIrrelevant) / (double) k;
 				/*
-				 * Update parameters whenever there are irrevelevant items
-				 * before rank k. The update length is proportional to the
+				 * Increment parameters weights whenever there are irrevelevant
+				 * items before rank k. The update length is proportional to the
 				 * number of irrelevant items before rank k.
 				 */
 				if (numIrrelevant > 0) {
@@ -101,13 +101,13 @@ public class RankModel implements Model {
 				// One more irrelevant item. Hope it's in the bottom ;).
 				++numIrrelevant;
 				/*
-				 * Update parameters whenever there are relevant items after
-				 * rank k. The update length is proportional to the number of
-				 * relevant items after rank k.
+				 * Decrement parameters weights whenever there are relevant
+				 * items after rank k. The update length is proportional to the
+				 * number of relevant items after rank k.
 				 */
 				int numRelItemsAfterK = numTotalRelevant - (k - numIrrelevant);
 				if (numRelItemsAfterK > 0) {
-					updateParameters(input.getFeatures(item), learningRate
+					updateParameters(input.getFeatures(item), -learningRate
 							* numRelItemsAfterK);
 				}
 			}

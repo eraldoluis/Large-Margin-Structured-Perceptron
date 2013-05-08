@@ -2,11 +2,13 @@ package br.pucrio.inf.learn.structlearning.discriminative.application.rank;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.PrintStream;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
@@ -56,7 +58,7 @@ public class RankDataset implements Dataset {
 	 * Encoding for explicit features, i.e., features created from templates by
 	 * conjoining basic features.
 	 */
-	protected MapEncoding<Feature> explicitEncoding;
+	protected FeatureEncoding<Feature> explicitEncoding;
 
 	/**
 	 * Array of input structures.
@@ -89,8 +91,7 @@ public class RankDataset implements Dataset {
 	 * Default constructor.
 	 */
 	public RankDataset() {
-		this(new StringMapEncoding());
-		this.explicitEncoding = new MapEncoding<Feature>();
+		this(new StringMapEncoding(), new MapEncoding<Feature>());
 	}
 
 	/**
@@ -98,11 +99,12 @@ public class RankDataset implements Dataset {
 	 * this constructor to create a dataset compatible with a previous loaded
 	 * model, for instance.
 	 * 
-	 * @param basicFeatureEncoding
+	 * @param basicEncoding
 	 */
-	public RankDataset(FeatureEncoding<String> basicFeatureEncoding) {
-		this.basicEncoding = basicFeatureEncoding;
-		this.explicitEncoding = new MapEncoding<Feature>();
+	public RankDataset(FeatureEncoding<String> basicEncoding,
+			FeatureEncoding<Feature> explicitEnconding) {
+		this.basicEncoding = basicEncoding;
+		this.explicitEncoding = explicitEnconding;
 	}
 
 	/**
@@ -115,7 +117,7 @@ public class RankDataset implements Dataset {
 	 * @throws IOException
 	 */
 	public RankDataset(String fileName) throws IOException, DatasetException {
-		this(new StringMapEncoding());
+		this(new StringMapEncoding(), new MapEncoding<Feature>());
 		load(fileName);
 	}
 
@@ -127,7 +129,7 @@ public class RankDataset implements Dataset {
 	 * @throws DatasetException
 	 */
 	public RankDataset(InputStream is) throws IOException, DatasetException {
-		this(new StringMapEncoding());
+		this(new StringMapEncoding(), new MapEncoding<Feature>());
 		load(is);
 	}
 
@@ -138,7 +140,7 @@ public class RankDataset implements Dataset {
 	 * 
 	 * @param fileName
 	 *            name and path of a file.
-	 * @param featureEncoding
+	 * @param basicEncoding
 	 *            use a determined feature values encoding.
 	 * 
 	 * @throws IOException
@@ -146,10 +148,22 @@ public class RankDataset implements Dataset {
 	 * @throws DatasetException
 	 *             if the file contains invalid data.
 	 */
-	public RankDataset(String fileName, FeatureEncoding<String> featureEncoding)
-			throws IOException, DatasetException {
-		this(featureEncoding);
+	public RankDataset(String fileName, FeatureEncoding<String> basicEncoding,
+			FeatureEncoding<Feature> explicitEncoding) throws IOException,
+			DatasetException {
+		this(basicEncoding, explicitEncoding);
 		load(fileName);
+	}
+
+	/**
+	 * Create a sibling dataset.
+	 * 
+	 * @param sibling
+	 */
+	public RankDataset(RankDataset sibling) {
+		this.basicEncoding = sibling.basicEncoding;
+		this.explicitEncoding = sibling.explicitEncoding;
+		this.templates = sibling.templates;
 	}
 
 	/**
@@ -311,7 +325,7 @@ public class RankDataset implements Dataset {
 		// Do not include the last feature (relevant).
 		featureLabels = new String[labels.length - 1];
 		for (int i = 0; i < labels.length - 1; ++i)
-			featureLabels[i - 1] = labels[i].trim();
+			featureLabels[i] = labels[i].trim();
 
 		// Examples.
 		List<RankInput> inputList = new LinkedList<RankInput>();
@@ -511,4 +525,30 @@ public class RankDataset implements Dataset {
 		throw new NotImplementedException();
 	}
 
+	public FeatureEncoding<Feature> getExplicitEncoding() {
+		return explicitEncoding;
+	}
+
+	public void save(String testOutFilename, RankOutput[] predicteds)
+			throws FileNotFoundException {
+		PrintStream ps = new PrintStream(testOutFilename);
+		save(ps, predicteds);
+		ps.close();
+	}
+
+	public void save(PrintStream ps, RankOutput[] predicteds) {
+		int numExs = getNumberOfExamples();
+		for (int idxEx = 0; idxEx < numExs; ++idxEx) {
+			RankInput in = inputExamples[idxEx];
+			RankOutput out = predicteds[idxEx];
+			ps.print(in.getQueryId() + ",");
+			int numItems = out.size();
+			for (int idxItem = 0; idxItem < numItems; ++idxItem) {
+				int item = out.weightedItems[idxItem].item;
+				ps.print(basicEncoding.getValueByCode(in.getBasicFeatures(item)[1])
+						+ " ");
+			}
+			ps.println();
+		}
+	}
 }

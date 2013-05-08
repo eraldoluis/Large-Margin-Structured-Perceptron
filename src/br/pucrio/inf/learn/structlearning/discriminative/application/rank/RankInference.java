@@ -1,6 +1,9 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.rank;
 
+import java.util.Arrays;
+
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
+import br.pucrio.inf.learn.structlearning.discriminative.application.rank.RankOutput.WeightedItem;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Inference;
@@ -41,6 +44,7 @@ public class RankInference implements Inference {
 	 */
 	public void inference(RankModel model, RankInput input, RankOutput output) {
 		fillWeights(model, input, output);
+		Arrays.sort(output.weightedItems);
 	}
 
 	/**
@@ -54,13 +58,15 @@ public class RankInference implements Inference {
 	private void fillWeights(RankModel model, RankInput input, RankOutput output) {
 		// Number of items for this query.
 		int size = input.size();
-		for (int item = 0; item < size; ++item) {
+		for (int idxItem = 0; idxItem < size; ++idxItem) {
+			// Get the weighted item at the current index.
+			WeightedItem wItem = output.weightedItems[idxItem];
 			// Initialize the current item weight.
-			output.weights[item] = 0;
+			wItem.weight = 0;
 			// Compute sum of item features weights.
-			int[] ftrs = input.getFeatures(item);
+			int[] ftrs = input.getFeatures(wItem.item);
 			for (int ftr : ftrs)
-				output.weights[item] += model.getFeatureWeight(ftr);
+				wItem.weight += model.getFeatureWeight(ftr);
 		}
 	}
 
