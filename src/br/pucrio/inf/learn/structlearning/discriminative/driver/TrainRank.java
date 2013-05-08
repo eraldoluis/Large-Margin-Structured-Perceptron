@@ -12,6 +12,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.OnlineStructuredAlgorithm.LearnRateUpdateStrategy;
+import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.LossAugmentedPerceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.Perceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.application.rank.RankDataset;
 import br.pucrio.inf.learn.structlearning.discriminative.application.rank.RankInference;
@@ -96,13 +97,13 @@ public class TrainRank implements Command {
 				.withArgName("integer").hasArg()
 				.withDescription("Random number generator seed.").create());
 
-		// options.addOption(OptionBuilder
-		// .withLongOpt("lossweight")
-		// .withArgName("double")
-		// .hasArg()
-		// .withDescription(
-		// "Weight of the loss term in the inference objective"
-		// + " function.").create());
+		options.addOption(OptionBuilder
+				.withLongOpt("lossweight")
+				.withArgName("double")
+				.hasArg()
+				.withDescription(
+						"Weight of the loss term in the inference objective"
+								+ " function.").create());
 
 		options.addOption(OptionBuilder
 				.withLongOpt("noavg")
@@ -143,8 +144,8 @@ public class TrainRank implements Command {
 		// String conllTestFileName = cmdLine.getOptionValue("conlltest");
 		// boolean evalPerEpoch = cmdLine.hasOption("perepoch");
 		String seedStr = cmdLine.getOptionValue("seed");
-		// double lossWeight = Double.parseDouble(cmdLine.getOptionValue(
-		// "lossweight", "0d"));
+		double lossWeight = Double.parseDouble(cmdLine.getOptionValue(
+				"lossweight", "0d"));
 		boolean averageWeights = !cmdLine.hasOption("noavg");
 
 		RankDataset inDataset = null;
@@ -176,8 +177,11 @@ public class TrainRank implements Command {
 		RankModel model = new RankModel();
 
 		// Learning algorithm.
-		Perceptron alg = new Perceptron(inference, model, numEpochs, 1, true,
-				averageWeights, LearnRateUpdateStrategy.NONE);
+		LossAugmentedPerceptron alg = new LossAugmentedPerceptron(inference,
+				model, numEpochs, 1, lossWeight, true, averageWeights,
+				LearnRateUpdateStrategy.NONE);
+		// Perceptron alg = new Perceptron(inference, model, numEpochs, 1, true,
+		// averageWeights, LearnRateUpdateStrategy.NONE);
 
 		if (seedStr != null)
 			// User provided seed to random number generator.

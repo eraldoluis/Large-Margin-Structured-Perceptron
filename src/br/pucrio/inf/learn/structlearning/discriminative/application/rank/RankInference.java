@@ -43,7 +43,7 @@ public class RankInference implements Inference {
 	 * @param output
 	 */
 	public void inference(RankModel model, RankInput input, RankOutput output) {
-		fillWeights(model, input, output);
+		fillWeights(model, input, output, null, 0d);
 		Arrays.sort(output.weightedItems);
 	}
 
@@ -55,7 +55,8 @@ public class RankInference implements Inference {
 	 * @param input
 	 * @param output
 	 */
-	private void fillWeights(RankModel model, RankInput input, RankOutput output) {
+	private void fillWeights(RankModel model, RankInput input,
+			RankOutput output, RankOutput correct, double lossWeight) {
 		// Number of items for this query.
 		int size = input.size();
 		for (int idxItem = 0; idxItem < size; ++idxItem) {
@@ -68,12 +69,23 @@ public class RankInference implements Inference {
 			for (int ftr : ftrs)
 				wItem.weight += model.getFeatureWeight(ftr);
 		}
+
+		if (correct != null && lossWeight != 0d) {
+			for (int idxItem = 0; idxItem < size; ++idxItem) {
+				// Get the weighted item at the current index.
+				WeightedItem wItem = output.weightedItems[idxItem];
+				if (!correct.isRelevant(wItem.item))
+					// Increase weight.
+					wItem.weight += lossWeight;
+			}
+		}
 	}
 
 	public void lossAugmentedInference(RankModel model, RankInput input,
 			RankOutput referenceOutput, RankOutput predictedOutput,
 			double lossWeight) {
-		// TODO
+		fillWeights(model, input, predictedOutput, referenceOutput, lossWeight);
+		Arrays.sort(predictedOutput.weightedItems);
 	}
 
 	@Override
