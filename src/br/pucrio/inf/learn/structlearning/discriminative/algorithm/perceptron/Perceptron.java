@@ -283,6 +283,7 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 			double loss = trainOneEpoch(inputs, outputs, predicteds);
 
 			LOG.info("Training loss: " + loss);
+			LOG.info("Normalized training loss: " + (loss / inputs.length));
 
 			if (listener != null) {
 				if (!listener.afterEpoch(inferenceImpl, model, epoch, loss,

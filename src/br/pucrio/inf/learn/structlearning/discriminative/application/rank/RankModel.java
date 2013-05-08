@@ -1,6 +1,9 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.rank;
 
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
@@ -21,7 +24,7 @@ public class RankModel implements Model {
 	/**
 	 * Feature parameters.
 	 */
-	private AveragedParameter[] parameters;
+	private Map<Integer, AveragedParameter> parameters;
 
 	/**
 	 * Store the parameters updated in each training iteration.
@@ -29,14 +32,11 @@ public class RankModel implements Model {
 	private Set<AveragedParameter> updatedParameters;
 
 	/**
-	 * Create a new model with the given number of parameters.
+	 * Create a new empty model.
 	 * 
-	 * @param numberOfFeatures
 	 */
-	public RankModel(int numberOfFeatures) {
-		parameters = new AveragedParameter[numberOfFeatures];
-		for (int i = 0; i < parameters.length; ++i)
-			parameters[i] = new AveragedParameter();
+	public RankModel() {
+		parameters = new HashMap<Integer, AveragedParameter>();
 		updatedParameters = new HashSet<AveragedParameter>();
 	}
 
@@ -44,9 +44,17 @@ public class RankModel implements Model {
 	 * Create a new model using the given array of parameters weights.
 	 * 
 	 * @param parameters
+	 * @throws CloneNotSupportedException
 	 */
-	protected RankModel(AveragedParameter[] parameters) {
-		this.parameters = parameters;
+	protected RankModel(RankModel other) throws CloneNotSupportedException {
+		// Shallow-clone parameters map.
+		this.parameters = new HashMap<Integer, AveragedParameter>(
+				other.parameters);
+
+		// Clone each map value.
+		for (Entry<Integer, AveragedParameter> entry : parameters.entrySet())
+			entry.setValue(entry.getValue().clone());
+
 		this.updatedParameters = new HashSet<AveragedParameter>();
 	}
 
@@ -133,24 +141,51 @@ public class RankModel implements Model {
 	/**
 	 * Return the weight for the given feature code.
 	 * 
-	 * @param featureIndex
+	 * @param code
 	 * @return
 	 */
-	public double getFeatureWeight(int featureIndex) {
-		return this.parameters[featureIndex].get();
+	public double getFeatureWeight(int code) {
+		AveragedParameter param = parameters.get(code);
+		if (param == null)
+			return 0d;
+		return param.get();
 	}
 
 	@Override
 	public RankModel clone() throws CloneNotSupportedException {
-		AveragedParameter[] clones = new AveragedParameter[parameters.length];
-		for (int idx = 0; idx < clones.length; ++idx)
-			clones[idx] = parameters[idx].clone();
-		return new RankModel(clones);
+		return new RankModel(this);
 	}
 
 	@Override
 	public void save(String fileName, Dataset dataset) {
 		throw new NotImplementedException();
+	}
+
+	/**
+	 * Recover the parameter associated with the given feature.
+	 * 
+	 * If the parameter has not been initialized yet, then create it. If the
+	 * inverted index is activated and the parameter has not been initialized
+	 * yet, then update the active features lists for each edge where the
+	 * feature occurs.
+	 * 
+	 * @param ftr
+	 * @param value
+	 * @return
+	 */
+	protected void updateFeatureParam(int code, double value) {
+		AveragedParameter param = parameters.get(code);
+		if (param == null) {
+			// Create a new parameter.
+			param = new AveragedParameter();
+			parameters.put(code, param);
+		}
+
+		// Update parameter value.
+		param.update(value);
+
+		// Keep track of updated parameter within this example.
+		updatedParameters.add(param);
 	}
 
 	/**
@@ -161,9 +196,11 @@ public class RankModel implements Model {
 	 * @param val
 	 */
 	public void updateParameters(int[] ftrs, double val) {
-		for (int ftr : ftrs) {
-			parameters[ftr].update(val);
-			updatedParameters.add(parameters[ftr]);
-		}
+		for (int ftr : ftrs)
+			updateFeatureParam(ftr, val);
+	}
+
+	public int getNumberOfUpdatedParameters() {
+		return parameters.size();
 	}
 }

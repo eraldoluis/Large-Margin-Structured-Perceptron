@@ -346,7 +346,7 @@ public class RankDataset implements Dataset {
 	 * @throws NumberFormatException
 	 * @throws IOException
 	 */
-	public boolean parseExample(BufferedReader reader,
+	private boolean parseExample(BufferedReader reader,
 			Collection<RankInput> exampleInputs,
 			Collection<RankOutput> exampleOutputs) throws DatasetException,
 			NumberFormatException, IOException {
@@ -446,7 +446,7 @@ public class RankDataset implements Dataset {
 	 * @return
 	 * @throws IOException
 	 */
-	protected String skipBlanksAndComments(BufferedReader reader)
+	private String skipBlanksAndComments(BufferedReader reader)
 			throws IOException {
 		String buff;
 		while ((buff = reader.readLine()) != null) {
