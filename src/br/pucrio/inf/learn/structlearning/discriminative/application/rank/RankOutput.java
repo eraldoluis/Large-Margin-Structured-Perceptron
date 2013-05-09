@@ -39,6 +39,13 @@ public class RankOutput implements ExampleOutput {
 	private int size;
 
 	/**
+	 * Store the number of relevant items. Since there can be repeated relevant
+	 * items, it is not right to calculate the number of them just by getting
+	 * the size of the relevant set.
+	 */
+	private int numRelevantItems;
+
+	/**
 	 * Create an output structure with the given size (number of items). This
 	 * structure is based on strict ordering, i.e., it is used for prediction.
 	 * 
@@ -60,7 +67,8 @@ public class RankOutput implements ExampleOutput {
 	 */
 	public RankOutput(Collection<Integer> relevantItems,
 			Collection<Integer> irrelevantItems) {
-		this.size = relevantItems.size() + irrelevantItems.size();
+		this.numRelevantItems = relevantItems.size();
+		this.size = numRelevantItems + irrelevantItems.size();
 		this.relevantItems = new HashSet<Integer>(relevantItems);
 		this.irrelevantItems = new HashSet<Integer>(irrelevantItems);
 	}
@@ -144,7 +152,7 @@ public class RankOutput implements ExampleOutput {
 	 * @return
 	 */
 	public int getNumberOfRelevantItems() {
-		return relevantItems.size();
+		return numRelevantItems;
 	}
 
 	/**
@@ -154,7 +162,7 @@ public class RankOutput implements ExampleOutput {
 	 * @return
 	 */
 	public int getNumberOfIrrelevantItems() {
-		return irrelevantItems.size();
+		return size - numRelevantItems;
 	}
 
 	/**
