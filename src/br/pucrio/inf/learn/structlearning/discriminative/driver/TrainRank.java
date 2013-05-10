@@ -13,7 +13,6 @@ import org.apache.commons.logging.LogFactory;
 
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.OnlineStructuredAlgorithm.LearnRateUpdateStrategy;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.LossAugmentedPerceptron;
-import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.Perceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.application.rank.RankDataset;
 import br.pucrio.inf.learn.structlearning.discriminative.application.rank.RankInference;
 import br.pucrio.inf.learn.structlearning.discriminative.application.rank.RankInput;
@@ -218,11 +217,22 @@ public class TrainRank implements Command {
 			LOG.info("Predicting test examples...");
 			int numExs = testDataset.getNumberOfExamples();
 			RankInput[] inputs = testDataset.getInputs();
+			RankOutput[] corrects = testDataset.getOutputs();
 			RankOutput[] predicteds = new RankOutput[numExs];
+			double map = 0;
 			for (int idxEx = 0; idxEx < numExs; ++idxEx) {
 				predicteds[idxEx] = inputs[idxEx].createOutput();
 				inference.inference(model, inputs[idxEx], predicteds[idxEx]);
+				/*
+				 * The loss is the value that misses to achieve a average
+				 * precision of 1.
+				 */
+				map += 1 - model.loss(inputs[idxEx], corrects[idxEx],
+						predicteds[idxEx]);
 			}
+
+			// Mean average precision.
+			map = map / numExs;
 
 			LOG.info(String.format("Saving predicted examples to %s...",
 					testOutFilename));
@@ -233,7 +243,8 @@ public class TrainRank implements Command {
 				System.exit(1);
 			}
 
-			LOG.info("Test dataset predicted.");
+			LOG.info(String
+					.format("Test dataset predicted with MAP = %f.", map));
 
 		}
 	}

@@ -115,7 +115,50 @@ public class RankModel implements Model {
 		// Average precision.
 		avgPrec = avgPrec / (size - numIrrelevant);
 		// The loss is equal to what misses to an average precision of 1.
-		return 1 - avgPrec;
+		return avgPrec;
+	}
+
+	/**
+	 * Calculate the loss of the given predicted output according to the given
+	 * correct output.
+	 * 
+	 * @param input
+	 * @param outputCorrect
+	 * @param outputPredicted
+	 * @return
+	 */
+	public double loss(RankInput input, RankOutput outputCorrect,
+			RankOutput outputPredicted) {
+		// Example size (number of queries).
+		int size = outputCorrect.size();
+		// Sum of precision @ k.
+		double avgPrec = 0;
+		// Number of irrelevant items @ k.
+		int numIrrelevant = 0;
+		// Iterate over the ordered items of the predicted output.
+		for (int idxItem = 0; idxItem < size; ++idxItem) {
+			// k to calculate prec@k.
+			int k = idxItem + 1;
+			// That is the item identifier (index in the input array).
+			int item = outputPredicted.getItemAtIndex(idxItem);
+			// Item is relevant?
+			if (outputCorrect.isRelevant(item)) {
+
+				// Compute precision @ k and add it to the accum variable.
+				avgPrec += (k - numIrrelevant) / (double) k;
+
+			} else {
+
+				// One more irrelevant item. Hope it's in the bottom ;).
+				++numIrrelevant;
+
+			}
+		}
+
+		// Average precision.
+		avgPrec = avgPrec / (size - numIrrelevant);
+		// The loss is equal to what misses to an average precision of 1.
+		return 1- avgPrec;
 	}
 
 	@Override
