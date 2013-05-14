@@ -158,7 +158,7 @@ public class RankModel implements Model {
 		// Average precision.
 		avgPrec = avgPrec / (size - numIrrelevant);
 		// The loss is equal to what misses to an average precision of 1.
-		return 1- avgPrec;
+		return 1 - avgPrec;
 	}
 
 	@Override
