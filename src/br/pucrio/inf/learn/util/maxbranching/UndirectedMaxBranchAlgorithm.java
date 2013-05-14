@@ -59,20 +59,13 @@ public class UndirectedMaxBranchAlgorithm implements MaximumBranchingAlgorithm {
 		edges.clear();
 		// Add edges with their weights to the list.
 		for (int from = 0; from < numberOfNodes; ++from) {
-			for (int to = from + 1; to < numberOfNodes; ++to) {
-				/*
-				 * Only one undirected edge can be added for the two directed
-				 * edges (from,to) and (to,from). If (from,to) exists, then add
-				 * it. Otherwise, if (to,from) exists, the add it. Also avoid
-				 * negative-weight edges if the flag
-				 * <code>onlyPositiveEdges</code> is true.
-				 */
+			for (int to = 0; to < numberOfNodes; ++to) {
+				if (from == to)
+					// Skip auto-cycle arcs.
+					continue;
 				if (!Double.isNaN(graph[from][to])
 						&& (!onlyPositiveEdges || graph[from][to] >= 0d))
 					edges.add(new SimpleWeightedEdge(from, to, graph[from][to]));
-				else if (!Double.isNaN(graph[to][from])
-						&& (!onlyPositiveEdges || graph[to][from] >= 0d))
-					edges.add(new SimpleWeightedEdge(from, to, graph[to][from]));
 			}
 		}
 		// Sort edges by weight.
@@ -111,10 +104,9 @@ public class UndirectedMaxBranchAlgorithm implements MaximumBranchingAlgorithm {
 		 * orientation).
 		 */
 		Arrays.fill(visited, 0, numberOfNodes, false);
-		for (int from = 0; from < numberOfNodes; ++from) {
+		for (int from = 0; from < numberOfNodes; ++from)
 			if (!visited[from])
 				orient(from, numberOfNodes, invertedMaxBranching);
-		}
 
 		// Return the weight of the created tree.
 		return weight;
@@ -124,27 +116,35 @@ public class UndirectedMaxBranchAlgorithm implements MaximumBranchingAlgorithm {
 	 * Fill the inverted branching array (incoming edges array) by performing an
 	 * orientation in the tree given by the <code>incidence</code> matrix.
 	 * 
-	 * @param from
+	 * @param node
 	 * @param numberOfNodes
 	 * @param invertedBranching
 	 */
-	private void orient(int from, int numberOfNodes, int[] invertedBranching) {
+	private void orient(int node, int numberOfNodes, int[] invertedBranching) {
 		// Flag this node as visited.
-		visited[from] = true;
+		visited[node] = true;
 
-		// Forward arcs.
-		for (int to = from + 1; to < numberOfNodes; ++to) {
-			if (!visited[to] && incidence[from][to]) {
-				invertedBranching[to] = from;
+		// Consider arcs leaving the given node (node).
+		for (int to = 0; to < numberOfNodes; ++to) {
+			if (node == to)
+				// Skip auto-cycle arcs.
+				continue;
+
+			if (!visited[to] && incidence[node][to]) {
+				invertedBranching[to] = node;
 				orient(to, numberOfNodes, invertedBranching);
 			}
 		}
 
-		// Backward arcs.
-		for (int to = 0; to < from; ++to) {
-			if (!visited[to] && incidence[to][from]) {
-				invertedBranching[to] = from;
-				orient(to, numberOfNodes, invertedBranching);
+		// Consider arcs arriving at the given node (node).
+		for (int from = 0; from < numberOfNodes; ++from) {
+			if (node == from)
+				// Skip auto-cycle arcs.
+				continue;
+
+			if (!visited[from] && incidence[from][node]) {
+				invertedBranching[from] = node;
+				orient(from, numberOfNodes, invertedBranching);
 			}
 		}
 	}
@@ -153,7 +153,7 @@ public class UndirectedMaxBranchAlgorithm implements MaximumBranchingAlgorithm {
 	public void realloc(int maxNumberOfNodes) {
 		partition = new DisjointSets(maxNumberOfNodes);
 		edges = new ArrayList<SimpleWeightedEdge>(maxNumberOfNodes
-				* (maxNumberOfNodes - 1) / 2);
+				* (maxNumberOfNodes - 1));
 		visited = new boolean[maxNumberOfNodes];
 		incidence = new boolean[maxNumberOfNodes][maxNumberOfNodes];
 	}
@@ -177,13 +177,37 @@ public class UndirectedMaxBranchAlgorithm implements MaximumBranchingAlgorithm {
 		return onlyPositiveEdges;
 	}
 
+	/**
+	 * Test the undirected maximum branching algorithm.
+	 * 
+	 * @param args
+	 */
 	public static void main(String[] args) {
 		UndirectedMaxBranchAlgorithm alg = new UndirectedMaxBranchAlgorithm(5);
-		double[][] graph = { { 0, 10, 0, 0, 10 }, { 0, 0, 1, 5, 10 },
-				{ 0, 0, 0, 2, 0 }, { 0, 0, 0, 0, 5 }, { 0, 0, 0, 0, 0 }, };
+		double[][] graph = {
+				//
+				{ 0, 10, 0, 0, 10 }, //
+				{ 0, 0, 1, 5, 10 },//
+				{ 0, 0, 0, 2, 20 }, //
+				{ 0, 0, 0, 0, 5 }, //
+				{ 0, 0, 0, 0, 0 }, //
+		};
 		int[] tree = new int[5];
 
 		alg.findMaxBranching(5, graph, tree);
 
+		printBranching(tree, 5);
+	}
+
+	/**
+	 * Print the given tree.
+	 * 
+	 * @param branching
+	 * @param numNodes
+	 */
+	private static void printBranching(int[] branching, int numNodes) {
+		for (int node = 0; node < numNodes; ++node)
+			System.out.print("(" + branching[node] + "," + node + ") ");
+		System.out.println();
 	}
 }
