@@ -1,6 +1,9 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.bisection;
 
+import java.util.Arrays;
+
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
+import br.pucrio.inf.learn.util.maxbranching.DisjointSets;
 
 /**
  * Output structure for the bisection model. There are two representations in
@@ -166,6 +169,43 @@ public class BisectionOutput implements ExampleOutput {
 
 	public int getNumberOfConfirmedPapers() {
 		return numberOfConfirmedPapers;
+	}
+
+	/**
+	 * Compute confirmed and deleted papers from the underlying MST.
+	 */
+	public void computeSplitFromMst() {
+		// Initially, every paper is confirmed.
+		Arrays.fill(confirmedPapers, true);
+		// Find clusters.
+		DisjointSets clustering = new DisjointSets(size);
+		for (int paper1 = 0; paper1 < size; ++paper1) {
+			int paper2 = mst[paper1];
+			if (paper2 < 0)
+				continue;
+			int cluster1 = clustering.find(paper1);
+			int cluster2 = clustering.find(paper2);
+			if (cluster1 != cluster2)
+				clustering.union(cluster1, cluster2);
+		}
+
+		// Get deleted papers (papers connected to the artificial node).
+		int delCluster = clustering.find(0);
+		confirmedPapers[0] = false;
+		for (int paper = 0; paper < size; ++paper) {
+			if (clustering.find(paper) == delCluster)
+				confirmedPapers[paper] = false;
+		}
+	}
+
+	/**
+	 * Copy the confirmed papers from the given output to this output.
+	 * 
+	 * @param correct
+	 */
+	public void setConfirmedPapersEqualTo(BisectionOutput correct) {
+		for (int idx = 0; idx < size; ++idx)
+			confirmedPapers[idx] = correct.confirmedPapers[idx];
 	}
 
 	/**

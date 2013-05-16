@@ -151,6 +151,8 @@ public class UndirectedMaxBranchAlgorithm implements MaximumBranchingAlgorithm {
 
 	@Override
 	public void realloc(int maxNumberOfNodes) {
+		if (visited != null && visited.length >= maxNumberOfNodes)
+			return;
 		partition = new DisjointSets(maxNumberOfNodes);
 		edges = new ArrayList<SimpleWeightedEdge>(maxNumberOfNodes
 				* (maxNumberOfNodes - 1));
