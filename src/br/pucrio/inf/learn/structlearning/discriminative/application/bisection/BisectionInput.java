@@ -221,14 +221,20 @@ public class BisectionInput implements ExampleInput {
 	}
 
 	public int[] getFeatureCodes(int paper1, int paper2) {
-		return featureCodes[paper1][paper2];
+		if (paper1 <= paper2)
+			return featureCodes[paper1][paper2];
+		else
+			return featureCodes[paper2][paper1];
 	}
 
 	public double[] getFeatureValues(int paper1, int paper2) {
-		return featureValues[paper1][paper2];
+		if (paper1 <= paper2)
+			return featureValues[paper1][paper2];
+		else
+			return featureValues[paper2][paper1];
 	}
 
-	public int[] getBasicCathegoricalFeatures(int paper1, int paper2) {
+	public int[] getBasicCategoricalFeatures(int paper1, int paper2) {
 		return basicCathegoricalFeatures[paper1][paper2];
 	}
 

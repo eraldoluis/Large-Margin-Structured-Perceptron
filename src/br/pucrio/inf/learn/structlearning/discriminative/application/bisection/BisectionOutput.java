@@ -1,9 +1,5 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.bisection;
 
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.Set;
-
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 
 /**
@@ -22,21 +18,22 @@ import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 public class BisectionOutput implements ExampleOutput {
 	/**
 	 * Ordered list of papers. Each element in this array is a paper index in
-	 * the corresponding input structure. This array is used for predictions.
+	 * the corresponding input structure. This array is used for predicted
+	 * outputs.
 	 */
 	public WeightedPaper[] weightedPapers;
 
 	/**
-	 * Set of confirmed papers. These should be ranked above of all deleted
-	 * papers. This set is used for gold-standard outputs.
+	 * Array of incident edges of the maximum spaning tree (MST). This structure
+	 * is used only for predicted outputs.
 	 */
-	private Set<Integer> confirmedPapers;
+	private int[] mst;
 
 	/**
-	 * Set of deleted papers. These should be ranked below of all confirmed
-	 * papers. This set is used for gold-standard outputs.
+	 * Flags indicating which papers are confirmed and which are deleted. This
+	 * structure is used only for gold-standard outputs.
 	 */
-	private Set<Integer> irrelevantItems;
+	private boolean[] confirmedPapers;
 
 	/**
 	 * Size of this output structure, i.e., the number of candidate papers.
@@ -44,11 +41,9 @@ public class BisectionOutput implements ExampleOutput {
 	private int size;
 
 	/**
-	 * Store the number of confirmed papers. Since there can be repeated
-	 * confirmed papers, it is not right to calculate the number of them just by
-	 * getting the size of the confirmed papers set.
+	 * Number of confirmed papers out of all candidate papers for this author.
 	 */
-	private int numConfirmedPapers;
+	private int numberOfConfirmedPapers;
 
 	/**
 	 * Create an output structure with the given size (number of papers). This
@@ -59,8 +54,11 @@ public class BisectionOutput implements ExampleOutput {
 	public BisectionOutput(int size) {
 		this.size = size;
 		this.weightedPapers = new WeightedPaper[size];
-		for (int item = 0; item < size; ++item)
-			weightedPapers[item] = new WeightedPaper(item, 0);
+		for (int paper = 0; paper < size; ++paper)
+			weightedPapers[paper] = new WeightedPaper(paper, false, 0);
+		this.mst = new int[size];
+		this.confirmedPapers = new boolean[size];
+		this.numberOfConfirmedPapers = -1;
 	}
 
 	/**
@@ -70,12 +68,18 @@ public class BisectionOutput implements ExampleOutput {
 	 * @param confirmedPapers
 	 * @param deletedPapers
 	 */
-	public BisectionOutput(Collection<Integer> confirmedPapers,
-			Collection<Integer> deletedPapers) {
-		this.numConfirmedPapers = confirmedPapers.size();
-		this.size = numConfirmedPapers + deletedPapers.size();
-		this.confirmedPapers = new HashSet<Integer>(confirmedPapers);
-		this.irrelevantItems = new HashSet<Integer>(deletedPapers);
+	public BisectionOutput(boolean[] confirmed) {
+		this.size = confirmed.length;
+		this.weightedPapers = new WeightedPaper[size];
+		for (int paper = 0; paper < size; ++paper)
+			weightedPapers[paper] = new WeightedPaper(paper, confirmed[paper],
+					0);
+		this.mst = new int[size];
+		this.confirmedPapers = confirmed;
+		this.numberOfConfirmedPapers = 0;
+		for (boolean b : confirmedPapers)
+			if (b)
+				++numberOfConfirmedPapers;
 	}
 
 	@Override
@@ -101,7 +105,7 @@ public class BisectionOutput implements ExampleOutput {
 	 * @return
 	 */
 	public boolean isConfirmed(int paper) {
-		return confirmedPapers.contains(paper);
+		return confirmedPapers[paper];
 	}
 
 	/**
@@ -111,7 +115,7 @@ public class BisectionOutput implements ExampleOutput {
 	 * @return
 	 */
 	public boolean isDeleted(int paper) {
-		return irrelevantItems.contains(paper);
+		return !confirmedPapers[paper];
 	}
 
 	/**
@@ -151,28 +155,24 @@ public class BisectionOutput implements ExampleOutput {
 	}
 
 	/**
-	 * Return the number of confirmed papers withint this structure. This method
-	 * can be called only for gold-standard structures.
+	 * Return the array that represents a MST solution. This array stores, for
+	 * each paper, the adjacent paper in the oriented tree.
 	 * 
 	 * @return
 	 */
+	public int[] getMst() {
+		return mst;
+	}
+
 	public int getNumberOfConfirmedPapers() {
-		return numConfirmedPapers;
+		return numberOfConfirmedPapers;
 	}
 
 	/**
-	 * Return the number of deleted papers. This method can be called only for
-	 * gold-standard structures.
-	 * 
-	 * @return
-	 */
-	public int getNumberOfDeletedPapers() {
-		return size - numConfirmedPapers;
-	}
-
-	/**
-	 * Represent a paper and its weight to be used to sort the list of papers
-	 * according to the weights given by a model.
+	 * Represent a paper along with its confirmed flag and its weight. Confirmed
+	 * papers are ranked before not confirmed ones. Whenever two papers have the
+	 * same confirmed flag, they are ranked based on their weights (higher
+	 * weights are ranked first).
 	 * 
 	 * @author eraldo
 	 * 
@@ -182,6 +182,11 @@ public class BisectionOutput implements ExampleOutput {
 		 * Paper index as in the input structure.
 		 */
 		public int paper;
+
+		/**
+		 * Indicate whether this paper is confirmed or deleted.
+		 */
+		public boolean confirmed;
 
 		/**
 		 * Weight of the item.
@@ -194,13 +199,18 @@ public class BisectionOutput implements ExampleOutput {
 		 * @param paper
 		 * @param weight
 		 */
-		public WeightedPaper(int paper, double weight) {
+		public WeightedPaper(int paper, boolean confirmed, double weight) {
 			this.paper = paper;
+			this.confirmed = confirmed;
 			this.weight = weight;
 		}
 
 		@Override
 		public int compareTo(WeightedPaper o) {
+			if (confirmed && !o.confirmed)
+				return -1;
+			if (!confirmed && o.confirmed)
+				return 1;
 			if (weight > o.weight)
 				return -1;
 			if (weight < o.weight)

@@ -46,7 +46,8 @@ public class BisectionModel implements Model {
 	 * @param parameters
 	 * @throws CloneNotSupportedException
 	 */
-	protected BisectionModel(BisectionModel other) throws CloneNotSupportedException {
+	protected BisectionModel(BisectionModel other)
+			throws CloneNotSupportedException {
 		// Shallow-clone parameters map.
 		this.parameters = new HashMap<Integer, AveragedParameter>(
 				other.parameters);
@@ -72,93 +73,51 @@ public class BisectionModel implements Model {
 			BisectionOutput outputPredicted, double learningRate) {
 		// Example size (number of queries).
 		int size = outputCorrect.size();
-		// Sum of precision @ k.
-		double avgPrec = 0;
-		// Number of irrelevant items @ k.
-		int numIrrelevant = 0;
-		// Total number of relevant items.
-		int numTotalRelevant = outputCorrect.getNumberOfConfirmedPapers();
+		// Loss.
+		double loss = 0d;
+		// Get both MSTs.
+		int[] mstCorrect = outputCorrect.getMst();
+		int[] mstPredicted = outputPredicted.getMst();
 		// Iterate over the ordered items of the predicted output.
-		for (int idxItem = 0; idxItem < size; ++idxItem) {
-			// k to calculate prec@k.
-			int k = idxItem + 1;
-			// That is the item identifier (index in the input array).
-			int item = outputPredicted.getPaperAtIndex(idxItem);
-			// Item is relevant?
-			if (outputCorrect.isConfirmed(item)) {
-				// Compute precision @ k and add it to the accum variable.
-				avgPrec += (k - numIrrelevant) / (double) k;
-				/*
-				 * Increment parameters weights whenever there are irrevelevant
-				 * items before rank k. The update length is proportional to the
-				 * number of irrelevant items before rank k.
-				 */
-				if (numIrrelevant > 0) {
-					updateParameters(input.getFeatures(item), learningRate
-							* numIrrelevant);
-				}
-			} else {
-				// One more irrelevant item. Hope it's in the bottom ;).
-				++numIrrelevant;
-				/*
-				 * Decrement parameters weights whenever there are relevant
-				 * items after rank k. The update length is proportional to the
-				 * number of relevant items after rank k.
-				 */
-				int numRelItemsAfterK = numTotalRelevant - (k - numIrrelevant);
-				if (numRelItemsAfterK > 0) {
-					updateParameters(input.getFeatures(item), -learningRate
-							* numRelItemsAfterK);
-				}
+		for (int paper1 = 0; paper1 < size; ++paper1) {
+
+			// Check if correct edge was predicted.
+			int correctPaper2 = mstCorrect[paper1];
+			if (correctPaper2 >= 0
+					&& !isUndirectedEdgePresent(mstPredicted, paper1,
+							correctPaper2)) {
+				updateParameters(input.getFeatureCodes(paper1, correctPaper2),
+						input.getFeatureValues(paper1, correctPaper2),
+						learningRate);
+				loss += 1;
 			}
+
+			// Check if predicted edge is correct.
+			int predictedPaper2 = mstPredicted[paper1];
+			if (predictedPaper2 >= 0
+					&& !isUndirectedEdgePresent(mstCorrect, paper1,
+							predictedPaper2))
+				updateParameters(
+						input.getFeatureCodes(paper1, predictedPaper2),
+						input.getFeatureValues(paper1, predictedPaper2),
+						-learningRate);
+
 		}
-		// Average precision.
-		avgPrec = avgPrec / (size - numIrrelevant);
-		// The loss is equal to what misses to an average precision of 1.
-		return avgPrec;
+
+		return loss;
 	}
 
 	/**
-	 * Calculate the loss of the given predicted output according to the given
-	 * correct output.
+	 * Return whether the given <b>undirected</b> edge is present in the MST of
+	 * <code>out</code>. The MST is represented as a directed tree (branching).
 	 * 
-	 * @param input
-	 * @param outputCorrect
-	 * @param outputPredicted
+	 * @param out
+	 * @param paper1
+	 * @param paper2
 	 * @return
 	 */
-	public double loss(BisectionInput input, BisectionOutput outputCorrect,
-			BisectionOutput outputPredicted) {
-		// Example size (number of queries).
-		int size = outputCorrect.size();
-		// Sum of precision @ k.
-		double avgPrec = 0;
-		// Number of irrelevant items @ k.
-		int numIrrelevant = 0;
-		// Iterate over the ordered items of the predicted output.
-		for (int idxItem = 0; idxItem < size; ++idxItem) {
-			// k to calculate prec@k.
-			int k = idxItem + 1;
-			// That is the item identifier (index in the input array).
-			int item = outputPredicted.getPaperAtIndex(idxItem);
-			// Item is relevant?
-			if (outputCorrect.isConfirmed(item)) {
-
-				// Compute precision @ k and add it to the accum variable.
-				avgPrec += (k - numIrrelevant) / (double) k;
-
-			} else {
-
-				// One more irrelevant item. Hope it's in the bottom ;).
-				++numIrrelevant;
-
-			}
-		}
-
-		// Average precision.
-		avgPrec = avgPrec / (size - numIrrelevant);
-		// The loss is equal to what misses to an average precision of 1.
-		return 1 - avgPrec;
+	private boolean isUndirectedEdgePresent(int[] mst, int paper1, int paper2) {
+		return mst[paper1] == paper2 || mst[paper2] == paper1;
 	}
 
 	@Override
@@ -232,15 +191,17 @@ public class BisectionModel implements Model {
 	}
 
 	/**
-	 * Update parameters of the given array of features by adding the given
-	 * value.
+	 * Update the weights of the given features (codes) by summing the given
+	 * values multiplied by the given step.
 	 * 
-	 * @param ftrs
-	 * @param val
+	 * @param codes
+	 * @param values
+	 * @param step
 	 */
-	public void updateParameters(int[] ftrs, double val) {
-		for (int ftr : ftrs)
-			updateFeatureParam(ftr, val);
+	public void updateParameters(int[] codes, double[] values, double step) {
+		int numFtrs = codes.length;
+		for (int idx = 0; idx < numFtrs; ++idx)
+			updateFeatureParam(codes[idx], values[idx] * step);
 	}
 
 	public int getNumberOfUpdatedParameters() {

@@ -10,6 +10,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -19,7 +20,6 @@ import org.apache.commons.logging.LogFactory;
 
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.Feature;
-import br.pucrio.inf.learn.structlearning.discriminative.application.dp.FeatureTemplate;
 import br.pucrio.inf.learn.structlearning.discriminative.data.Dataset;
 import br.pucrio.inf.learn.structlearning.discriminative.data.DatasetException;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
@@ -27,14 +27,18 @@ import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.MapEncodi
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.StringMapEncoding;
 
 /**
- * Represent a query-items dataset in column format.
+ * Represent an author-papers dataset in column format (fixed number of
+ * features).
  * 
- * Provide methods for manipulating the dataset. Some operations are: load
- * examples from file, create new features, remove features, get feature values,
- * get a complete example, change feature values.
+ * Each author comprises a list of paper pairs. Authors are separated by blank
+ * lines. A paper pair represents an edge in the graph whose nodes are the
+ * candidate papers. Each edge is represented by fixed-length list of features.
  * 
- * The feature values are stored as integer. We use a feature-value mapping to
- * encode the string values.
+ * The first line of a dataset must contain the list of feature labels. An
+ * optional following line can list a subset of numerical features. All other
+ * features are trated as cathegorical, i.e., each value present in the list of
+ * edge features is considered a distinct value for the feature. All
+ * cathegorical features are binarized.
  * 
  */
 public class BisectionDataset implements Dataset {
@@ -47,45 +51,61 @@ public class BisectionDataset implements Dataset {
 	/**
 	 * Regular expression pattern to parse spaces.
 	 */
-	protected static final Pattern REGEX_SPACE = Pattern.compile("[ ]");
+	private static final Pattern REGEX_SPACE = Pattern.compile("[ ]");
 
 	/**
 	 * Map basic feature values (string) to codes (integer).
 	 */
-	protected FeatureEncoding<String> basicEncoding;
+	private FeatureEncoding<String> basicEncoding;
 
 	/**
-	 * Encoding for explicit features, i.e., features created from templates by
-	 * conjoining basic features.
+	 * Encoding for derived features, i.e., features derived from templates that
+	 * conjoin basic features.
 	 */
-	protected FeatureEncoding<Feature> explicitEncoding;
+	private FeatureEncoding<Feature> derivedEncoding;
 
 	/**
 	 * Array of input structures.
 	 */
-	protected BisectionInput[] inputExamples;
+	private BisectionInput[] inputExamples;
 
 	/**
 	 * Array of golden output structures (correct prediction for the input
 	 * structures).
 	 */
-	protected BisectionOutput[] outputExamples;
-
-	/**
-	 * Indicate whether the output structures in this dataset have golden
-	 * information.
-	 */
-	protected boolean hasGoldenOutput;
+	private BisectionOutput[] outputExamples;
 
 	/**
 	 * Feature templates to generate complex features from basic features.
 	 */
-	protected FeatureTemplate[] templates;
+	private BisectionTemplate[] templates;
 
 	/**
-	 * Labels of this dataset columns (basic features).
+	 * Labels of categorical basic features.
 	 */
-	protected String[] featureLabels;
+	private String[] categoricalFeatureLabels;
+
+	/**
+	 * Labels of numerical basic features.
+	 */
+	private String[] numericalFeatureLabels;
+
+	/**
+	 * Flags indicating which feature indexes (according to the dataset feature
+	 * order) correspond to numerical features.
+	 */
+	private boolean[] numericalFeature;
+
+	/**
+	 * Index of the edge ID feature, which contains the indexes of the edge
+	 * papers.
+	 */
+	private int idxFtrEdgeId;
+
+	/**
+	 * Index of the author ID feature.
+	 */
+	private int idxFtrAuthorId;
 
 	/**
 	 * Default constructor.
@@ -104,7 +124,7 @@ public class BisectionDataset implements Dataset {
 	public BisectionDataset(FeatureEncoding<String> basicEncoding,
 			FeatureEncoding<Feature> explicitEnconding) {
 		this.basicEncoding = basicEncoding;
-		this.explicitEncoding = explicitEnconding;
+		this.derivedEncoding = explicitEnconding;
 	}
 
 	/**
@@ -116,7 +136,8 @@ public class BisectionDataset implements Dataset {
 	 * @throws DatasetException
 	 * @throws IOException
 	 */
-	public BisectionDataset(String fileName) throws IOException, DatasetException {
+	public BisectionDataset(String fileName) throws IOException,
+			DatasetException {
 		this(new StringMapEncoding(), new MapEncoding<Feature>());
 		load(fileName);
 	}
@@ -128,7 +149,8 @@ public class BisectionDataset implements Dataset {
 	 * @throws IOException
 	 * @throws DatasetException
 	 */
-	public BisectionDataset(InputStream is) throws IOException, DatasetException {
+	public BisectionDataset(InputStream is) throws IOException,
+			DatasetException {
 		this(new StringMapEncoding(), new MapEncoding<Feature>());
 		load(is);
 	}
@@ -148,7 +170,8 @@ public class BisectionDataset implements Dataset {
 	 * @throws DatasetException
 	 *             if the file contains invalid data.
 	 */
-	public BisectionDataset(String fileName, FeatureEncoding<String> basicEncoding,
+	public BisectionDataset(String fileName,
+			FeatureEncoding<String> basicEncoding,
 			FeatureEncoding<Feature> explicitEncoding) throws IOException,
 			DatasetException {
 		this(basicEncoding, explicitEncoding);
@@ -162,7 +185,7 @@ public class BisectionDataset implements Dataset {
 	 */
 	public BisectionDataset(BisectionDataset sibling) {
 		this.basicEncoding = sibling.basicEncoding;
-		this.explicitEncoding = sibling.explicitEncoding;
+		this.derivedEncoding = sibling.derivedEncoding;
 		this.templates = sibling.templates;
 	}
 
@@ -201,9 +224,10 @@ public class BisectionDataset implements Dataset {
 	 * @param templatesFileName
 	 * @param generateFeatures
 	 * @throws IOException
+	 * @throws DatasetException
 	 */
 	public void loadTemplates(String templatesFileName, boolean generateFeatures)
-			throws IOException {
+			throws IOException, DatasetException {
 		BufferedReader reader = new BufferedReader(new FileReader(
 				templatesFileName));
 		loadTemplates(reader, generateFeatures);
@@ -217,23 +241,45 @@ public class BisectionDataset implements Dataset {
 	 * @param reader
 	 * @param generateFeatures
 	 * @throws IOException
+	 * @throws DatasetException
 	 */
 	public void loadTemplates(BufferedReader reader, boolean generateFeatures)
-			throws IOException {
-		LinkedList<FeatureTemplate> templatesList = new LinkedList<FeatureTemplate>();
+			throws IOException, DatasetException {
+		LinkedList<BisectionTemplate> templatesList = new LinkedList<BisectionTemplate>();
 		String line = skipBlanksAndComments(reader);
 		while (line != null) {
 			String[] ftrsStr = REGEX_SPACE.split(line);
-			int[] ftrs = new int[ftrsStr.length];
-			for (int idx = 0; idx < ftrs.length; ++idx)
-				ftrs[idx] = getFeatureIndex(ftrsStr[idx]);
-			templatesList.add(new BisectionTemplate(templatesList.size(), ftrs));
+			LinkedList<Integer> categoricalFeatureIndexes = new LinkedList<Integer>();
+			LinkedList<Integer> numericalFeatureIndexes = new LinkedList<Integer>();
+			for (int idx = 0; idx < ftrsStr.length; ++idx) {
+				String ftrLabel = ftrsStr[idx];
+				// Try to get the feature index from the categorical labels.
+				int idxFtr = getCategoricalFeatureIndex(ftrLabel);
+				if (idxFtr < 0) {
+					// Not categorical. Try numerical labels.
+					idxFtr = getNumericalFeatureIndex(ftrLabel);
+					if (idxFtr < 0)
+						// Not numerical. Error!
+						throw new DatasetException(String.format(
+								"Unknown feature label %s", ftrLabel));
+					// Numerical feature.
+					numericalFeatureIndexes.add(idxFtr);
+				} else {
+					// Categorical feature.
+					categoricalFeatureIndexes.add(idxFtr);
+				}
+			}
+
+			// Create template and add it to template list.
+			templatesList.add(new BisectionTemplate(templatesList.size(),
+					categoricalFeatureIndexes, numericalFeatureIndexes));
+
 			// Read next line.
 			line = skipBlanksAndComments(reader);
 		}
 
 		// Convert list to array.
-		templates = templatesList.toArray(new FeatureTemplate[0]);
+		templates = templatesList.toArray(new BisectionTemplate[0]);
 
 		if (generateFeatures)
 			// Generate explicit features.
@@ -244,48 +290,76 @@ public class BisectionDataset implements Dataset {
 	 * Generate features for the current template partition.
 	 */
 	public void generateFeatures() {
-		LinkedList<Integer> ftrs = new LinkedList<Integer>();
-		FeatureTemplate[] tpls = templates;
+		// List of feature codes used for every edge.
+		LinkedList<Integer> ftrCodes = new LinkedList<Integer>();
+		// List of feature values used for every edge.
+		LinkedList<Double> ftrValues = new LinkedList<Double>();
+		// Iterate over all examples.
 		int numExs = inputExamples.length;
 		for (int idxEx = 0; idxEx < numExs; ++idxEx) {
 			// Current input structure.
 			BisectionInput input = inputExamples[idxEx];
 
-			// Allocate explicit features matrix.
+			// Allocate derived features matrix.
 			input.allocFeatureArray();
 
-			// Number of tokens within the current input.
+			// Number of papers within the current input.
 			int size = input.size();
 
-			for (int item = 0; item < size; ++item) {
+			for (int paper1 = 0; paper1 < size - 1; ++paper1) {
+				for (int paper2 = paper1 + 1; paper2 < size; ++paper2) {
+					// Values of basic categorical features in the current edge.
+					int[] basicCategoricalFeatures = input
+							.getBasicCategoricalFeatures(paper1, paper2);
+					if (basicCategoricalFeatures == null)
+						// Inexistent edge. Skip it.
+						continue;
+					// Values of basic numerical features in the current edge.
+					double[] basicNumericalFeatures = input
+							.getBasicNumericalFeatures(paper1, paper2);
 
-				// Clear previous used list of features.
-				ftrs.clear();
+					// Clear auxiliary lists.
+					ftrCodes.clear();
+					ftrValues.clear();
 
-				/*
-				 * Instantiate edge features and add them to active features
-				 * list.
-				 */
-				for (int idxTpl = 0; idxTpl < tpls.length; ++idxTpl) {
-					// Current template.
-					FeatureTemplate tpl = tpls[idxTpl];
-					// Get temporary feature instance.
-					Feature ftr = tpl.getInstance(input, item);
-					// Lookup the feature in the encoding.
-					int code = explicitEncoding.getCodeByValue(ftr);
 					/*
-					 * Instantiate a new feature, if it is not present in the
-					 * encoding.
+					 * Instantiate edge features and add them to active features
+					 * list.
 					 */
-					if (code == FeatureEncoding.UNSEEN_VALUE_CODE)
-						code = explicitEncoding.put(tpl
-								.newInstance(input, item));
-					// Add feature code to active features list.
-					ftrs.add(code);
-				}
+					for (int idxTpl = 0; idxTpl < templates.length; ++idxTpl) {
+						// Current template.
+						BisectionTemplate tpl = templates[idxTpl];
+						// Get temporary feature instance.
+						Feature ftr = tpl.getInstance(input, paper1, paper2);
+						// Lookup the feature in the encoding.
+						int code = derivedEncoding.getCodeByValue(ftr);
+						/*
+						 * Instantiate a new feature, if it is not present in
+						 * the encoding.
+						 */
+						if (code == FeatureEncoding.UNSEEN_VALUE_CODE) {
+							try {
+								code = derivedEncoding.put(ftr.clone());
+							} catch (CloneNotSupportedException e) {
+								LOG.error("Some feature is not cloneable", e);
+							}
+						}
+						// Add feature code to the features list.
+						ftrCodes.add(code);
+						/*
+						 * Compute derived feature value for this edge. This
+						 * value is the multiplication of each numerical feature
+						 * value in the edge.
+						 */
+						double val = 1d;
+						for (int idxNumFtr : tpl.getNumericalFeatures())
+							val *= basicNumericalFeatures[idxNumFtr];
+						ftrValues.add(val);
+					}
 
-				// Set feature vector of this input.
-				input.setFeatures(item, ftrs);
+					// Set derived features codes and values for this edge.
+					input.setFeatures(paper1, paper2, ftrCodes, ftrValues);
+				}
 			}
 
 			// Progess report.
@@ -300,16 +374,40 @@ public class BisectionDataset implements Dataset {
 	}
 
 	/**
-	 * Return the index of the given feature label. Return -1 if there is no
-	 * feature labeled like this.
+	 * Return the index of the given categorical basic feature label. Return -1
+	 * if there is no categorical feature labeled like this.
 	 * 
 	 * @param label
 	 * @return
 	 */
-	private int getFeatureIndex(String label) {
-		for (int idx = 0; idx < featureLabels.length; ++idx)
-			if (label.equals(featureLabels[idx]))
+	private int getCategoricalFeatureIndex(String label) {
+		for (int idx = 0; idx < categoricalFeatureLabels.length; ++idx)
+			if (label.equals(categoricalFeatureLabels[idx]))
 				return idx;
+		return -1;
+	}
+
+	/**
+	 * Return the index of the given numerical basic feature label. Return -1 if
+	 * the is no numerical feature labeled like this.
+	 * 
+	 * @param label
+	 * @return
+	 */
+	private int getNumericalFeatureIndex(String label) {
+		for (int idx = 0; idx < numericalFeatureLabels.length; ++idx)
+			if (label.equals(numericalFeatureLabels[idx]))
+				return idx;
+		return -1;
+	}
+
+	private int getIndex(String[] labels, String label) {
+		int idx = 0;
+		for (String l : labels) {
+			if (label.equals(l.trim()))
+				return idx;
+			++idx;
+		}
 		return -1;
 	}
 
@@ -317,15 +415,44 @@ public class BisectionDataset implements Dataset {
 	public void load(BufferedReader reader) throws IOException,
 			DatasetException {
 		// Read feature labels in the first line of the file.
-		String line = reader.readLine();
-		reader.readLine();
+		String line = skipBlanksAndComments(reader);
 		int eq = line.indexOf('=');
 		int end = line.indexOf(']');
 		String[] labels = line.substring(eq + 1, end).split(",");
-		// Do not include the last feature (relevant).
-		featureLabels = new String[labels.length - 1];
-		for (int i = 0; i < labels.length - 1; ++i)
-			featureLabels[i] = labels[i].trim();
+
+		// Read numerical feature labels in the second line.
+		String numFtrsLine = skipBlanksAndComments(reader);
+		eq = numFtrsLine.indexOf('=');
+		end = numFtrsLine.indexOf(']');
+		String[] labelsNumFtrs = numFtrsLine.substring(eq + 1, end).split(",");
+		// Set flags indicating which features are numerical.
+		numericalFeature = new boolean[labels.length];
+		for (String numFtrLabel : labelsNumFtrs)
+			numericalFeature[getIndex(labels, numFtrLabel)] = true;
+		// Fill the numberical feature labels in the order of the original ftrs.
+		numericalFeatureLabels = new String[labelsNumFtrs.length];
+		int idxNumFtr = 0;
+		for (int idxFtr = 0; idxFtr < labels.length; ++idxFtr)
+			if (numericalFeature[idxFtr])
+				numericalFeatureLabels[idxNumFtr++] = labels[idxFtr];
+
+		/*
+		 * Fill the categorical feature labels in the order of the original
+		 * ftrs. The number of categorical features is equal to the total number
+		 * of labels minus the number of numerical features minus 1 (due to the
+		 * gold-standard feature).
+		 */
+		categoricalFeatureLabels = new String[labels.length
+				- labelsNumFtrs.length - 1];
+		int idxCatFtr = 0;
+		for (int idxFtr = 0; idxFtr < labels.length; ++idxFtr)
+			if (!numericalFeature[idxFtr])
+				categoricalFeatureLabels[idxCatFtr++] = labels[idxFtr];
+
+		// Get index of the feature with edge id.
+		idxFtrEdgeId = getIndex(labels, "id");
+		// Get index of the author ID feature.
+		idxFtrAuthorId = getIndex(labels, "authorId");
 
 		// Examples.
 		List<BisectionInput> inputList = new LinkedList<BisectionInput>();
@@ -362,18 +489,25 @@ public class BisectionDataset implements Dataset {
 	 */
 	private boolean parseExample(BufferedReader reader,
 			Collection<BisectionInput> exampleInputs,
-			Collection<BisectionOutput> exampleOutputs) throws DatasetException,
-			NumberFormatException, IOException {
-		// List of items of this query. Each item is a list of features.
-		LinkedList<LinkedList<Integer>> items = new LinkedList<LinkedList<Integer>>();
+			Collection<BisectionOutput> exampleOutputs)
+			throws DatasetException, NumberFormatException, IOException {
 
-		// Relevant and irrelevant items for this query.
-		LinkedList<Integer> relevantItems = new LinkedList<Integer>();
-		LinkedList<Integer> irrelevantItems = new LinkedList<Integer>();
+		// Categorical features of edges.
+		LinkedList<LinkedList<Integer>> edgesCatFtrCodes = new LinkedList<LinkedList<Integer>>();
+		LinkedList<LinkedList<Double>> edgesNumFtrValues = new LinkedList<LinkedList<Double>>();
 
-		// Read next line.
+		/*
+		 * Confirmed and deleted papers for this example. These two lists will
+		 * comprise the output structure.
+		 */
+		HashSet<Integer> confirmedPapers = new HashSet<Integer>();
+
 		String line;
-		long prevQueryId = Long.MAX_VALUE;
+		// Guarantee that every edge has the same author ID.
+		long authorId = -1;
+		long prevAuthorId = Long.MAX_VALUE;
+		// Size of input structure is obtained from the papers ids.
+		int size = 0;
 		while ((line = reader.readLine()) != null) {
 			// Trim read line.
 			line = line.trim();
@@ -381,71 +515,73 @@ public class BisectionDataset implements Dataset {
 				// Stop on blank lines.
 				break;
 
-			// Split edge in feature values.
-			String[] ftrValues = REGEX_SPACE.split(line);
+			// Feature values in string format.
+			String[] ftrStrs = REGEX_SPACE.split(line);
 
-			// Head and dependent tokens indexes.
-			long queryId = Long.parseLong(ftrValues[0]);
-			if (prevQueryId != Long.MAX_VALUE && prevQueryId != queryId)
+			// Get edge ID feature and extract papers indexes from it.
+			String edgeId = ftrStrs[idxFtrEdgeId];
+			String[] papersStr = edgeId.split(">");
+			int paper1 = Integer.parseInt(papersStr[0]);
+			int paper2 = Integer.parseInt(papersStr[1]);
+
+			// Update number of papers.
+			size = Math.max(paper1 + 1, size);
+			size = Math.max(paper2 + 1, size);
+
+			// Get author ID and verify that it is the same of previous edge.
+			authorId = Long.parseLong(ftrStrs[idxFtrAuthorId]);
+			if (prevAuthorId != Long.MAX_VALUE && prevAuthorId != authorId)
 				System.err
-						.println("Different query IDs within the same example!");
-			prevQueryId = queryId;
+						.println("Different author IDs within the same example!");
+			prevAuthorId = authorId;
 
-			// List of feature codes.
+			// List of feature codes (categorical).
 			LinkedList<Integer> ftrCodes = new LinkedList<Integer>();
-			// Add it already to the list of items.
-			items.add(ftrCodes);
+			// List of feature values (numerical).
+			LinkedList<Double> ftrValues = new LinkedList<Double>();
+			// Add them already to the lists of edges.
+			edgesCatFtrCodes.add(ftrCodes);
+			edgesNumFtrValues.add(ftrValues);
+			
+			// Add papers ids to the list of categorical feature codes.
+			ftrCodes.add(paper1);
+			ftrCodes.add(paper2);
 
-			// Encode the edge features and add the codes to the list.
-			for (int idxFtr = 0; idxFtr < ftrValues.length - 1; ++idxFtr) {
-				String str = ftrValues[idxFtr];
-				int code = basicEncoding.put(new String(str));
-				ftrCodes.add(code);
+			// Encode categorical edge features and parse numerical ones.
+			for (int idxFtr = 0; idxFtr < ftrStrs.length - 1; ++idxFtr) {
+				String str = ftrStrs[idxFtr];
+				if (numericalFeature[idxFtr])
+					// Numerical feature.
+					ftrValues.add(Double.parseDouble(str));
+				else
+					// Categorical feature.
+					ftrCodes.add(basicEncoding.put(new String(str)));
 			}
 
-			// Index of the current item.
-			int item = items.size() - 1;
-
-			// The last value is the relevant feature (1 or -1).
-			String isRelevant = ftrValues[ftrValues.length - 1];
-			if (isRelevant.equals("1")) {
-
-				/*
-				 * Add the index of the current item to the list of relevant
-				 * items.
-				 */
-				relevantItems.add(item);
-
-			} else if (isRelevant.equals("-1")) {
-
-				/*
-				 * Add the index of the current item to the list of irrelevant
-				 * items.
-				 */
-				irrelevantItems.add(item);
-
-			} else {
-				// Invalid feature value.
-				throw new DatasetException(
-						"Last feature value must be 1 or -1 to indicate "
-								+ "whether the item is relevant or not. "
-								+ "However, for item " + item
-								+ " this feature value is " + isRelevant);
+			// The last value is the correct feature (Y or N).
+			String areConfirmedPapers = ftrStrs[ftrStrs.length - 1];
+			if ("Y".equals(areConfirmedPapers)) {
+				confirmedPapers.add(paper1);
+				confirmedPapers.add(paper2);
 			}
 		}
 
-		if (items.size() == 0)
+		if (edgesCatFtrCodes.size() == 0)
 			return line != null;
 
-		/*
-		 * Create a new string to store the input id to avoid memory leaks,
-		 * since the id string keeps a reference to the line string.
-		 */
-		BisectionInput input = new BisectionInput(prevQueryId, items);
+		// Create new input struct with the parsed features.
+		BisectionInput input = new BisectionInput(authorId, size,
+				edgesCatFtrCodes, edgesNumFtrValues);
+
+		// Create confirmed array.
+		boolean[] confirmed = new boolean[size];
+		for (int paper : confirmedPapers)
+			confirmed[paper] = true;
 
 		// Allocate the output structure.
-		BisectionOutput output = new BisectionOutput(relevantItems, irrelevantItems);
+		BisectionOutput output = new BisectionOutput(confirmed);
 
+		// Update lists of input and output structures.
 		exampleInputs.add(input);
 		exampleOutputs.add(output);
 
@@ -526,7 +662,7 @@ public class BisectionDataset implements Dataset {
 	}
 
 	public FeatureEncoding<Feature> getExplicitEncoding() {
-		return explicitEncoding;
+		return derivedEncoding;
 	}
 
 	public void save(String testOutFilename, BisectionOutput[] predicteds)
@@ -537,18 +673,18 @@ public class BisectionDataset implements Dataset {
 	}
 
 	public void save(PrintStream ps, BisectionOutput[] predicteds) {
-		int numExs = getNumberOfExamples();
-		for (int idxEx = 0; idxEx < numExs; ++idxEx) {
-			BisectionInput in = inputExamples[idxEx];
-			BisectionOutput out = predicteds[idxEx];
-			ps.print(in.getQueryId() + ",");
-			int numItems = out.size();
-			for (int idxItem = 0; idxItem < numItems; ++idxItem) {
-				int item = out.weightedPapers[idxItem].paper;
-				ps.print(basicEncoding.getValueByCode(in.getBasicFeatures(item)[1])
-						+ " ");
-			}
-			ps.println();
-		}
+		// int numExs = getNumberOfExamples();
+		// for (int idxEx = 0; idxEx < numExs; ++idxEx) {
+		// BisectionInput in = inputExamples[idxEx];
+		// BisectionOutput out = predicteds[idxEx];
+		// ps.print(in.getQueryId() + ",");
+		// int numItems = out.size();
+		// for (int idxItem = 0; idxItem < numItems; ++idxItem) {
+		// int item = out.weightedPapers[idxItem].paper;
+		// ps.print(basicEncoding.getValueByCode(in.getBasicFeatures(item)[1])
+		// + " ");
+		// }
+		// ps.println();
+		// }
 	}
 }
