@@ -1,6 +1,7 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.bisection;
 
 import java.util.Arrays;
+import java.util.Comparator;
 
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 import br.pucrio.inf.learn.structlearning.discriminative.application.bisection.BisectionOutput.WeightedPaper;
@@ -8,7 +9,7 @@ import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Inference;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Model;
-import br.pucrio.inf.learn.util.maxbranching.UndirectedMaxBranchAlgorithm;
+import br.pucrio.inf.learn.util.maxbranching.KruskalAlgorithm;
 
 /**
  * Prediction algorithm for bisection model. Based on Kruskal algorithm to
@@ -20,10 +21,34 @@ import br.pucrio.inf.learn.util.maxbranching.UndirectedMaxBranchAlgorithm;
  */
 public class BisectionInference implements Inference {
 
-	UndirectedMaxBranchAlgorithm mstAlgorithm;
+	/**
+	 * Implementation of Kruskal algorithm to find MST.
+	 */
+	private KruskalAlgorithm mstAlgorithm;
+
+	/**
+	 * Comparator of WeightedPaper's that ranks confirmed papers before deleted
+	 * ones and within each class ranks according to the inverse order of paper
+	 * weights.
+	 */
+	private static final Comparator<WeightedPaper> compPapers = new Comparator<BisectionOutput.WeightedPaper>() {
+		@Override
+		public int compare(WeightedPaper p1, WeightedPaper p2) {
+			if (p1.confirmed != p2.confirmed) {
+				if (p1.confirmed)
+					return -1;
+				return 1;
+			}
+			if (p1.weight > p2.weight)
+				return -1;
+			if (p1.weight < p2.weight)
+				return 1;
+			return 0;
+		}
+	};
 
 	public BisectionInference() {
-		mstAlgorithm = new UndirectedMaxBranchAlgorithm(0);
+		mstAlgorithm = new KruskalAlgorithm(0, 2);
 	}
 
 	/**
@@ -46,7 +71,7 @@ public class BisectionInference implements Inference {
 		int size = input.size();
 		// Build graph to run MST algorithm.
 		double[][] graph = new double[size][size];
-		fillMstGraph(graph, model, input, null, 0d);
+		fillGraph(graph, model, input, null, 0d);
 
 		// Guarantee that auxiliary data structures fit this instance.
 		mstAlgorithm.realloc(size);
@@ -58,7 +83,7 @@ public class BisectionInference implements Inference {
 
 		// Sort edges within clusters.
 		fillWeightsAndConfirmed(output, graph);
-		Arrays.sort(output.weightedPapers);
+		Arrays.sort(output.weightedPapers, compPapers);
 	}
 
 	/**
@@ -81,7 +106,7 @@ public class BisectionInference implements Inference {
 		int size = input.size();
 		// Build graph to run MST algorithm.
 		double[][] graph = new double[size][size];
-		fillMstGraph(graph, model, input, referenceOutput, lossWeight);
+		fillGraph(graph, model, input, referenceOutput, lossWeight);
 
 		// Guarantee that auxiliary data structures fit this instance.
 		mstAlgorithm.realloc(size);
@@ -115,7 +140,7 @@ public class BisectionInference implements Inference {
 		int size = input.size();
 		// Build graph to run MST algorithm.
 		double[][] graph = new double[size][size];
-		fillPartialMstGraph(graph, model, input, partiallyLabeledOutput);
+		fillPartiaGraph(graph, model, input, partiallyLabeledOutput);
 
 		// Guarantee that auxiliary data structures fit this instance.
 		mstAlgorithm.realloc(size);
@@ -136,26 +161,28 @@ public class BisectionInference implements Inference {
 	 * @param correct
 	 * @param lossWeight
 	 */
-	private void fillMstGraph(double[][] graph, BisectionModel model,
+	private void fillGraph(double[][] graph, BisectionModel model,
 			BisectionInput input, BisectionOutput correct, double lossWeight) {
 		int size = input.size();
-		for (int paper1 = 0; paper1 < size - 1; ++paper1) {
-			for (int paper2 = paper1 + 1; paper2 < size; ++paper2) {
+		for (int paper1 = 0; paper1 < size; ++paper1) {
+			for (int paper2 = 0; paper2 < size; ++paper2) {
 				int[] catBasFtrs = input.getBasicCategoricalFeatures(paper1,
 						paper2);
-				if (catBasFtrs == null)
-					// Inexistent edge.
+				if (catBasFtrs == null) {
+					// Skip inexistent edge.
 					graph[paper1][paper2] = Double.NaN;
+					continue;
+				}
 
 				// Categorical and numerical features of this edge.
-				int[] catFtrs = input.getFeatureCodes(paper1, paper2);
-				double[] numFtrs = input.getFeatureValues(paper1, paper2);
+				int[] ftrCodes = input.getFeatureCodes(paper1, paper2);
+				double[] ftrValues = input.getFeatureValues(paper1, paper2);
 
 				// Compute edge weight.
 				double w = 0d;
-				for (int idxFtr = 0; idxFtr < catFtrs.length; ++idxFtr)
-					w += model.getFeatureWeight(catFtrs[idxFtr])
-							* numFtrs[idxFtr];
+				for (int idxFtr = 0; idxFtr < ftrCodes.length; ++idxFtr)
+					w += model.getFeatureWeight(ftrCodes[idxFtr])
+							* ftrValues[idxFtr];
 
 				if (correct != null
 						&& lossWeight != 0d
@@ -179,11 +206,11 @@ public class BisectionInference implements Inference {
 	 * @param input
 	 * @param correct
 	 */
-	private void fillPartialMstGraph(double[][] graph, BisectionModel model,
+	private void fillPartiaGraph(double[][] graph, BisectionModel model,
 			BisectionInput input, BisectionOutput correct) {
 		int size = input.size();
-		for (int paper1 = 0; paper1 < size - 1; ++paper1) {
-			for (int paper2 = paper1 + 1; paper2 < size; ++paper2) {
+		for (int paper1 = 0; paper1 < size; ++paper1) {
+			for (int paper2 = 0; paper2 < size; ++paper2) {
 				// Do not include incorrect edges.
 				if (correct.isConfirmed(paper1) != correct.isConfirmed(paper2)) {
 					graph[paper1][paper2] = Double.NaN;
@@ -200,14 +227,14 @@ public class BisectionInference implements Inference {
 				}
 
 				// Categorical and numerical features of this edge.
-				int[] catFtrs = input.getFeatureCodes(paper1, paper2);
-				double[] numFtrs = input.getFeatureValues(paper1, paper2);
+				int[] ftrCodes = input.getFeatureCodes(paper1, paper2);
+				double[] ftrValues = input.getFeatureValues(paper1, paper2);
 
 				// Compute edge weight.
 				double w = 0d;
-				for (int idxFtr = 0; idxFtr < catFtrs.length; ++idxFtr)
-					w += model.getFeatureWeight(catFtrs[idxFtr])
-							* numFtrs[idxFtr];
+				for (int idxFtr = 0; idxFtr < ftrCodes.length; ++idxFtr)
+					w += model.getFeatureWeight(ftrCodes[idxFtr])
+							* ftrValues[idxFtr];
 				graph[paper1][paper2] = w;
 			}
 		}
@@ -231,13 +258,8 @@ public class BisectionInference implements Inference {
 		for (int idx = 0; idx < size; ++idx) {
 			WeightedPaper wPaper = wPapers[idx];
 			int paper = wPaper.paper;
-			if (output.isConfirmed(paper)) {
-				wPaper.confirmed = true;
-				wPaper.weight = -graph[0][paper];
-			} else {
-				wPaper.confirmed = false;
-				wPapers[idx].weight = -graph[0][paper];
-			}
+			wPaper.confirmed = output.isConfirmed(paper);
+			wPaper.weight = -graph[0][paper];
 		}
 	}
 

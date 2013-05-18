@@ -4,8 +4,8 @@ import java.util.Collection;
 import java.util.Iterator;
 
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
-import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.DatasetException;
+import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 
 /**
  * Bisection input structure. Represent an author and her candidate papers. Each
@@ -24,12 +24,17 @@ public class BisectionInput implements ExampleInput {
 	private long authorId;
 
 	/**
+	 * Ids of candidate papers.
+	 */
+	private long[] papersIds;
+
+	/**
 	 * Array of BASIC features (column representation). It is an array of arcs.
 	 * The first dimension corresponds to the origin paper (smaller index) and
 	 * the second dimension corresponds to the target paper (greater index).
 	 * Each arc comprises an fixed-length array of features.
 	 */
-	private int[][][] basicCathegoricalFeatures;
+	private int[][][] basicCategoricalFeatures;
 
 	/**
 	 * This input is able to deal with numeric features. In this case, this
@@ -46,7 +51,7 @@ public class BisectionInput implements ExampleInput {
 
 	/**
 	 * Derived feature values when numerical features are used within templates.
-	 * For features derived from templates composed exclusively by cathegorical
+	 * For features derived from templates composed exclusively by categorical
 	 * features, the value is always 1 (one).
 	 */
 	private double[][][] featureValues;
@@ -58,44 +63,51 @@ public class BisectionInput implements ExampleInput {
 	 *            the author id number.
 	 * @param numPapers
 	 *            number of candidate papers for this author.
-	 * @param cathegoricalValues
+	 * @param categoricalValues
 	 *            list of basic features codes. Each item in this list
 	 *            corresponds to an edge connecting two candidate papers. An
 	 *            edge is a fixed-length list of feature codes (column format).
 	 *            The first two items in this list correspond to the indexes of
 	 *            the papers connected by the edge. A feature code is the value
-	 *            of the cathegorical feature in some specific position or -1,
+	 *            of the categorical feature in some specific position or -1,
 	 *            for numerical features.
 	 * @param numericalValues
-	 *            numeric values for numerical features. For cathegorical
+	 *            numeric values for numerical features. For categorical
 	 *            features, this value must be Double.NaN.
 	 * @throws DatasetException
 	 *             in case of misformatted lists (different lenghts, for
 	 *             instance).
 	 */
-	public BisectionInput(long authorId, int numPapers,
-			Collection<? extends Collection<Integer>> cathegoricalValues,
+	public BisectionInput(int numPapers, long authorId,
+			Collection<Long> papersIdsList,
+			Collection<? extends Collection<Integer>> categoricalValues,
 			Collection<? extends Collection<Double>> numericalValues)
 			throws DatasetException {
 		// Author ID.
 		this.authorId = authorId;
 
-		// Array of basic cathegorical features.
-		this.basicCathegoricalFeatures = new int[numPapers][numPapers][];
+		// Fill papers ids.
+		this.papersIds = new long[numPapers];
+		int idxPaper = 0;
+		for (long paperId : papersIdsList)
+			papersIds[idxPaper++] = paperId;
+
+		// Array of basic categorical features.
+		this.basicCategoricalFeatures = new int[numPapers][numPapers][];
 		// Array of basic numerical features.
 		this.basicNumericalFeatures = new double[numPapers][numPapers][];
 
-		// Iterator of edges for cathegorical features.
-		Iterator<? extends Collection<Integer>> itCatEdges = cathegoricalValues
+		// Iterator of edges for categorical features.
+		Iterator<? extends Collection<Integer>> itCatEdges = categoricalValues
 				.iterator();
 		// Iterator of edges for numerical features.
 		Iterator<? extends Collection<Double>> itNumEdges = numericalValues
 				.iterator();
 
-		int numEdges = cathegoricalValues.size();
+		int numEdges = categoricalValues.size();
 		if (numEdges != numericalValues.size())
 			throw new DatasetException(String.format(
-					"Author %l has lists of cathegorical and "
+					"Author %l has lists of categorical and "
 							+ "numerical features with different lengths.",
 					authorId));
 
@@ -103,7 +115,7 @@ public class BisectionInput implements ExampleInput {
 		int prevNumNumFtrs = Integer.MAX_VALUE;
 		int idxEdge = 0;
 		while (itCatEdges.hasNext() && itNumEdges.hasNext()) {
-			// Read values of cathegorical features.
+			// Read values of categorical features.
 			Collection<Integer> catEdge = itCatEdges.next();
 			Iterator<Integer> itCatCodes = catEdge.iterator();
 			int numCatFtrs = catEdge.size() - 2;
@@ -122,13 +134,13 @@ public class BisectionInput implements ExampleInput {
 			if (prevNumCatFtrs != Integer.MAX_VALUE
 					&& prevNumCatFtrs != numCatFtrs)
 				throw new DatasetException(String.format(
-						"Edge (%d,%d) of author %l has a diferent "
+						"Edge (%d,%d) of author %d has a diferent "
 								+ "number of basic features than "
 								+ "previous edges.", paper1, paper2, authorId));
 			prevNumCatFtrs = numCatFtrs;
 
-			// Allocate and fill array of cathegorical features for this edge.
-			int[] catFtrs = basicCathegoricalFeatures[paper1][paper2] = new int[numCatFtrs];
+			// Allocate and fill array of categorical features for this edge.
+			int[] catFtrs = basicCategoricalFeatures[paper1][paper2] = new int[numCatFtrs];
 			int idxCatFtr = 0;
 			while (itCatCodes.hasNext())
 				catFtrs[idxCatFtr++] = itCatCodes.next();
@@ -168,7 +180,7 @@ public class BisectionInput implements ExampleInput {
 
 	@Override
 	public BisectionOutput createOutput() {
-		return new BisectionOutput(basicCathegoricalFeatures.length);
+		return new BisectionOutput(basicCategoricalFeatures.length);
 	}
 
 	@Override
@@ -193,7 +205,7 @@ public class BisectionInput implements ExampleInput {
 	 * @return
 	 */
 	public int size() {
-		return basicCathegoricalFeatures.length;
+		return basicCategoricalFeatures.length;
 	}
 
 	/**
@@ -221,21 +233,15 @@ public class BisectionInput implements ExampleInput {
 	}
 
 	public int[] getFeatureCodes(int paper1, int paper2) {
-		if (paper1 <= paper2)
-			return featureCodes[paper1][paper2];
-		else
-			return featureCodes[paper2][paper1];
+		return featureCodes[paper1][paper2];
 	}
 
 	public double[] getFeatureValues(int paper1, int paper2) {
-		if (paper1 <= paper2)
-			return featureValues[paper1][paper2];
-		else
-			return featureValues[paper2][paper1];
+		return featureValues[paper1][paper2];
 	}
 
 	public int[] getBasicCategoricalFeatures(int paper1, int paper2) {
-		return basicCathegoricalFeatures[paper1][paper2];
+		return basicCategoricalFeatures[paper1][paper2];
 	}
 
 	public double[] getBasicNumericalFeatures(int paper1, int paper2) {
@@ -253,5 +259,9 @@ public class BisectionInput implements ExampleInput {
 
 	public long getAuthorId() {
 		return authorId;
+	}
+
+	public long getPaperId(int paper) {
+		return papersIds[paper];
 	}
 }

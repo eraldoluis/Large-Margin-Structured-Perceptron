@@ -1,12 +1,14 @@
 package br.pucrio.inf.learn.util.maxbranching;
 
+import br.pucrio.inf.learn.util.HashCodeUtil;
+
 /**
  * Simple edge representation.
  * 
  * @author eraldo
  * 
  */
-public class SimpleWeightedEdge implements Comparable<SimpleWeightedEdge> {
+public class SimpleWeightedEdge {
 
 	/**
 	 * Outgoing node.
@@ -37,12 +39,21 @@ public class SimpleWeightedEdge implements Comparable<SimpleWeightedEdge> {
 	}
 
 	@Override
-	public int compareTo(SimpleWeightedEdge o) {
-		if (weight < o.weight)
-			return 1;
-		if (weight > o.weight)
-			return -1;
-		return 0;
+	public boolean equals(Object obj) {
+		if (!(obj instanceof SimpleWeightedEdge))
+			return false;
+		SimpleWeightedEdge other = (SimpleWeightedEdge) obj;
+		return from == other.from && to == other.to;
+	}
+
+	@Override
+	public int hashCode() {
+		return HashCodeUtil.hash(from, to);
+	}
+
+	@Override
+	public String toString() {
+		return String.format("(%d,%d,%f)", from, to, weight);
 	}
 
 }

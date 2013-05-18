@@ -70,6 +70,10 @@ public class Driver {
 		descriptions.add(new CommandDescription(new TrainRank(), "TrainRank",
 				"Train a ranking model."));
 
+		// Train a bisection model.
+		descriptions.add(new CommandDescription(new TrainBisection(),
+				"TrainBisection", "Train a bisection model."));
+
 		if (args.length < 1) {
 			usage();
 			System.exit(1);

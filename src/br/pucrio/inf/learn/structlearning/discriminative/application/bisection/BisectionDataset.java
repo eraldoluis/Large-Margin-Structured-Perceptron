@@ -9,6 +9,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -51,7 +52,7 @@ public class BisectionDataset implements Dataset {
 	/**
 	 * Regular expression pattern to parse spaces.
 	 */
-	private static final Pattern REGEX_SPACE = Pattern.compile("[ ]");
+	private static final Pattern REGEX_SPACE = Pattern.compile("[ ]+");
 
 	/**
 	 * Map basic feature values (string) to codes (integer).
@@ -106,6 +107,16 @@ public class BisectionDataset implements Dataset {
 	 * Index of the author ID feature.
 	 */
 	private int idxFtrAuthorId;
+
+	/**
+	 * Index of the paper 1 id feature.
+	 */
+	private int idxFtrPaper1Id;
+
+	/**
+	 * Index of the paper 2 id feature.
+	 */
+	private int idxFtrPaper2Id;
 
 	/**
 	 * Default constructor.
@@ -306,8 +317,8 @@ public class BisectionDataset implements Dataset {
 			// Number of papers within the current input.
 			int size = input.size();
 
-			for (int paper1 = 0; paper1 < size - 1; ++paper1) {
-				for (int paper2 = paper1 + 1; paper2 < size; ++paper2) {
+			for (int paper1 = 0; paper1 < size; ++paper1) {
+				for (int paper2 = 0; paper2 < size; ++paper2) {
 					// Values of basic categorical features in the current edge.
 					int[] basicCategoricalFeatures = input
 							.getBasicCategoricalFeatures(paper1, paper2);
@@ -420,21 +431,30 @@ public class BisectionDataset implements Dataset {
 		int end = line.indexOf(']');
 		String[] labels = line.substring(eq + 1, end).split(",");
 
-		// Read numerical feature labels in the second line.
-		String numFtrsLine = skipBlanksAndComments(reader);
-		eq = numFtrsLine.indexOf('=');
-		end = numFtrsLine.indexOf(']');
-		String[] labelsNumFtrs = numFtrsLine.substring(eq + 1, end).split(",");
-		// Set flags indicating which features are numerical.
+		// Flags indicating which features are numerical.
 		numericalFeature = new boolean[labels.length];
-		for (String numFtrLabel : labelsNumFtrs)
-			numericalFeature[getIndex(labels, numFtrLabel)] = true;
-		// Fill the numberical feature labels in the order of the original ftrs.
+
+		// Read numerical feature labels in the second line.
+		String numFtrsLine = reader.readLine();
+		String[] labelsNumFtrs = null;
+		if (numFtrsLine.trim().length() > 0) {
+			eq = numFtrsLine.indexOf('=');
+			end = numFtrsLine.indexOf(']');
+			labelsNumFtrs = numFtrsLine.substring(eq + 1, end).split(",");
+			// Set numerical feature flags.
+			for (String numFtrLabel : labelsNumFtrs)
+				numericalFeature[getIndex(labels, numFtrLabel.trim())] = true;
+			// Skip first blank line.
+			reader.readLine();
+		} else
+			labelsNumFtrs = new String[0];
+
+		// Fill the numberical labels in the order of the original ftrs.
 		numericalFeatureLabels = new String[labelsNumFtrs.length];
 		int idxNumFtr = 0;
 		for (int idxFtr = 0; idxFtr < labels.length; ++idxFtr)
 			if (numericalFeature[idxFtr])
-				numericalFeatureLabels[idxNumFtr++] = labels[idxFtr];
+				numericalFeatureLabels[idxNumFtr++] = labels[idxFtr].trim();
 
 		/*
 		 * Fill the categorical feature labels in the order of the original
@@ -445,14 +465,18 @@ public class BisectionDataset implements Dataset {
 		categoricalFeatureLabels = new String[labels.length
 				- labelsNumFtrs.length - 1];
 		int idxCatFtr = 0;
-		for (int idxFtr = 0; idxFtr < labels.length; ++idxFtr)
+		for (int idxFtr = 0; idxFtr < labels.length - 1; ++idxFtr)
 			if (!numericalFeature[idxFtr])
-				categoricalFeatureLabels[idxCatFtr++] = labels[idxFtr];
+				categoricalFeatureLabels[idxCatFtr++] = labels[idxFtr].trim();
 
 		// Get index of the feature with edge id.
 		idxFtrEdgeId = getIndex(labels, "id");
 		// Get index of the author ID feature.
 		idxFtrAuthorId = getIndex(labels, "authorId");
+		// Get index of the paper1 id feature.
+		idxFtrPaper1Id = getIndex(labels, "paperId1");
+		// Get index of the paper2 id feature.
+		idxFtrPaper2Id = getIndex(labels, "paperId2");
 
 		// Examples.
 		List<BisectionInput> inputList = new LinkedList<BisectionInput>();
@@ -502,6 +526,9 @@ public class BisectionDataset implements Dataset {
 		 */
 		HashSet<Integer> confirmedPapers = new HashSet<Integer>();
 
+		// Papers ids.
+		ArrayList<Long> papersIds = new ArrayList<Long>();
+
 		String line;
 		// Guarantee that every edge has the same author ID.
 		long authorId = -1;
@@ -514,6 +541,9 @@ public class BisectionDataset implements Dataset {
 			if (line.length() == 0)
 				// Stop on blank lines.
 				break;
+			if (line.startsWith("#"))
+				// Comment line.
+				continue;
 
 			// Feature values in string format.
 			String[] ftrStrs = REGEX_SPACE.split(line);
@@ -527,6 +557,28 @@ public class BisectionDataset implements Dataset {
 			// Update number of papers.
 			size = Math.max(paper1 + 1, size);
 			size = Math.max(paper2 + 1, size);
+
+			// Adjust array of papers ids to the correct size.
+			int piSize = papersIds.size();
+			if (piSize < size)
+				for (int i = 0; i < size - piSize; ++i)
+					papersIds.add(null);
+
+			// Set ids for both papers of this edge.
+			Long p1Id = papersIds.get(paper1);
+			if (p1Id == null)
+				papersIds.set(paper1, Long.parseLong(ftrStrs[idxFtrPaper1Id]));
+			else if (p1Id != Long.parseLong(ftrStrs[idxFtrPaper1Id]))
+				throw new DatasetException(String.format(
+						"Edge (%d,%d) presents inconsistent paper1 id.",
+						paper1, paper2));
+			Long p2Id = papersIds.get(paper2);
+			if (p2Id == null)
+				papersIds.set(paper2, Long.parseLong(ftrStrs[idxFtrPaper2Id]));
+			else if (p2Id != Long.parseLong(ftrStrs[idxFtrPaper2Id]))
+				throw new DatasetException(String.format(
+						"Edge (%d,%d) presents inconsistent paper2 id.",
+						paper1, paper2));
 
 			// Get author ID and verify that it is the same of previous edge.
 			authorId = Long.parseLong(ftrStrs[idxFtrAuthorId]);
@@ -542,7 +594,7 @@ public class BisectionDataset implements Dataset {
 			// Add them already to the lists of edges.
 			edgesCatFtrCodes.add(ftrCodes);
 			edgesNumFtrValues.add(ftrValues);
-			
+
 			// Add papers ids to the list of categorical feature codes.
 			ftrCodes.add(paper1);
 			ftrCodes.add(paper2);
@@ -560,9 +612,12 @@ public class BisectionDataset implements Dataset {
 
 			// The last value is the correct feature (Y or N).
 			String areConfirmedPapers = ftrStrs[ftrStrs.length - 1];
-			if ("Y".equals(areConfirmedPapers)) {
-				confirmedPapers.add(paper1);
-				confirmedPapers.add(paper2);
+			if (paper1 == 0) {
+				if ("N".equals(areConfirmedPapers))
+					confirmedPapers.add(paper2);
+			} else if (paper2 == 0) {
+				if ("N".equals(areConfirmedPapers))
+					confirmedPapers.add(paper1);
 			}
 		}
 
@@ -570,7 +625,7 @@ public class BisectionDataset implements Dataset {
 			return line != null;
 
 		// Create new input struct with the parsed features.
-		BisectionInput input = new BisectionInput(authorId, size,
+		BisectionInput input = new BisectionInput(size, authorId, papersIds,
 				edgesCatFtrCodes, edgesNumFtrValues);
 
 		// Create confirmed array.
@@ -665,6 +720,13 @@ public class BisectionDataset implements Dataset {
 		return derivedEncoding;
 	}
 
+	/**
+	 * Save the given predicted information in CSV format (KDD Cup 2013 format).
+	 * 
+	 * @param testOutFilename
+	 * @param predicteds
+	 * @throws FileNotFoundException
+	 */
 	public void save(String testOutFilename, BisectionOutput[] predicteds)
 			throws FileNotFoundException {
 		PrintStream ps = new PrintStream(testOutFilename);
@@ -673,18 +735,20 @@ public class BisectionDataset implements Dataset {
 	}
 
 	public void save(PrintStream ps, BisectionOutput[] predicteds) {
-		// int numExs = getNumberOfExamples();
-		// for (int idxEx = 0; idxEx < numExs; ++idxEx) {
-		// BisectionInput in = inputExamples[idxEx];
-		// BisectionOutput out = predicteds[idxEx];
-		// ps.print(in.getQueryId() + ",");
-		// int numItems = out.size();
-		// for (int idxItem = 0; idxItem < numItems; ++idxItem) {
-		// int item = out.weightedPapers[idxItem].paper;
-		// ps.print(basicEncoding.getValueByCode(in.getBasicFeatures(item)[1])
-		// + " ");
-		// }
-		// ps.println();
-		// }
+		int numExs = getNumberOfExamples();
+		for (int idxEx = 0; idxEx < numExs; ++idxEx) {
+			BisectionInput in = inputExamples[idxEx];
+			BisectionOutput out = predicteds[idxEx];
+			ps.print(in.getAuthorId() + ",");
+			int size = out.size();
+			for (int idxPaper = 0; idxPaper < size; ++idxPaper) {
+				int paper = out.weightedPapers[idxPaper].paper;
+				if (paper == 0)
+					// Skip artificial paper.
+					continue;
+				ps.print(in.getPaperId(paper) + " ");
+			}
+			ps.println();
+		}
 	}
 }

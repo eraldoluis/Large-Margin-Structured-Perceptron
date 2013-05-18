@@ -1,9 +1,12 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.bisection;
 
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 import br.pucrio.inf.learn.util.maxbranching.DisjointSets;
+import br.pucrio.inf.learn.util.maxbranching.SimpleWeightedEdge;
 
 /**
  * Output structure for the bisection model. There are two representations in
@@ -19,6 +22,15 @@ import br.pucrio.inf.learn.util.maxbranching.DisjointSets;
  * 
  */
 public class BisectionOutput implements ExampleOutput {
+
+	/**
+	 * Flags indicating which papers are confirmed and which are deleted. This
+	 * structure is mainly used for gold-standard outputs. However, predicted
+	 * outputs also use this structure to store the predicted split before
+	 * sorting the papers within each split.
+	 */
+	private boolean[] confirmedPapers;
+
 	/**
 	 * Ordered list of papers. Each element in this array is a paper index in
 	 * the corresponding input structure. This array is used for predicted
@@ -27,16 +39,9 @@ public class BisectionOutput implements ExampleOutput {
 	public WeightedPaper[] weightedPapers;
 
 	/**
-	 * Array of incident edges of the maximum spaning tree (MST). This structure
-	 * is used only for predicted outputs.
+	 * Edges of the maximum spaning tree (MST).
 	 */
-	private int[] mst;
-
-	/**
-	 * Flags indicating which papers are confirmed and which are deleted. This
-	 * structure is used only for gold-standard outputs.
-	 */
-	private boolean[] confirmedPapers;
+	private Set<SimpleWeightedEdge> mst;
 
 	/**
 	 * Size of this output structure, i.e., the number of candidate papers.
@@ -57,9 +62,9 @@ public class BisectionOutput implements ExampleOutput {
 	public BisectionOutput(int size) {
 		this.size = size;
 		this.weightedPapers = new WeightedPaper[size];
-		for (int paper = 0; paper < size; ++paper)
-			weightedPapers[paper] = new WeightedPaper(paper, false, 0);
-		this.mst = new int[size];
+		for (int idx = 0; idx < size; ++idx)
+			weightedPapers[idx] = new WeightedPaper(idx, false, 0);
+		this.mst = new HashSet<SimpleWeightedEdge>();
 		this.confirmedPapers = new boolean[size];
 		this.numberOfConfirmedPapers = -1;
 	}
@@ -73,11 +78,13 @@ public class BisectionOutput implements ExampleOutput {
 	 */
 	public BisectionOutput(boolean[] confirmed) {
 		this.size = confirmed.length;
-		this.weightedPapers = new WeightedPaper[size];
-		for (int paper = 0; paper < size; ++paper)
-			weightedPapers[paper] = new WeightedPaper(paper, confirmed[paper],
-					0);
-		this.mst = new int[size];
+		this.weightedPapers = null;
+		/*
+		 * new WeightedPaper[size]; for (int paper = 0; paper < size; ++paper)
+		 * weightedPapers[paper] = new WeightedPaper(paper, confirmed[paper],
+		 * 0);
+		 */
+		this.mst = new HashSet<SimpleWeightedEdge>();
 		this.confirmedPapers = confirmed;
 		this.numberOfConfirmedPapers = 0;
 		for (boolean b : confirmedPapers)
@@ -122,31 +129,6 @@ public class BisectionOutput implements ExampleOutput {
 	}
 
 	/**
-	 * Compare the relevance of the given two candidate papers and return which
-	 * from the two are more likely to be a confirmed paper. This operation
-	 * works only for the binary relevance representation (gold standard).
-	 * 
-	 * @param paper1
-	 * @param paper2
-	 * @return 1 if paper1 is more relevant than paper2. -1 if paper2 is more
-	 *         relevant than paper1. 0 if both papers have the same relevance.
-	 */
-	public int compare(int paper1, int paper2) {
-		if (isConfirmed(paper1)) {
-			if (isDeleted(paper2))
-				return 1;
-			else
-				return 0;
-		} else if (isDeleted(paper1)) {
-			if (isConfirmed(paper2))
-				return -1;
-			else
-				return 0;
-		} else
-			return 0;
-	}
-
-	/**
 	 * Return the item in the given rank within this output ranking. This must
 	 * be used only for predicted outputs.
 	 * 
@@ -158,12 +140,11 @@ public class BisectionOutput implements ExampleOutput {
 	}
 
 	/**
-	 * Return the array that represents a MST solution. This array stores, for
-	 * each paper, the adjacent paper in the oriented tree.
+	 * Return the list of edges comprising the predicted MST.
 	 * 
 	 * @return
 	 */
-	public int[] getMst() {
+	public Set<SimpleWeightedEdge> getMst() {
 		return mst;
 	}
 
@@ -175,23 +156,16 @@ public class BisectionOutput implements ExampleOutput {
 	 * Compute confirmed and deleted papers from the underlying MST.
 	 */
 	public void computeSplitFromMst() {
-		// Initially, every paper is confirmed.
-		Arrays.fill(confirmedPapers, true);
-		// Find clusters.
+		// Induce clusters from the MST connected components.
 		DisjointSets clustering = new DisjointSets(size);
-		for (int paper1 = 0; paper1 < size; ++paper1) {
-			int paper2 = mst[paper1];
-			if (paper2 < 0)
-				continue;
-			int cluster1 = clustering.find(paper1);
-			int cluster2 = clustering.find(paper2);
-			if (cluster1 != cluster2)
-				clustering.union(cluster1, cluster2);
-		}
+		for (SimpleWeightedEdge edge : mst)
+			clustering.unionElements(edge.from, edge.to);
 
-		// Get deleted papers (papers connected to the artificial node).
+		// Initially, consider every paper as confirmed.
+		Arrays.fill(confirmedPapers, true);
+
+		// Unflag deleted papers (all papers in the artificial node cluster).
 		int delCluster = clustering.find(0);
-		confirmedPapers[0] = false;
 		for (int paper = 0; paper < size; ++paper) {
 			if (clustering.find(paper) == delCluster)
 				confirmedPapers[paper] = false;
@@ -217,7 +191,7 @@ public class BisectionOutput implements ExampleOutput {
 	 * @author eraldo
 	 * 
 	 */
-	public static class WeightedPaper implements Comparable<WeightedPaper> {
+	public static class WeightedPaper {
 		/**
 		 * Paper index as in the input structure.
 		 */
@@ -243,19 +217,6 @@ public class BisectionOutput implements ExampleOutput {
 			this.paper = paper;
 			this.confirmed = confirmed;
 			this.weight = weight;
-		}
-
-		@Override
-		public int compareTo(WeightedPaper o) {
-			if (confirmed && !o.confirmed)
-				return -1;
-			if (!confirmed && o.confirmed)
-				return 1;
-			if (weight > o.weight)
-				return -1;
-			if (weight < o.weight)
-				return 1;
-			return 0;
 		}
 	}
 

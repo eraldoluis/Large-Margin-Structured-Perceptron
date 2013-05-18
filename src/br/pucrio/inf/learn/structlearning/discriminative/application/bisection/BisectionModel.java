@@ -12,6 +12,7 @@ import br.pucrio.inf.learn.structlearning.discriminative.data.Dataset;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Model;
+import br.pucrio.inf.learn.util.maxbranching.SimpleWeightedEdge;
 
 /**
  * Rank model. Just an array of weights (one for each feature).
@@ -71,53 +72,38 @@ public class BisectionModel implements Model {
 	 */
 	public double update(BisectionInput input, BisectionOutput outputCorrect,
 			BisectionOutput outputPredicted, double learningRate) {
-		// Example size (number of queries).
-		int size = outputCorrect.size();
+		// Get correct and predicted MSTs.
+		Set<SimpleWeightedEdge> mstCorrect = outputCorrect.getMst();
+		Set<SimpleWeightedEdge> mstPredicted = outputPredicted.getMst();
+
+		// Compute missing edges in the predicted MST.
+		Set<SimpleWeightedEdge> missing = new HashSet<SimpleWeightedEdge>(
+				mstCorrect);
+		missing.removeAll(mstPredicted);
+
+		// Compute mispredicted edges in the predicted MST.
+		Set<SimpleWeightedEdge> mispredicted = new HashSet<SimpleWeightedEdge>(
+				mstPredicted);
+		mispredicted.removeAll(mstCorrect);
+
 		// Loss.
 		double loss = 0d;
-		// Get both MSTs.
-		int[] mstCorrect = outputCorrect.getMst();
-		int[] mstPredicted = outputPredicted.getMst();
-		// Iterate over the ordered items of the predicted output.
-		for (int paper1 = 0; paper1 < size; ++paper1) {
 
-			// Check if correct edge was predicted.
-			int correctPaper2 = mstCorrect[paper1];
-			if (correctPaper2 >= 0
-					&& !isUndirectedEdgePresent(mstPredicted, paper1,
-							correctPaper2)) {
-				updateParameters(input.getFeatureCodes(paper1, correctPaper2),
-						input.getFeatureValues(paper1, correctPaper2),
-						learningRate);
-				loss += 1;
-			}
+		// Increment weights of features within missing edges.
+		for (SimpleWeightedEdge edge : missing) {
+			updateParameters(input.getFeatureCodes(edge.from, edge.to),
+					input.getFeatureValues(edge.from, edge.to), learningRate);
+			loss += 0.5;
+		}
 
-			// Check if predicted edge is correct.
-			int predictedPaper2 = mstPredicted[paper1];
-			if (predictedPaper2 >= 0
-					&& !isUndirectedEdgePresent(mstCorrect, paper1,
-							predictedPaper2))
-				updateParameters(
-						input.getFeatureCodes(paper1, predictedPaper2),
-						input.getFeatureValues(paper1, predictedPaper2),
-						-learningRate);
-
+		// Decrement weights of features within mispredicted edges.
+		for (SimpleWeightedEdge edge : mispredicted) {
+			updateParameters(input.getFeatureCodes(edge.from, edge.to),
+					input.getFeatureValues(edge.from, edge.to), -learningRate);
+			loss += 0.5;
 		}
 
 		return loss;
-	}
-
-	/**
-	 * Return whether the given <b>undirected</b> edge is present in the MST of
-	 * <code>out</code>. The MST is represented as a directed tree (branching).
-	 * 
-	 * @param out
-	 * @param paper1
-	 * @param paper2
-	 * @return
-	 */
-	private boolean isUndirectedEdgePresent(int[] mst, int paper1, int paper2) {
-		return mst[paper1] == paper2 || mst[paper2] == paper1;
 	}
 
 	@Override

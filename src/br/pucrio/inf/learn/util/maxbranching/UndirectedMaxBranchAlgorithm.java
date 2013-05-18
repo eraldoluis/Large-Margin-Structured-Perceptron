@@ -3,6 +3,7 @@ package br.pucrio.inf.learn.util.maxbranching;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 
 /**
  * Implement a maximum branching algorithm for undirected graphs. A directed
@@ -43,6 +44,20 @@ public class UndirectedMaxBranchAlgorithm implements MaximumBranchingAlgorithm {
 	private boolean onlyPositiveEdges;
 
 	/**
+	 * Simple edge comparator.
+	 */
+	private final static Comparator<SimpleWeightedEdge> comp = new Comparator<SimpleWeightedEdge>() {
+		@Override
+		public int compare(SimpleWeightedEdge o1, SimpleWeightedEdge o2) {
+			if (o1.weight > o2.weight)
+				return -1;
+			if (o1.weight < o2.weight)
+				return 1;
+			return 0;
+		}
+	};
+
+	/**
 	 * Create a undirected maximum branching algorithm (Kruskal) that is able to
 	 * handle graphs with up to the given <code>maxNumberOfNodes</code> nodes.
 	 * 
@@ -69,7 +84,7 @@ public class UndirectedMaxBranchAlgorithm implements MaximumBranchingAlgorithm {
 			}
 		}
 		// Sort edges by weight.
-		Collections.sort(edges);
+		Collections.sort(edges, comp);
 
 		// Initialize the disjoint sets (one component for each node).
 		partition.clear(numberOfNodes);
