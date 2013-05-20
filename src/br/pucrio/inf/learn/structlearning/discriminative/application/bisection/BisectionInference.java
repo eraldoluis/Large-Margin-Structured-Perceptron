@@ -14,7 +14,8 @@ import br.pucrio.inf.learn.util.maxbranching.KruskalAlgorithm;
 /**
  * Prediction algorithm for bisection model. Based on Kruskal algorithm to
  * cluster candidate papers in confirmed and deleted sets. Then, use distance to
- * the artificial deleted node to rank papers within each cluster.
+ * the artificial deleted node (paper at the index zero) to rank papers within
+ * each cluster.
  * 
  * @author eraldo
  * 

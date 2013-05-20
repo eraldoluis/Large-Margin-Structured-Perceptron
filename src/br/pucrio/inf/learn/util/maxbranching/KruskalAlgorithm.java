@@ -63,13 +63,27 @@ public class KruskalAlgorithm {
 		realloc(maxNumberOfNodes);
 	}
 
+	/**
+	 * Find the maximum spanning tree for the given graph. The number of nodes
+	 * is also given, so that the graph array can be larger than that. The
+	 * selected edges are added to the given collection.
+	 * 
+	 * The algorithm can stop before achieving one unique tree, if in the
+	 * constructor, a value greater than 1 is given for the parameter
+	 * <code>minComponenets</code>.
+	 * 
+	 * @param numberOfNodes
+	 * @param graph
+	 * @param mst
+	 * @return the weight of the built tree.
+	 */
 	public double findMaxBranching(int numberOfNodes, double[][] graph,
 			Collection<SimpleWeightedEdge> mst) {
 		// Clear the list of all edges.
 		edges.clear();
 		// Clear MST.
 		mst.clear();
-		// Add edges with their weights to the list.
+		// Add feasible edges with their weights to the list.
 		for (int from = 0; from < numberOfNodes; ++from) {
 			for (int to = 0; to < numberOfNodes; ++to) {
 				if (from == to)
@@ -86,7 +100,7 @@ public class KruskalAlgorithm {
 			}
 		}
 
-		// Sort edges by weight.
+		// Sort edges in the inverse order of their weights.
 		Collections.sort(edges, comp);
 
 		// Initialize the disjoint sets (one component for each node).
@@ -96,30 +110,32 @@ public class KruskalAlgorithm {
 		double totalWeight = 0d;
 		int numComponents = numberOfNodes;
 		for (SimpleWeightedEdge edge : edges) {
-			// Component id of the source node.
-			int pFrom = partition.find(edge.from);
-			// Component id of the target node.
-			int pTo = partition.find(edge.to);
-			// Add edge if it does not create a cycle.
-			if (pFrom != pTo) {
-				// Connect the two components.
-				partition.union(pFrom, pTo);
+			/*
+			 * If edge connects two components, merge them and add this edge to
+			 * the MST.
+			 */
+			if (partition.unionElements(edge.from, edge.to)) {
 				// Add edge to the tree.
 				mst.add(edge);
 				// Account for its weight.
 				totalWeight += edge.weight;
 				// Decrement number of components.
 				--numComponents;
+				// Stop, if achieved the required number of components.
+				if (numComponents <= minComponents)
+					break;
 			}
-
-			if (numComponents <= minComponents)
-				break;
 		}
 
 		// Return the weight of the created tree.
 		return totalWeight;
 	}
 
+	/**
+	 * Guarantee that the internal structures fit the given number of nodes.
+	 * 
+	 * @param maxNumberOfNodes
+	 */
 	public void realloc(int maxNumberOfNodes) {
 		if (partition != null && partition.size() >= maxNumberOfNodes)
 			return;

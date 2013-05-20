@@ -24,22 +24,28 @@ import br.pucrio.inf.learn.util.maxbranching.SimpleWeightedEdge;
 public class BisectionOutput implements ExampleOutput {
 
 	/**
-	 * Flags indicating which papers are confirmed and which are deleted. This
-	 * structure is mainly used for gold-standard outputs. However, predicted
-	 * outputs also use this structure to store the predicted split before
-	 * sorting the papers within each split.
+	 * Flags indicating which papers are confirmed and which are deleted.
+	 * 
+	 * This structure is mainly used for gold-standard outputs. However,
+	 * predicted outputs also use this structure to store the predicted split
+	 * before sorting the papers within each split.
 	 */
 	private boolean[] confirmedPapers;
 
 	/**
 	 * Ordered list of papers. Each element in this array is a paper index in
-	 * the corresponding input structure. This array is used for predicted
-	 * outputs.
+	 * the corresponding input structure.
+	 * 
+	 * This array is used for predicted outputs. It corresponds to the final
+	 * output, i.e., the ranked papers.
 	 */
 	public WeightedPaper[] weightedPapers;
 
 	/**
 	 * Edges of the maximum spaning tree (MST).
+	 * 
+	 * This list is used for predicted outputs to split the candidate papers in
+	 * two connected componenets: confirmed and deleted.
 	 */
 	private Set<SimpleWeightedEdge> mst;
 
@@ -148,6 +154,11 @@ public class BisectionOutput implements ExampleOutput {
 		return mst;
 	}
 
+	/**
+	 * Return the number of confirmed papers for this author.
+	 * 
+	 * @return
+	 */
 	public int getNumberOfConfirmedPapers() {
 		return numberOfConfirmedPapers;
 	}
