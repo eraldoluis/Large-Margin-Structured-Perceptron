@@ -50,6 +50,12 @@ public class BisectionOutput implements ExampleOutput {
 	private Set<SimpleWeightedEdge> mst;
 
 	/**
+	 * Union-find structure to represent the nodes partition built by the MST
+	 * algorithm.
+	 */
+	private DisjointSets partition;
+
+	/**
 	 * Size of this output structure, i.e., the number of candidate papers.
 	 */
 	private int size;
@@ -73,6 +79,7 @@ public class BisectionOutput implements ExampleOutput {
 		this.mst = new HashSet<SimpleWeightedEdge>();
 		this.confirmedPapers = new boolean[size];
 		this.numberOfConfirmedPapers = -1;
+		this.partition = new DisjointSets(size);
 	}
 
 	/**
@@ -96,6 +103,7 @@ public class BisectionOutput implements ExampleOutput {
 		for (boolean b : confirmedPapers)
 			if (b)
 				++numberOfConfirmedPapers;
+		this.partition = new DisjointSets(size);
 	}
 
 	@Override
@@ -166,19 +174,14 @@ public class BisectionOutput implements ExampleOutput {
 	/**
 	 * Compute confirmed and deleted papers from the underlying MST.
 	 */
-	public void computeSplitFromMst() {
-		// Induce clusters from the MST connected components.
-		DisjointSets clustering = new DisjointSets(size);
-		for (SimpleWeightedEdge edge : mst)
-			clustering.unionElements(edge.from, edge.to);
-
+	public void computeSplitFromMstPartition() {
 		// Initially, consider every paper as confirmed.
 		Arrays.fill(confirmedPapers, true);
 
 		// Unflag deleted papers (all papers in the artificial node cluster).
-		int delCluster = clustering.find(0);
+		int delCluster = partition.find(0);
 		for (int paper = 0; paper < size; ++paper) {
-			if (clustering.find(paper) == delCluster)
+			if (partition.find(paper) == delCluster)
 				confirmedPapers[paper] = false;
 		}
 	}
@@ -191,6 +194,15 @@ public class BisectionOutput implements ExampleOutput {
 	public void setConfirmedPapersEqualTo(BisectionOutput correct) {
 		for (int idx = 0; idx < size; ++idx)
 			confirmedPapers[idx] = correct.confirmedPapers[idx];
+	}
+
+	/**
+	 * Return the union-find structure used to run Kruskal algorithm.
+	 * 
+	 * @return
+	 */
+	public DisjointSets getPartition() {
+		return partition;
 	}
 
 	/**

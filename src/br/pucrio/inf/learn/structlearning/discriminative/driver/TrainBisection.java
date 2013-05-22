@@ -92,6 +92,14 @@ public class TrainBisection implements Command {
 		// + "be performed after each training epoch.")
 		// .create());
 
+		options.addOption(OptionBuilder
+				.withLongOpt("dellossfactor")
+				.withArgName("real number")
+				.hasArg()
+				.withDescription(
+						"Factor to multiply the loss value for earcs leaving "
+								+ "the artificial deleted paper.").create());
+
 		options.addOption(OptionBuilder.withLongOpt("seed")
 				.withArgName("integer").hasArg()
 				.withDescription("Seed for the random number generator.")
@@ -116,6 +124,13 @@ public class TrainBisection implements Command {
 								+ " the algorithm returns only the final weight "
 								+ "vector instead of the average of each step "
 								+ "vectors.").create());
+
+		options.addOption(OptionBuilder
+				.withLongOpt("nonegedges")
+				.withDescription(
+						"Disallow negative edges in the Kruskal prediction. "
+								+ "That is, the algorithm can stop before "
+								+ "getting two components.").create());
 
 		// Parse the command-line arguments.
 		CommandLine cmdLine = null;
@@ -147,6 +162,10 @@ public class TrainBisection implements Command {
 		// conllBasePath = new File(scriptBasePathStr);
 		// String conllTestFileName = cmdLine.getOptionValue("conlltest");
 		// boolean evalPerEpoch = cmdLine.hasOption("perepoch");
+		String delLossFactorStr = cmdLine.getOptionValue("dellossfactor");
+		double delLossFactor = Double.NaN;
+		if (delLossFactorStr != null)
+			delLossFactor = Double.parseDouble(delLossFactorStr);
 		String seedStr = cmdLine.getOptionValue("seed");
 		double lossWeight = Double.parseDouble(cmdLine.getOptionValue(
 				"lossweight", "0d"));
@@ -180,6 +199,12 @@ public class TrainBisection implements Command {
 
 		// Inference (prediction) algorithm.
 		BisectionInference inference = new BisectionInference();
+
+		if (cmdLine.hasOption("nonegedges"))
+			inference.setOnlyPositiveEdges(true);
+
+		if (delLossFactorStr != null)
+			inference.setDeletedPaperLossFactor(delLossFactor);
 
 		// Template-based model.
 		LOG.info("Allocating initial model...");

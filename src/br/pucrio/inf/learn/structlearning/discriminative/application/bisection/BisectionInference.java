@@ -1,7 +1,10 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.bisection;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.Set;
 
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 import br.pucrio.inf.learn.structlearning.discriminative.application.bisection.BisectionOutput.WeightedPaper;
@@ -9,7 +12,9 @@ import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Inference;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Model;
+import br.pucrio.inf.learn.util.maxbranching.DisjointSets;
 import br.pucrio.inf.learn.util.maxbranching.KruskalAlgorithm;
+import br.pucrio.inf.learn.util.maxbranching.SimpleWeightedEdge;
 
 /**
  * Prediction algorithm for bisection model. Based on Kruskal algorithm to
@@ -26,6 +31,17 @@ public class BisectionInference implements Inference {
 	 * Implementation of Kruskal algorithm to find MST.
 	 */
 	private KruskalAlgorithm mstAlgorithm;
+
+	/**
+	 * Factor to multiply the loss value for arcs from the artificial DELETED
+	 * paper.
+	 */
+	private double deletedPaperLossFactor;
+
+	/**
+	 * Artificial edges used in the prediction of the latent structure.
+	 */
+	private ArrayList<SimpleWeightedEdge> artificialEdges;
 
 	/**
 	 * Comparator of WeightedPaper's that ranks confirmed papers before deleted
@@ -49,7 +65,17 @@ public class BisectionInference implements Inference {
 	};
 
 	public BisectionInference() {
+		deletedPaperLossFactor = 1d;
 		mstAlgorithm = new KruskalAlgorithm(0, 2);
+		artificialEdges = new ArrayList<SimpleWeightedEdge>();
+	}
+
+	public void setOnlyPositiveEdges(boolean val) {
+		mstAlgorithm.setOnlyPositiveEdges(val);
+	}
+
+	public void setDeletedPaperLossFactor(double factor) {
+		deletedPaperLossFactor = factor;
 	}
 
 	/**
@@ -77,10 +103,11 @@ public class BisectionInference implements Inference {
 		// Guarantee that auxiliary data structures fit this instance.
 		mstAlgorithm.realloc(size);
 		// Find MST.
-		mstAlgorithm.findMaxBranching(size, graph, output.getMst());
+		mstAlgorithm.findMaxBranching(size, graph, output.getMst(),
+				output.getPartition());
 
 		// Compute confirmed papers from the found MST.
-		output.computeSplitFromMst();
+		output.computeSplitFromMstPartition();
 
 		// Sort edges within clusters.
 		fillWeightsAndConfirmed(output, graph);
@@ -112,7 +139,8 @@ public class BisectionInference implements Inference {
 		// Guarantee that auxiliary data structures fit this instance.
 		mstAlgorithm.realloc(size);
 		// Find MST.
-		mstAlgorithm.findMaxBranching(size, graph, predictedOutput.getMst());
+		mstAlgorithm.findMaxBranching(size, graph, predictedOutput.getMst(),
+				predictedOutput.getPartition());
 
 		// TODO I guess the following is not necessary during training.
 		// // Compute confirmed papers from the found MST.
@@ -139,16 +167,72 @@ public class BisectionInference implements Inference {
 			BisectionOutput predictedOutput) {
 		// Structure size.
 		int size = input.size();
-		// Build graph to run MST algorithm.
+		/*
+		 * Build graph to run MST algorithm. This graph is split in two
+		 * disconnected components: confirmed and deleted. So that the found MST
+		 * will always be split.
+		 */
 		double[][] graph = new double[size][size];
 		fillPartiaGraph(graph, model, input, partiallyLabeledOutput);
 
 		// Guarantee that auxiliary data structures fit this instance.
 		mstAlgorithm.realloc(size);
+
 		// Find MST.
-		mstAlgorithm.findMaxBranching(size, graph, predictedOutput.getMst());
+		boolean val = mstAlgorithm.isOnlyPositiveEdges();
+		mstAlgorithm.setOnlyPositiveEdges(false);
+		mstAlgorithm.findMaxBranching(size, graph, predictedOutput.getMst(),
+				predictedOutput.getPartition());
+		mstAlgorithm.setOnlyPositiveEdges(val);
+
 		// Copy confirmed papers structure.
 		predictedOutput.setConfirmedPapersEqualTo(partiallyLabeledOutput);
+
+		// TODO test
+		// /*
+		// * Connect the CONFIRMED artificial paper (1) to the first confirmed
+		// * paper. And connect the DELETED artificial paper (0) to the first
+		// * deleted paper.
+		// */
+		// artificialEdges.clear();
+		// artificialEdges.ensureCapacity(2 * size);
+		// for (int paper2 = 0; paper2 < size; ++paper2) {
+		// // Add artificial edge from the DELETED paper.
+		// if (!partiallyLabeledOutput.isConfirmed(paper2)) {
+		// double w = getEdgeWeight(model, input, 0, paper2);
+		// if (!Double.isNaN(w))
+		// artificialEdges.add(new SimpleWeightedEdge(0, paper2, w));
+		// } else {
+		// // Add artificial edge from the CONFIRMED paper.
+		// double w = getEdgeWeight(model, input, 1, paper2);
+		// if (!Double.isNaN(w))
+		// artificialEdges.add(new SimpleWeightedEdge(1, paper2, w));
+		// }
+		// }
+		//
+		// // Sort the artificial edges according to the weights given above.
+		// Collections.sort(artificialEdges, KruskalAlgorithm.comp);
+		//
+		// // Add artificial edges to get exactly two connected components.
+		// Set<SimpleWeightedEdge> mst = predictedOutput.getMst();
+		// DisjointSets partition = predictedOutput.getPartition();
+		// int clusterDel = partition.find(0);
+		// int clusterConf = partition.find(1);
+		// for (SimpleWeightedEdge e : artificialEdges) {
+		// if (e.from == 0) {
+		// int cluster = partition.find(e.to);
+		// if (cluster != clusterDel) {
+		// partition.union(clusterDel, cluster);
+		// mst.add(e);
+		// }
+		// } else if (e.from == 1) {
+		// int cluster = partition.find(e.to);
+		// if (cluster != clusterConf) {
+		// partition.union(clusterConf, cluster);
+		// mst.add(e);
+		// }
+		// }
+		// }
 	}
 
 	/**
@@ -167,30 +251,29 @@ public class BisectionInference implements Inference {
 		int size = input.size();
 		for (int paper1 = 0; paper1 < size; ++paper1) {
 			for (int paper2 = 0; paper2 < size; ++paper2) {
-				int[] catBasFtrs = input.getBasicCategoricalFeatures(paper1,
-						paper2);
-				if (catBasFtrs == null) {
-					// Skip inexistent edge.
-					graph[paper1][paper2] = Double.NaN;
+				// Compute edge weight.
+				double w = getEdgeWeight(model, input, paper1, paper2);
+
+				if (Double.isNaN(w)) {
+					// Skip inexistent edges.
+					graph[paper1][paper2] = w;
 					continue;
 				}
 
-				// Categorical and numerical features of this edge.
-				int[] ftrCodes = input.getFeatureCodes(paper1, paper2);
-				double[] ftrValues = input.getFeatureValues(paper1, paper2);
-
-				// Compute edge weight.
-				double w = 0d;
-				for (int idxFtr = 0; idxFtr < ftrCodes.length; ++idxFtr)
-					w += model.getFeatureWeight(ftrCodes[idxFtr])
-							* ftrValues[idxFtr];
-
+				// Add margin for incorrect edges.
 				if (correct != null
 						&& lossWeight != 0d
 						&& (correct.isConfirmed(paper1) != correct
-								.isConfirmed(paper2)))
-					// Add margin for incorrect edges.
-					w += lossWeight;
+								.isConfirmed(paper2))) {
+					if (paper1 != 0 && paper2 != 0)
+						w += lossWeight;
+					else
+						/*
+						 * Add special margin for incorrect edge to the
+						 * artificial DELETED paper.
+						 */
+						w += lossWeight * deletedPaperLossFactor;
+				}
 
 				graph[paper1][paper2] = w;
 			}
@@ -218,27 +301,39 @@ public class BisectionInference implements Inference {
 					continue;
 				}
 
-				// Check if edge exists in the input structure.
-				int[] catBasFtrs = input.getBasicCategoricalFeatures(paper1,
-						paper2);
-				if (catBasFtrs == null) {
-					// Inexistent edge.
-					graph[paper1][paper2] = Double.NaN;
-					continue;
-				}
-
-				// Categorical and numerical features of this edge.
-				int[] ftrCodes = input.getFeatureCodes(paper1, paper2);
-				double[] ftrValues = input.getFeatureValues(paper1, paper2);
+				/*
+				 * Do not include artificial edges in order to force the
+				 * selection of ordinary edges.
+				 */
+				// TODO test
+				// if (paper1 == 0 || paper1 == 1 || paper2 == 0 || paper2 == 1)
+				// {
+				// graph[paper1][paper2] = Double.NaN;
+				// continue;
+				// }
 
 				// Compute edge weight.
-				double w = 0d;
-				for (int idxFtr = 0; idxFtr < ftrCodes.length; ++idxFtr)
-					w += model.getFeatureWeight(ftrCodes[idxFtr])
-							* ftrValues[idxFtr];
-				graph[paper1][paper2] = w;
+				graph[paper1][paper2] = getEdgeWeight(model, input, paper1,
+						paper2);
 			}
 		}
+	}
+
+	private double getEdgeWeight(BisectionModel model, BisectionInput input,
+			int paper1, int paper2) {
+		// Categorical features of this edge.
+		int[] ftrCodes = input.getFeatureCodes(paper1, paper2);
+		if (ftrCodes == null)
+			return Double.NaN;
+
+		// Numerical features of this edge.
+		double[] ftrValues = input.getFeatureValues(paper1, paper2);
+
+		// Compute edge weight.
+		double w = 0d;
+		for (int idxFtr = 0; idxFtr < ftrCodes.length; ++idxFtr)
+			w += model.getFeatureWeight(ftrCodes[idxFtr]) * ftrValues[idxFtr];
+		return w;
 	}
 
 	/**
@@ -259,8 +354,13 @@ public class BisectionInference implements Inference {
 		for (int idx = 0; idx < size; ++idx) {
 			WeightedPaper wPaper = wPapers[idx];
 			int paper = wPaper.paper;
-			wPaper.confirmed = output.isConfirmed(paper);
-			wPaper.weight = -graph[0][paper];
+			if (output.isConfirmed(paper)) {
+				wPaper.weight = graph[1][paper];
+				wPaper.confirmed = true;
+			} else {
+				wPaper.weight = -graph[0][paper];
+				wPaper.confirmed = false;
+			}
 		}
 	}
 

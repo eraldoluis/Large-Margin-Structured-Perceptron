@@ -612,12 +612,51 @@ public class BisectionDataset implements Dataset {
 
 			// The last value is the correct feature (Y or N).
 			String areConfirmedPapers = ftrStrs[ftrStrs.length - 1];
+
+			/*
+			 * Add paper to the confirmed set, whenever appropriate, and check
+			 * the consistency of this information.
+			 */
 			if (paper1 == 0) {
+				// Edge from the artificial DELETED paper.
 				if ("N".equals(areConfirmedPapers))
 					confirmedPapers.add(paper2);
+				else if (confirmedPapers.contains(paper2))
+					throw new DatasetException(String.format(
+							"For author %d, edge (%d,%d) is indicated "
+									+ "as correct, but this is "
+									+ "inconsistent with previous edges.",
+							authorId, paper1, paper2));
+			} else if (paper1 == 1) {
+				// Edge from the artificial CONFIRMED paper.
+				if ("Y".equals(areConfirmedPapers))
+					confirmedPapers.add(paper2);
+				else if (confirmedPapers.contains(paper2))
+					throw new DatasetException(String.format(
+							"For author %d, edge (%d,%d) is indicated "
+									+ "as incorrect, but this is "
+									+ "inconsistent with previous edges.",
+							authorId, paper1, paper2));
 			} else if (paper2 == 0) {
+				// Edge to the artificial DELETED paper.
 				if ("N".equals(areConfirmedPapers))
 					confirmedPapers.add(paper1);
+				else if (confirmedPapers.contains(paper1))
+					throw new DatasetException(String.format(
+							"For author %d, edge (%d,%d) is indicated "
+									+ "as correct, but this is "
+									+ "inconsistent with previous edges.",
+							authorId, paper1, paper2));
+			} else if (paper2 == 1) {
+				// Edge to the artificial CONFIRMED paper.
+				if ("Y".equals(areConfirmedPapers))
+					confirmedPapers.add(paper1);
+				else if (confirmedPapers.contains(paper1))
+					throw new DatasetException(String.format(
+							"For author %d, edge (%d,%d) is indicated "
+									+ "as incorrect, but this is "
+									+ "inconsistent with previous edges.",
+							authorId, paper1, paper2));
 			}
 		}
 
@@ -630,6 +669,8 @@ public class BisectionDataset implements Dataset {
 
 		// Create confirmed array.
 		boolean[] confirmed = new boolean[size];
+		// Paper 1 is the artificial CONFIRMED paper.
+		confirmed[1] = true;
 		for (int paper : confirmedPapers)
 			confirmed[paper] = true;
 
@@ -743,8 +784,8 @@ public class BisectionDataset implements Dataset {
 			int size = out.size();
 			for (int idxPaper = 0; idxPaper < size; ++idxPaper) {
 				int paper = out.weightedPapers[idxPaper].paper;
-				if (paper == 0)
-					// Skip artificial paper.
+				if (paper == 0 || paper == 1)
+					// Skip artificial papers.
 					continue;
 				ps.print(in.getPaperId(paper) + " ");
 			}

@@ -24,11 +24,6 @@ public class KruskalAlgorithm {
 	private ArrayList<SimpleWeightedEdge> edges;
 
 	/**
-	 * Connected components.
-	 */
-	private DisjointSets partition;
-
-	/**
 	 * Whether to avoid negative-weight edges.
 	 */
 	private boolean onlyPositiveEdges;
@@ -41,7 +36,7 @@ public class KruskalAlgorithm {
 	/**
 	 * Simple edge comparator.
 	 */
-	private final static Comparator<SimpleWeightedEdge> comp = new Comparator<SimpleWeightedEdge>() {
+	public final static Comparator<SimpleWeightedEdge> comp = new Comparator<SimpleWeightedEdge>() {
 		@Override
 		public int compare(SimpleWeightedEdge o1, SimpleWeightedEdge o2) {
 			if (o1.weight > o2.weight)
@@ -78,7 +73,7 @@ public class KruskalAlgorithm {
 	 * @return the weight of the built tree.
 	 */
 	public double findMaxBranching(int numberOfNodes, double[][] graph,
-			Collection<SimpleWeightedEdge> mst) {
+			Collection<SimpleWeightedEdge> mst, DisjointSets partition) {
 		// Clear the list of all edges.
 		edges.clear();
 		// Clear MST.
@@ -137,9 +132,6 @@ public class KruskalAlgorithm {
 	 * @param maxNumberOfNodes
 	 */
 	public void realloc(int maxNumberOfNodes) {
-		if (partition != null && partition.size() >= maxNumberOfNodes)
-			return;
-		partition = new DisjointSets(maxNumberOfNodes);
 		if (edges != null)
 			edges.ensureCapacity(maxNumberOfNodes);
 		else
@@ -171,8 +163,9 @@ public class KruskalAlgorithm {
 				{ 0, 0, 0, 0, 0 }, //
 		};
 		LinkedList<SimpleWeightedEdge> mst = new LinkedList<SimpleWeightedEdge>();
+		DisjointSets partition = new DisjointSets(5);
 
-		alg.findMaxBranching(5, graph, mst);
+		alg.findMaxBranching(5, graph, mst, partition);
 
 		for (SimpleWeightedEdge edge : mst)
 			System.out.print(String.format("(%d,%d) ", edge.from, edge.to));
