@@ -231,8 +231,11 @@ public class ApplyCoreferenceModel implements Command {
 					testDataset.getExplicitFeatureEncoding());
 			// Predict (tag the output sequence).
 			inference.inference(model, inputs[idx], predicteds[idx]);
-			// Free derived feature matrix.
-			inputs[idx].freeFeatureMatrix();
+
+			if (!outputCorefTrees)
+				// Free derived feature matrix.
+				inputs[idx].freeFeatureMatrix();
+
 			if ((idx + 1) % 100 == 0) {
 				System.out.print(".");
 				System.out.flush();
@@ -247,11 +250,24 @@ public class ApplyCoreferenceModel implements Command {
 
 		try {
 			if (outputCorefTrees) {
+				LOG.info("Predicting \"golden\" trees for the correct outputs...");
+				DPOutput[] outputs = testDataset.getOutputs();
+				for (int idx = 0; idx < inputs.length; ++idx) {
+					// Constrained prediction.
+					inference.partialInference(model, inputs[idx],
+							outputs[idx], outputs[idx]);
+					// Free derived feature matrix.
+					inputs[idx].freeFeatureMatrix();
+					if ((idx + 1) % 100 == 0) {
+						System.out.print(".");
+						System.out.flush();
+					}
+				}
 				LOG.info("Saving test file (" + testPredictedFileName
 						+ ") with predicted column where correct edges "
 						+ "are only the ones in coreference trees...");
-				testDataset
-						.saveCorefTrees(testPredictedFileName, predicteds, 0);
+				testDataset.saveCorefTrees(testPredictedFileName, predicteds,
+						0, true);
 			} else {
 				LOG.info("Saving test file (" + testPredictedFileName
 						+ ") with predicted column...");

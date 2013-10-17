@@ -93,7 +93,7 @@ public class TestCorefTree {
 			LOG.info("Saving test file (" + outputFileName
 					+ ") with predicted column where correct edges "
 					+ "are only the ones in coreference trees...");
-			testDataset.saveCorefTrees(outputFileName, outputs, 0);
+			testDataset.saveCorefTrees(outputFileName, outputs, 0, false);
 		} catch (Exception e) {
 			LOG.error("Saving predicted file " + outputFileName, e);
 			System.exit(1);

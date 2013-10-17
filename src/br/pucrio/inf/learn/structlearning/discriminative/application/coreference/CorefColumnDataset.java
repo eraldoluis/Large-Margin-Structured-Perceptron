@@ -340,13 +340,20 @@ public class CorefColumnDataset extends DPColumnDataset {
 	 * 
 	 * @param fileName
 	 * @param predictedOuputs
+	 * @param root
+	 * @param saveGoldTrees
+	 *            if <code>true</code>, in the correct column, tag as Y only
+	 *            edges present in the constrained document tree, that is the
+	 *            edges that are predicted in the correct outputs. These "gold"
+	 *            trees must be predicted before calling this method.
 	 * @throws IOException
 	 * @throws DatasetException
 	 */
 	public void saveCorefTrees(String fileName, DPOutput[] predictedOuputs,
-			int root) throws IOException, DatasetException {
+			int root, boolean saveGoldTrees) throws IOException,
+			DatasetException {
 		BufferedWriter writer = new BufferedWriter(new FileWriter(fileName));
-		saveCorefTrees(writer, predictedOuputs, root);
+		saveCorefTrees(writer, predictedOuputs, root, saveGoldTrees);
 		writer.close();
 	}
 
@@ -361,12 +368,18 @@ public class CorefColumnDataset extends DPColumnDataset {
 	 * 
 	 * @param writer
 	 * @param predictedOuputs
+	 * @param root
+	 * @param saveGoldTrees
+	 *            if <code>true</code>, in the correct column, tag as Y only
+	 *            edges present in the constrained document tree, that is the
+	 *            edges that are predicted in the correct outputs. These "gold"
+	 *            trees must be predicted before calling this method.
 	 * @throws IOException
 	 * @throws DatasetException
 	 */
 	public void saveCorefTrees(BufferedWriter writer,
-			DPOutput[] predictedOuputs, int root) throws IOException,
-			DatasetException {
+			DPOutput[] predictedOuputs, int root, boolean saveGoldTrees)
+			throws IOException, DatasetException {
 		// Header.
 		writer.write("[features = id");
 		for (int idxFtr = 0; idxFtr < featureLabels.length; ++idxFtr)
@@ -388,17 +401,35 @@ public class CorefColumnDataset extends DPColumnDataset {
 						continue;
 					// Id.
 					writer.write(idxLeft + ">" + idxRight);
+
+					/*
+					 * The first 6 values are not encoded, they are the integer
+					 * values themselver.
+					 */
+					for (int idxFtr = 0; idxFtr < 6; ++idxFtr)
+						writer.write(" " + ftrs[idxFtr]);
+
 					// Features.
-					for (int idxFtr = 0; idxFtr < ftrs.length; ++idxFtr)
+					for (int idxFtr = 6; idxFtr < ftrs.length; ++idxFtr)
 						writer.write(" "
 								+ basicEncoding.getValueByCode(ftrs[idxFtr]));
 
-					// Correct feature. Consider the cluster, not the tree.
-					if (correctOutput.getClusterId(idxLeft) == correctOutput
-							.getClusterId(idxRight))
-						writer.write(" Y");
-					else
-						writer.write(" N");
+					// Append correct flag feature.
+					if (saveGoldTrees) {
+						// Only consider the tree.
+						if (idxLeft != root && idxRight != root
+								&& correctOutput.getHead(idxRight) == idxLeft)
+							writer.write(" Y");
+						else
+							writer.write(" N");
+					} else {
+						// Consider the cluster, not the tree.
+						if (correctOutput.getClusterId(idxLeft) == correctOutput
+								.getClusterId(idxRight))
+							writer.write(" Y");
+						else
+							writer.write(" N");
+					}
 
 					// Predicted feature. Only consider the tree.
 					if (idxLeft != root && idxRight != root
