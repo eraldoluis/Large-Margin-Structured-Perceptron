@@ -63,6 +63,10 @@ public class DisjointSets {
 	/**
 	 * Merge <code>set1</code> and <code>set2</code>.
 	 * 
+	 * <b>Attention!</b> The given values <b>must</b> be set representants (the
+	 * roots of theirs sets). Otherwise, this method can corrupt the data
+	 * structure.
+	 * 
 	 * @param set1
 	 * @param set2
 	 */
@@ -71,16 +75,23 @@ public class DisjointSets {
 	}
 
 	/**
-	 * Merge the sets of the two items given.
+	 * Merge the set of element <code>element1</code> and the set of element
+	 * <code>element2</code>, if they are in different sets. Otherwise, do
+	 * nothing.
 	 * 
-	 * @param item1
-	 * @param item2
+	 * @param element1
+	 * @param element2
+	 * @return <code>true</code> if the elements were in different sets,
+	 *         <code>false</code> otherwise.
 	 */
-	public void unionFind(int item1, int item2) {
-		int set1 = find(item1);
-		int set2 = find(item2);
-		if (set1 != set2)
+	public boolean unionElements(int element1, int element2) {
+		int set1 = find(element1);
+		int set2 = find(element2);
+		if (set1 != set2) {
 			union(set1, set2);
+			return true;
+		} else
+			return false;
 	}
 
 	/**
@@ -115,6 +126,15 @@ public class DisjointSets {
 	public void setEqualTo(DisjointSets copy) {
 		for (int idx = 0; idx < trees.length; ++idx)
 			trees[idx] = copy.trees[idx];
+	}
+
+	/**
+	 * Return the number of elements in this object.
+	 * 
+	 * @return
+	 */
+	public int size() {
+		return trees.length;
 	}
 
 }

@@ -55,7 +55,7 @@ public class CorefOutput extends DPOutput {
 		for (int mentionRight = 0; mentionRight < size(); ++mentionRight) {
 			int mentionLeft = getHead(mentionRight);
 			if (mentionRight != root && mentionLeft != root && mentionLeft >= 0)
-				clustering.unionFind(mentionLeft, mentionRight);
+				clustering.unionElements(mentionLeft, mentionRight);
 		}
 	}
 
