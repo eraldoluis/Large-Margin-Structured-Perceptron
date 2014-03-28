@@ -377,7 +377,12 @@ public class TrainCoreference implements Command {
 
 			LOG.info("Computing chains...");
 
-			// Generate chain for each document.
+			/*
+			 * Generate golden chains for the documents. In this inference
+			 * strategy, we do not use latent structures to represent clusters.
+			 * Instead, we use *fixed* chains of mentions to represent each
+			 * golden cluster.
+			 */
 			DPOutput[] outs = ((CorefColumnDataset) inDataset).getOutputs();
 			DPInput[] ins = ((CorefColumnDataset) inDataset).getInputs();
 			int idxDoc = 0;
