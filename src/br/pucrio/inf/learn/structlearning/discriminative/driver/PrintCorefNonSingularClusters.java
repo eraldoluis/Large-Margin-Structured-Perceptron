@@ -29,6 +29,7 @@ import br.pucrio.inf.learn.structlearning.discriminative.application.dp.SimpleFe
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.AveragedParameter;
+import br.pucrio.inf.learn.structlearning.discriminative.data.DatasetException;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.MapEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.StringMapEncoding;
@@ -112,11 +113,15 @@ public class PrintCorefNonSingularClusters implements Command {
 		LOG.info("Loading model and templates...");
 		DPTemplateEvolutionModel model = null;
 		try {
-			model = new DPTemplateEvolutionModel(modelFileName, testDataset);
+			model = new DPTemplateEvolutionModel(modelFileName, testDataset,
+					false);
 		} catch (JSONException e) {
 			LOG.error("Loading model", e);
 			System.exit(1);
 		} catch (IOException e) {
+			LOG.error("Loading model", e);
+			System.exit(1);
+		} catch (DatasetException e) {
 			LOG.error("Loading model", e);
 			System.exit(1);
 		}

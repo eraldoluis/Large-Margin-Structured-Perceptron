@@ -51,12 +51,17 @@ public class DPGSDataset {
 	 * parameters.
 	 */
 	protected final Pattern REGEX_ID = Pattern
-			.compile("^(G|S|LEN)\\((\\d+),(\\d+),(\\d+)\\)$");
+			.compile("^(E|G|S|LEN)\\((\\d+),(\\d+),(\\d+)\\)$");
 
 	/**
 	 * Encoding for basic textual features (column-format features).
 	 */
 	protected FeatureEncoding<String> basicEncoding;
+
+	/**
+	 * Basic feature labels for edge factors.
+	 */
+	protected String[] featureLabelsEdge;
 
 	/**
 	 * Basic feature labels for grandparent factors.
@@ -67,6 +72,11 @@ public class DPGSDataset {
 	 * Basic feature labels for siblings factors.
 	 */
 	protected String[] featureLabelsSiblings;
+
+	/**
+	 * Multi-valued edge features.
+	 */
+	protected Set<String> multiValuedEdgeFeatures;
 
 	/**
 	 * Multi-valued grandparent features.
@@ -111,17 +121,26 @@ public class DPGSDataset {
 	 * @param multiValuedSiblingsFeatures
 	 * @param separatorFeatureValues
 	 */
-	public DPGSDataset(String[] multiValuedGrandparentFeatures,
+	public DPGSDataset(String[] multiValuedEdgeFeatures,
+			String[] multiValuedGrandparentFeatures,
 			String[] multiValuedSiblingsFeatures, String separatorFeatureValues) {
+		// Basic feature encoding.
 		this.basicEncoding = new StringMapEncoding();
+		// Multi-values EDGE features.
+		this.multiValuedEdgeFeatures = new TreeSet<String>();
+		for (int idxFtr = 0; idxFtr < multiValuedEdgeFeatures.length; ++idxFtr)
+			this.multiValuedEdgeFeatures.add(multiValuedEdgeFeatures[idxFtr]);
+		// Multi-values GRANDPARENT features.
 		this.multiValuedGrandparentFeatures = new TreeSet<String>();
 		for (int idxFtr = 0; idxFtr < multiValuedGrandparentFeatures.length; ++idxFtr)
 			this.multiValuedGrandparentFeatures
 					.add(multiValuedGrandparentFeatures[idxFtr]);
+		// Multi-values SIBLINGS features.
 		this.multiValuedSiblingsFeatures = new TreeSet<String>();
 		for (int idxFtr = 0; idxFtr < multiValuedSiblingsFeatures.length; ++idxFtr)
 			this.multiValuedSiblingsFeatures
 					.add(multiValuedSiblingsFeatures[idxFtr]);
+		// Multi-values separator.
 		this.separatorFeatureValues = separatorFeatureValues;
 	}
 
@@ -134,18 +153,27 @@ public class DPGSDataset {
 	 * @param separatorFeatureValues
 	 * @param basicEncoding
 	 */
-	public DPGSDataset(String[] multiValuedGrandparentFeatures,
+	public DPGSDataset(String[] multiValuedEdgeFeatures,
+			String[] multiValuedGrandparentFeatures,
 			String[] multiValuedSiblingsFeatures,
 			String separatorFeatureValues, FeatureEncoding<String> basicEncoding) {
+		// Basic feature encoding.
 		this.basicEncoding = basicEncoding;
+		// Multi-values EDGE features.
+		this.multiValuedEdgeFeatures = new TreeSet<String>();
+		for (int idxFtr = 0; idxFtr < multiValuedEdgeFeatures.length; ++idxFtr)
+			this.multiValuedEdgeFeatures.add(multiValuedEdgeFeatures[idxFtr]);
+		// Multi-values GRANDPARENT features.
 		this.multiValuedGrandparentFeatures = new TreeSet<String>();
 		for (int idxFtr = 0; idxFtr < multiValuedGrandparentFeatures.length; ++idxFtr)
 			this.multiValuedGrandparentFeatures
 					.add(multiValuedGrandparentFeatures[idxFtr]);
+		// Multi-values SIBLINGS features.
 		this.multiValuedSiblingsFeatures = new TreeSet<String>();
 		for (int idxFtr = 0; idxFtr < multiValuedSiblingsFeatures.length; ++idxFtr)
 			this.multiValuedSiblingsFeatures
 					.add(multiValuedSiblingsFeatures[idxFtr]);
+		// Multi-values separator.
 		this.separatorFeatureValues = separatorFeatureValues;
 	}
 
@@ -160,6 +188,7 @@ public class DPGSDataset {
 	 */
 	public DPGSDataset(DPGSDataset dataset) {
 		this.basicEncoding = dataset.basicEncoding;
+		this.multiValuedEdgeFeatures = dataset.multiValuedEdgeFeatures;
 		this.multiValuedGrandparentFeatures = dataset.multiValuedGrandparentFeatures;
 		this.multiValuedSiblingsFeatures = dataset.multiValuedSiblingsFeatures;
 		this.separatorFeatureValues = dataset.separatorFeatureValues;
@@ -237,6 +266,30 @@ public class DPGSDataset {
 	}
 
 	/**
+	 * Return the edge feature index for the given label. If a feature with such
+	 * label does not exist, return <code>-1</code>.
+	 * 
+	 * @param label
+	 * @return
+	 */
+	public int getEdgeFeatureIndex(String label) {
+		for (int idx = 0; idx < featureLabelsEdge.length; ++idx)
+			if (featureLabelsEdge[idx].equals(label))
+				return idx;
+		return -1;
+	}
+
+	/**
+	 * Return the label for the given edge feature index.
+	 * 
+	 * @param index
+	 * @return
+	 */
+	public String getEdgeFeatureLabel(int index) {
+		return featureLabelsEdge[index];
+	}
+
+	/**
 	 * Return the grandparent feature index for the given label. If a feature
 	 * with such label does not exist, return <code>-1</code>.
 	 * 
@@ -258,6 +311,80 @@ public class DPGSDataset {
 	 */
 	public String getGrandparentFeatureLabel(int index) {
 		return featureLabelsGrandparent[index];
+	}
+
+	/**
+	 * Return the siblings feature index for the given label. If a feature with
+	 * such label does not exist, return <code>-1</code>.
+	 * 
+	 * @param label
+	 * @return
+	 */
+	public int getSiblingsFeatureIndex(String label) {
+		for (int idx = 0; idx < featureLabelsSiblings.length; ++idx)
+			if (featureLabelsSiblings[idx].equals(label))
+				return idx;
+		return -1;
+	}
+
+	/**
+	 * Return the label for the given siblings feature index.
+	 * 
+	 * @param index
+	 * @return
+	 */
+	public String getSiblingsFeatureLabel(int index) {
+		return featureLabelsSiblings[index];
+	}
+
+	/**
+	 * Load edge dataset from the given file.
+	 * 
+	 * @param fileName
+	 * @throws IOException
+	 * @throws DatasetException
+	 * @throws DPGSException
+	 */
+	public void loadEdgeFactors(String fileName) throws IOException,
+			DatasetException, DPGSException {
+		BufferedReader reader = new BufferedReader(new FileReader(fileName));
+		loadEdgeFactors(reader);
+		reader.close();
+	}
+
+	/**
+	 * Load edge dataset (factors) from the given buffered reader.
+	 * 
+	 * @param reader
+	 * @throws IOException
+	 * @throws DatasetException
+	 * @throws DPGSException
+	 */
+	public void loadEdgeFactors(BufferedReader reader) throws IOException,
+			DatasetException, DPGSException {
+		// Parse feature labels in the first line of the file.
+		String[] tmpFeatureLabelsEdge = parseFeatureLabels(reader.readLine());
+
+		// Skip blank line after label header.
+		reader.readLine();
+
+		if (featureLabelsEdge == null) {
+			// This is the first grandparent dataset that has been loaded.
+			featureLabelsEdge = tmpFeatureLabelsEdge;
+		} else {
+			// Check if the previous datasets have exactly the same feature set.
+			if (!Arrays.equals(tmpFeatureLabelsEdge, featureLabelsEdge))
+				throw new DPGSException("Given edge dataset has a "
+						+ "different feature set from previous one(s)");
+		}
+
+		// Multi-valued features indexes.
+		Set<Integer> multiValuedFeaturesIndexes = new TreeSet<Integer>();
+		for (String label : multiValuedEdgeFeatures)
+			multiValuedFeaturesIndexes.add(getEdgeFeatureIndex(label));
+
+		// Load example factors from the given reader.
+		loadExampleFactors(reader, multiValuedFeaturesIndexes);
 	}
 
 	/**
@@ -310,30 +437,6 @@ public class DPGSDataset {
 
 		// Load example factors from the given reader.
 		loadExampleFactors(reader, multiValuedFeaturesIndexes);
-	}
-
-	/**
-	 * Return the siblings feature index for the given label. If a feature with
-	 * such label does not exist, return <code>-1</code>.
-	 * 
-	 * @param label
-	 * @return
-	 */
-	public int getSiblingsFeatureIndex(String label) {
-		for (int idx = 0; idx < featureLabelsSiblings.length; ++idx)
-			if (featureLabelsSiblings[idx].equals(label))
-				return idx;
-		return -1;
-	}
-
-	/**
-	 * Return the label for the given siblings feature index.
-	 * 
-	 * @param index
-	 * @return
-	 */
-	public String getSiblingsFeatureLabel(int index) {
-		return featureLabelsSiblings[index];
 	}
 
 	/**
@@ -435,11 +538,12 @@ public class DPGSDataset {
 		// Parse examples and create new inputs/outputs or fill existing ones.
 		while (parseExample(reader, multiValuedFeaturesIndexes, inputList,
 				outputList, input, output)) {
-			++numExs;
 			if ((numExs + 1) % 100 == 0) {
 				System.out.print(".");
 				System.out.flush();
 			}
+
+			++numExs;
 
 			if (inputs != null && numExs < inputs.length) {
 				input = inputs[numExs];
@@ -546,8 +650,10 @@ public class DPGSDataset {
 				if (line == null)
 					throw new DatasetException("Missing lines in input file");
 				if (line.trim().length() == 0)
-					throw new DatasetException("Example is shorter than "
-							+ "expected in input file");
+					throw new DatasetException(String.format(
+							"Example %d has length %d in the dataset "
+									+ "file but has length %d in the "
+									+ "corpus file", idxEx, numTokens, idxMod));
 				String[] ftrs = line.split("[ ]");
 				int head = output.getHead(idxMod);
 				if (head < 0)
@@ -603,18 +709,29 @@ public class DPGSDataset {
 	/**
 	 * Parse an example from the given reader.
 	 * 
-	 * An example is a sequence of edges. Each edge is represented in one line.
-	 * Blank lines separate one example from the next one. Each line (edge) is a
-	 * sequence of feature values (in the order that was presented in the file
-	 * header).
+	 * An example is a sequence of factors (edge, siblings or grandparent
+	 * factors). Each factor is represented in one line. A blank line separates
+	 * one example from the next one. Each factor (non-blank line) is a sequence
+	 * of feature values (in the order that was presented in the file header).
+	 * There is an additional factor type (LEN) which is used to indicate the
+	 * sentence length.
 	 * 
-	 * The first feature of each edge comprises its ID that *must* obey the
-	 * format "[head token index]>[dependent token index]" to indicate end
-	 * points of the directed edge. The last feature is equal to "TRUE" if the
-	 * edge is part of the correct dependecy tree of this example and "FALSE"
-	 * otherwise. The remaining values are the ordinary basic features.
+	 * The first feature of each factor comprises its ID that *must* obey the
+	 * following format: "TYPE(IDX1,IDX2,IDX3)". TYPE can be E for edge factors,
+	 * G for grandparent, S for siblings or LEN for the special factor that
+	 * indicates the sentence length. For all factor types but LEN, IDX1 and
+	 * IDX2 indicate, respectivelly, the head token index and the modifier token
+	 * index. For grandparent factors, IDX3 is the grandparent token index. For
+	 * siblings factors, IDX3 is the previous modifier (sibling) token index.
+	 * For edge factors, IDX3 is irrelevant. For LEN factors, IDX1, IDX2 and
+	 * IDX3 are all the same: the sentence length.
 	 * 
-	 * Edge can be ommited and then will be considered inexistent.
+	 * The last feature of a factor must be "Y" if the factor is part of the
+	 * correct dependecy tree or "N" otherwise. The remaining values are the
+	 * ordinary basic features.
+	 * 
+	 * Ommited factors will constrain the feasible outputs for the example. That
+	 * is, no feasible solution can include an inexistent factor.
 	 * 
 	 * @param reader
 	 *            input file reader positioned at the beginning of an example or
@@ -648,13 +765,11 @@ public class DPGSDataset {
 			List<DPGSOutput> outputList, DPGSInput input, DPGSOutput output)
 			throws IOException, DatasetException, DPGSException {
 		/*
-		 * List of factors. Each line of the input file contains a factor. Each
-		 * factor comprises a fixed sequence of features. The fisrt feature is a
-		 * identification comprising the type of the factor (G for grandparent
-		 * or S for siblings) followed by three integer parameters between
-		 * parenthesis. The parameters are (idxHead,idxModifier,idxGrandparent
-		 * or idxPrevModifier). The following, and ordinary, features are
-		 * textual representations that can even contains more than one value.
+		 * List of factors for one example. Each factor is a list of lists of
+		 * integer arrays. Feature values can be multi-valued. Thus, each
+		 * feature value is represented by an integer array. A factor is then
+		 * represented by a list of integer arrays. Finally, the following
+		 * variable stores a list of such factors.
 		 */
 		LinkedList<LinkedList<int[]>> factors = new LinkedList<LinkedList<int[]>>();
 
@@ -691,53 +806,82 @@ public class DPGSDataset {
 								"Number of features in example %d is equal to %d but should be %d",
 								inputList.size(), ftrValues.length, numFeatures));
 
-			// Type and parameters.
+			int[] idFactor = new int[4];
+			idFactor[0] = -1;
+
+			// Factor ID: type and parameters (index).
 			Matcher m = REGEX_ID.matcher(ftrValues[0]);
 			if (!m.matches())
 				throw new DatasetException(
-						"ID of the factor does not match expected format");
-			int[] params = new int[4];
+						String.format(
+								"ID (%s) of the factor does not match "
+										+ "expected format which is TYPE(IDX1,IDX2,IDX3)",
+								ftrValues[0]));
 
-			// Factor type: G or S.
+			/*
+			 * First parameter is the factor type: E (edge), G (grandparent), S
+			 * (siblings) or LEN (sentence length).
+			 */
 			String type = m.group(1);
-			if (type.equals("G"))
-				params[0] = 1;
-			else if (type.equals("S"))
-				params[0] = 2;
-			else if (type.equals("LEN"))
+			if ("E".equals(type))
+				idFactor[0] = 0;
+			else if ("G".equals(type))
+				idFactor[0] = 1;
+			else if ("S".equals(type))
+				idFactor[0] = 2;
+			else if ("LEN".equals(type))
 				// Special factor just to indicate the length of the sentence.
-				params[0] = -1;
+				idFactor[0] = -1;
 			else
 				throw new DatasetException(String.format(
-						"Factor type (%s) should be G or S.", type));
+						"Factor type should be E, G, S or LEN, but it is %s",
+						type));
+
 			// Factor remaining parameters.
-			params[1] = Integer.parseInt(m.group(2));
-			params[2] = Integer.parseInt(m.group(3));
-			params[3] = Integer.parseInt(m.group(4));
+			idFactor[1] = Integer.parseInt(m.group(2));
+			idFactor[2] = Integer.parseInt(m.group(3));
+			idFactor[3] = Integer.parseInt(m.group(4));
 
-			// Update maximum token index.
-			if (params[1] > maxTokenIndex)
-				maxTokenIndex = params[1];
-			/*
-			 * Ignore second and third parameter of sibling factors (it can be
-			 * equal to lenSent).
-			 */
-			if (params[0] != 2) {
-				if (params[2] > maxTokenIndex)
-					maxTokenIndex = params[2];
-				if (params[3] > maxTokenIndex)
-					maxTokenIndex = params[3];
-			}
-
-			if (params[0] == -1)
-				// Special factor just to indicate the length of this sentence.
+			if (idFactor[0] == -1) {
+				/*
+				 * For LEN factors, all parameters are equal to the sentence
+				 * length.
+				 */
+				if (idFactor[1] - 1 > maxTokenIndex)
+					maxTokenIndex = idFactor[1] - 1;
+				// LEN factor is useful only to indicate the sentence length.
 				continue;
+			} else if (idFactor[0] == 0) {
+				// For E factors, the last parameter is the sentence length.
+				if (idFactor[3] - 1 > maxTokenIndex)
+					maxTokenIndex = idFactor[3] - 1;
+			} else if (idFactor[0] == 1) {
+				// For G factors, all parameters are ordinary token indexes.
+				if (idFactor[1] > maxTokenIndex)
+					maxTokenIndex = idFactor[1];
+				if (idFactor[2] > maxTokenIndex)
+					maxTokenIndex = idFactor[2];
+				if (idFactor[3] > maxTokenIndex)
+					maxTokenIndex = idFactor[3];
+			} else if (idFactor[0] == 2) {
+				/*
+				 * For S factors, the first parameter is an ordinary token index
+				 * but the remaining parameters can be equal to the sentence
+				 * lenght.
+				 */
+				if (idFactor[1] > maxTokenIndex)
+					maxTokenIndex = idFactor[1];
+				if (idFactor[2] - 1 > maxTokenIndex)
+					maxTokenIndex = idFactor[2] - 1;
+				if (idFactor[3] - 1 > maxTokenIndex)
+					maxTokenIndex = idFactor[3] - 1;
+			}
 
 			// Factor features.
 			LinkedList<int[]> factor = new LinkedList<int[]>();
 
-			// The first value comprises the factor params.
-			factor.add(params);
+			// The first feature comprises the factor parameters.
+			factor.add(idFactor);
 
 			// Encode the factor basic features.
 			for (int idxFtr = 1; idxFtr < numFeatures - 1; ++idxFtr) {
@@ -762,14 +906,15 @@ public class DPGSDataset {
 			String isCorrectEdge = ftrValues[numFeatures - 1];
 			if (isCorrectEdge.equals("Y")) {
 				// Add factor parameters to the list of correct factors.
-				correctFactors.add(params);
+				correctFactors.add(idFactor);
 			} else if (!isCorrectEdge.equals("N")) {
 				// Flag is neither Y nor N.
 				throw new DatasetException(String.format(
 						"Last feature value must be Y or N to indicate "
 								+ "the correct edge. However, for factor "
 								+ " %s(%d,%d,%d) this feature value is %s ",
-						type, params[1], params[2], params[3], isCorrectEdge));
+						type, idFactor[1], idFactor[2], idFactor[3],
+						isCorrectEdge));
 			}
 
 			// Add built factor.
@@ -793,7 +938,7 @@ public class DPGSDataset {
 					"Incorrect number of token in example %s", input.getId()));
 
 		// Fill the basic features of the given factors.
-		input.fillBasicFeatures(factors);
+		input.addBasicFeaturesOfFactors(factors);
 
 		// Keep the length of the longest example.
 		if (numTokens > maxNumberOfTokens)
@@ -808,30 +953,39 @@ public class DPGSDataset {
 
 		// Fill and check the output structure.
 		for (int[] params : correctFactors) {
+			int type = params[0];
 			int idxHead = params[1];
 			int idxMod = params[2];
-			if (params[0] == 1) {
-				// Grandparent factor.
-				int idxGrandparent = params[3];
-				setAndCheckDependency(output, input.getId(), params, idxHead,
+			if (type == 0) {
+				// EDGE factor.
+				setAndCheckEdgeVariable(output, input.getId(), params, idxHead,
 						idxMod);
-				setAndCheckDependency(output, input.getId(), params,
+			} else if (type == 1) {
+				// GRANDPARENT factor.
+				int idxGrandparent = params[3];
+				if (idxGrandparent == idxHead || idxMod == idxHead)
+					continue;
+				// Parse tree variable.
+				setAndCheckEdgeVariable(output, input.getId(), params, idxHead,
+						idxMod);
+				// Grandparent and modifier variables.
+				setAndCheckEdgeVariable(output, input.getId(), params,
 						idxGrandparent, idxHead);
-			} else {
-				// Sibling factor.
+			} else if (type == 2) {
+				// SIBLINGS factor.
 				int idxPrevMod = params[3];
 				if (idxMod != idxHead && idxMod != numTokens) {
 					// Set modifier.
 					output.setModifier(idxHead, idxMod, true);
 					// Check dependency (idxHead, idxMod).
-					setAndCheckDependency(output, input.getId(), params,
+					setAndCheckEdgeVariable(output, input.getId(), params,
 							idxHead, idxMod);
 				}
 				if (idxPrevMod != idxHead && idxPrevMod != numTokens) {
 					// Set previous modifier.
 					output.setModifier(idxHead, idxPrevMod, true);
 					// Check dependency (idxHead, idxMod).
-					setAndCheckDependency(output, input.getId(), params,
+					setAndCheckEdgeVariable(output, input.getId(), params,
 							idxHead, idxPrevMod);
 				}
 			}
@@ -857,7 +1011,7 @@ public class DPGSDataset {
 	 * @param idxModifier
 	 * @throws DatasetException
 	 */
-	protected void setAndCheckDependency(DPGSOutput output, String id,
+	protected void setAndCheckEdgeVariable(DPGSOutput output, String id,
 			int[] params, int idxHead, int idxModifier) throws DatasetException {
 		// Set and check head property.
 		if (output.getHead(idxModifier) == -1)
@@ -873,6 +1027,23 @@ public class DPGSDataset {
 			throw new DatasetException(String.format(
 					"Incosistent parameter %d(%d,%d,%d) for example %s",
 					params[0], params[1], params[2], params[3], id));
+	}
+
+	/**
+	 * Set the modifier variables for all output structures in this dataset. It
+	 * is assumed that all variables are equal to <code>false</code>.
+	 */
+	public void setModifierVariables() {
+		int numExs = outputs.length;
+		for (int idxEx = 0; idxEx < numExs; ++idxEx) {
+			DPGSOutput output = outputs[idxEx];
+			int numTkns = output.size();
+			for (int idxModifier = 0; idxModifier < numTkns; ++idxModifier) {
+				int idxHead = output.getHead(idxModifier);
+				if (idxHead != idxModifier && idxHead != -1)
+					output.setModifier(idxHead, idxModifier, true);
+			}
+		}
 	}
 
 	/**

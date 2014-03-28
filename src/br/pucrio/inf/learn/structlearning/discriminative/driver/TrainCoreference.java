@@ -20,8 +20,10 @@ import br.pucrio.inf.learn.structlearning.discriminative.algorithm.OnlineStructu
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.TrainingListener;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.LossAugmentedPerceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CorefColumnDataset;
+import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CorefInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CorefModel;
 import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CorefModel.UpdateStrategy;
+import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CorefOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CorefUndirectedModel;
 import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CoreferenceMaxBranchInference;
 import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CoreferenceMaxBranchInference.InferenceStrategy;
@@ -33,6 +35,7 @@ import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPI
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.DatasetException;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
+import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.Murmur3Encoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.StringMapEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.driver.Driver.Command;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Inference;
@@ -74,13 +77,23 @@ public class TrainCoreference implements Command {
 								+ "correct output structures in training data "
 								+ "indicate only the correct clusters. The "
 								+ "underlying tress are latent.\n"
-								+ "LKRUSKAL: latent unrirected MS, i.e., "
+								+ "LKRUSKAL: latent undirected MST, i.e., "
 								+ "use Kruskal algorithm to predict the latent "
 								+ "structures. The correct output structures in "
 								+ "training data indicate only the correct "
 								+ "clusters. The underlying trees are assumed "
 								+ "to be latent and are predicted using Kruskal "
-								+ "algorithm.").create());
+								+ "algorithm.\n"
+								+ "CHAIN: During training, do not use "
+								+ "the current model to predict the golden "
+								+ "coreference trees. It chooses the closest "
+								+ " (previous) mention as the parent mention. "
+								+ "Usually, this rule derives a chain (sequential) "
+								+ "of mentions for each entity cluster. However, "
+								+ "since the input dataset may not include all "
+								+ "edges, for some cases, a completely sequential "
+								+ "chain is not possible and the resulting "
+								+ "structure will be a tree.").create());
 		options.addOption(OptionBuilder
 				.withLongOpt("update")
 				.withArgName("strategy")
@@ -107,6 +120,16 @@ public class TrainCoreference implements Command {
 		options.addOption(OptionBuilder.withLongOpt("templates").isRequired()
 				.withArgName("filename").hasArg()
 				.withDescription("Feature templates file name.").create());
+		options.addOption(OptionBuilder
+				.withLongOpt("hashsize")
+				.withArgName("size")
+				.hasArg()
+				.withDescription(
+						"Number of entries or bits (use "
+								+ "suffix b) in the hash function.").create());
+		options.addOption(OptionBuilder.withLongOpt("hashseed")
+				.withArgName("seed").hasArg()
+				.withDescription("Seed for the hash function.").create());
 		options.addOption(OptionBuilder
 				.withLongOpt("numepochs")
 				.withArgName("integer")
@@ -196,6 +219,8 @@ public class TrainCoreference implements Command {
 		int numEpochs = Integer.parseInt(cmdLine.getOptionValue("numepochs",
 				"10"));
 		String modelFileName = cmdLine.getOptionValue("model");
+		String hashSizeStr = cmdLine.getOptionValue("hashsize");
+		String hashSeedStr = cmdLine.getOptionValue("hashseed");
 		String testDatasetFileName = cmdLine.getOptionValue("test");
 		String scriptBasePathStr = cmdLine.getOptionValue("scriptpath");
 		File conllBasePath = null;
@@ -242,11 +267,31 @@ public class TrainCoreference implements Command {
 		FeatureEncoding<String> featureEncoding = null;
 		try {
 			/*
-			 * Create an empty and flexible feature encoding that will encode
-			 * unambiguously all feature values. If the training dataset is big,
-			 * this may not fit in memory.
+			 * The feature encoding converts textual feature values to integer
+			 * codes. The use has two options: simple encoding and hash
+			 * encoding. The simple encoding only gives a new code to each
+			 * unseen feature value. The hash encoding uses a hash function
+			 * (Murmur 3, in our case) to convert any string value to a code.
+			 * The latter case implies on some representation loss, due to
+			 * collisions in the hash function. On the other hand, the hash
+			 * trick can save lots of memory.
 			 */
-			featureEncoding = new StringMapEncoding();
+			if (hashSizeStr == null) {
+				if (hashSeedStr == null) {
+					featureEncoding = new StringMapEncoding();
+				} else {
+					LOG.error("Option --hashseed requires --hashsize");
+					System.exit(1);
+				}
+			} else {
+				int hashSize = TrainDP.parseValueDirectOrBits(hashSizeStr);
+				if (hashSeedStr == null) {
+					featureEncoding = new Murmur3Encoding(hashSize);
+				} else {
+					int hashSeed = Integer.parseInt(hashSeedStr);
+					featureEncoding = new Murmur3Encoding(hashSize, hashSeed);
+				}
+			}
 
 			LOG.info("Loading train dataset...");
 			if (inferenceStrategy != InferenceStrategy.BRANCH) {
@@ -306,7 +351,7 @@ public class TrainCoreference implements Command {
 						.setLossFactorForRootEdges(rootLossFactor);
 		} else if (inferenceStrategy == InferenceStrategy.BRANCH) {
 			if (updateStrategy != null) {
-				LOG.error("--update=<strategy> requires --latent");
+				LOG.error("--update=<strategy> requires --inference=LBRANCH");
 				System.exit(1);
 			}
 			if (rootLossFactor >= 0d) {
@@ -316,12 +361,71 @@ public class TrainCoreference implements Command {
 			model = new DPTemplateEvolutionModel(0);
 			inference = new MaximumBranchingInference(
 					inDataset.getMaxNumberOfTokens());
+		} else if (inferenceStrategy == inferenceStrategy.CHAIN) {
+			// Model and the update strategy.
+			model = new CorefModel(0);
+			if (updateStrategy != null)
+				((CorefModel) model).setUpdateStrategy(updateStrategy);
+
+			// Inference (prediction) algorithm and the root loss factor.
+			inference = new CoreferenceMaxBranchInference(
+					inDataset.getMaxNumberOfTokens(), 0, inferenceStrategy);
+			((CoreferenceMaxBranchInference) inference).setUseRoot(useRoot);
+			if (rootLossFactor >= 0d)
+				((CoreferenceMaxBranchInference) inference)
+						.setLossFactorForRootEdges(rootLossFactor);
+
+			LOG.info("Computing chains...");
+
+			// Generate chain for each document.
+			DPOutput[] outs = ((CorefColumnDataset) inDataset).getOutputs();
+			DPInput[] ins = ((CorefColumnDataset) inDataset).getInputs();
+			int idxDoc = 0;
+			for (DPOutput out : outs) {
+				// Current coreference output and input structures.
+				CorefOutput cout = (CorefOutput) out;
+				CorefInput cin = (CorefInput) ins[idxDoc];
+				// Number of mentions.
+				int numMentions = cout.size();
+
+				/*
+				 * For each mention, find the closest (previous) head mention in
+				 * the same cluster and with existing edge from the head mention
+				 * and the current mention.
+				 */
+				cout.setHead(0, -1);
+				cout.setHead(1, 0);
+				for (int idxMention = 2; idxMention < numMentions; ++idxMention) {
+					// Start with the artificial mention as the head.
+					cout.setHead(idxMention, 0);
+
+					// Cluster id of the current mention.
+					int cId = cout.getClusterId(idxMention);
+
+					for (int idxMentionHead = idxMention - 1; idxMentionHead > 0; --idxMentionHead) {
+						if (cId == cout.getClusterId(idxMentionHead)
+								&& cin.getBasicFeatures(idxMentionHead,
+										idxMention) != null) {
+							/*
+							 * Set the head when find an existing edge
+							 * connection to the same cluster.
+							 */
+							cout.setHead(idxMention, idxMentionHead);
+							break;
+						}
+					}
+				}
+
+				++idxDoc;
+			}
 		} else {
 			LOG.error("Unknown inference strategy "
 					+ inferenceStrategy.toString());
 			System.exit(1);
 			return;
 		}
+
+		LOG.info("Setting learning algorithm...");
 
 		// Learning algorithm.
 		LossAugmentedPerceptron alg = new LossAugmentedPerceptron(inference,
@@ -350,7 +454,8 @@ public class TrainCoreference implements Command {
 			try {
 				LOG.info("Loading and preparing test dataset...");
 				if (inferenceStrategy == InferenceStrategy.LBRANCH
-						|| inferenceStrategy == InferenceStrategy.LKRUSKAL) {
+						|| inferenceStrategy == InferenceStrategy.LKRUSKAL
+						|| inferenceStrategy == InferenceStrategy.CHAIN) {
 					testset = new CorefColumnDataset(inDataset);
 					((CorefColumnDataset) testset)
 							.setCheckMultipleTrueEdges(false);
@@ -361,7 +466,8 @@ public class TrainCoreference implements Command {
 				LOG.info("Generating features from templates...");
 				testset.generateFeatures();
 				// Predicted test set filename.
-				String testPredictedFileName = testDatasetFileName + "."
+				File f = new File(new File(testDatasetFileName).getName());
+				String testPredictedFileName = f.getAbsolutePath() + "."
 						+ new Random().nextInt() + ".pred";
 				// Set listener that perform evaluation after each epoch.
 				alg.setListener(new EvaluateModelListener(conllBasePath,
@@ -379,7 +485,8 @@ public class TrainCoreference implements Command {
 
 		if (modelFileName != null) {
 			try {
-				// Save model.
+				LOG.info(String.format("Saving model on file %s...",
+						modelFileName));
 				model.save(modelFileName, inDataset);
 			} catch (FileNotFoundException e) {
 				LOG.error(e);
@@ -394,7 +501,8 @@ public class TrainCoreference implements Command {
 
 				LOG.info("Loading and preparing test dataset...");
 				if (inferenceStrategy == InferenceStrategy.LBRANCH
-						|| inferenceStrategy == InferenceStrategy.LKRUSKAL) {
+						|| inferenceStrategy == InferenceStrategy.LKRUSKAL
+						|| inferenceStrategy == InferenceStrategy.CHAIN) {
 					testset = new CorefColumnDataset(inDataset);
 					((CorefColumnDataset) testset)
 							.setCheckMultipleTrueEdges(false);
@@ -422,7 +530,8 @@ public class TrainCoreference implements Command {
 				inference.inference(model, inputs[idx], predicteds[idx]);
 
 			// Predicted test set filename.
-			String testPredictedFileName = testDatasetFileName + "."
+			File f = new File(new File(testDatasetFileName).getName());
+			String testPredictedFileName = f.getAbsolutePath() + "."
 					+ new Random().nextInt() + ".pred";
 
 			try {

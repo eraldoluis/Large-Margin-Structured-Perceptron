@@ -34,6 +34,12 @@ public class DPGSInference implements Inference {
 	private MaximumGrandparentSiblingsAlgorithm maxGSAlgorithm;
 
 	/**
+	 * Edge factor weights for grandparent/siblings algorithm. The index for
+	 * this array is (idxHead, idxModifier).
+	 */
+	private double[][] edgeFactorWeights;
+
+	/**
 	 * Grandparent factor weights for grandparent/siblings algorithm. The index
 	 * for this array is (idxHead, idxModifier, idxGrandparent).
 	 */
@@ -71,6 +77,7 @@ public class DPGSInference implements Inference {
 	public DPGSInference(int maxNumberOfTokens) {
 		maxGSAlgorithm = new MaximumGrandparentSiblingsAlgorithm(
 				maxNumberOfTokens);
+		edgeFactorWeights = new double[maxNumberOfTokens][maxNumberOfTokens];
 		grandparentFactorWeights = new double[maxNumberOfTokens][maxNumberOfTokens][maxNumberOfTokens];
 		siblingsFactorWeights = new double[maxNumberOfTokens][maxNumberOfTokens + 1][maxNumberOfTokens + 1];
 	}
@@ -93,6 +100,7 @@ public class DPGSInference implements Inference {
 	 */
 	public void realloc(int maxNumberOfTokens) {
 		maxGSAlgorithm.realloc(maxNumberOfTokens);
+		edgeFactorWeights = new double[maxNumberOfTokens][maxNumberOfTokens];
 		grandparentFactorWeights = new double[maxNumberOfTokens][maxNumberOfTokens][maxNumberOfTokens];
 		siblingsFactorWeights = new double[maxNumberOfTokens][maxNumberOfTokens + 1][maxNumberOfTokens + 1];
 	}
@@ -111,18 +119,20 @@ public class DPGSInference implements Inference {
 	 */
 	public void inference(DPGSModel model, DPGSInput input, DPGSOutput output) {
 		// Generate inference problem for the given input.
+		fillEdgeFactorWeights(model, input);
 		fillGrandparentFactorWeights(model, input, null, 0d);
 		fillSiblingsFactorWeights(model, input);
 
 		// Solve the inference problem.
 		double score = maxGSAlgorithm.findMaximumGrandparentSiblings(
-				input.size(), grandparentFactorWeights, siblingsFactorWeights,
-				null, null, output.getGrandparents(), output.getModifiers());
+				input.size(), edgeFactorWeights, grandparentFactorWeights,
+				siblingsFactorWeights, null, null, output.getGrandparents(),
+				output.getModifiers());
 
 		LOG.debug(String.format("Solution score: %f", score));
 
 		if (copyPredictionToParse)
-			copyPredictionToParse(output);
+			copyGrandparentToTree(output);
 	}
 
 	/**
@@ -140,14 +150,32 @@ public class DPGSInference implements Inference {
 			DPGSOutput referenceOutput, DPGSOutput predictedOutput,
 			double lossWeight) {
 		// Generate loss-augmented inference problem for the given input.
+		fillEdgeFactorWeights(model, input);
 		fillGrandparentFactorWeights(model, input, referenceOutput, lossWeight);
 		fillSiblingsFactorWeights(model, input);
 
 		// Solve the inference problem.
 		maxGSAlgorithm.findMaximumGrandparentSiblings(input.size(),
-				grandparentFactorWeights, siblingsFactorWeights, null, null,
+				edgeFactorWeights, grandparentFactorWeights,
+				siblingsFactorWeights, null, null,
 				predictedOutput.getGrandparents(),
 				predictedOutput.getModifiers());
+	}
+
+	/**
+	 * Fill the underlying weight of the edge factors that are use by the
+	 * dynamic programming algorithm.
+	 * 
+	 * @param model
+	 * @param input
+	 */
+	private void fillEdgeFactorWeights(DPGSModel model, DPGSInput input) {
+		int numTkns = input.size();
+		for (int idxHead = 0; idxHead < numTkns; ++idxHead)
+			for (int idxModifier = 0; idxModifier < numTkns; ++idxModifier)
+				edgeFactorWeights[idxHead][idxModifier] = model
+						.getFeatureListScore(input.getEdgeFeatures(idxHead,
+								idxModifier));
 	}
 
 	/**
@@ -250,26 +278,34 @@ public class DPGSInference implements Inference {
 					siblingsFactorWeightsHeadModifier[idxSTART] = Double.NaN;
 			}
 		}
+
+		// TODO test (this factor should be generated).
+		siblingsFactorWeights[0][0][0] = 0d;
 	}
 
 	/**
-	 * Copy the grandparent structure to the parse structure in the given
-	 * output.
+	 * Copy the grandparent structure to the parse tree in the given output. If
+	 * the grandparent variable for a head is not defined (it is equal to -1),
+	 * then use the modifier variables to choose a parent token.
+	 * 
 	 * 
 	 * @param output
 	 */
-	private void copyPredictionToParse(DPGSOutput output) {
+	private void copyGrandparentToTree(DPGSOutput output) {
 		int numTkns = output.size();
-		for (int tkn = 0; tkn < numTkns; ++tkn) {
-			int head = output.getGrandparent(tkn);
+		for (int idxModifier = 0; idxModifier < numTkns; ++idxModifier) {
+			int head = output.getGrandparent(idxModifier);
 			if (head < 0) {
-				for (int idxHead = 0; idxHead < numTkns; ++idxHead)
-					if (output.isModifier(idxHead, tkn)) {
+				for (int idxHead = 0; idxHead < numTkns; ++idxHead) {
+					if (idxModifier == idxHead)
+						continue;
+					if (output.isModifier(idxHead, idxModifier)) {
 						head = idxHead;
 						break;
 					}
+				}
 			}
-			output.setHead(tkn, head);
+			output.setHead(idxModifier, head);
 		}
 	}
 
@@ -311,6 +347,7 @@ public class DPGSInference implements Inference {
 	 * @throws DPGSException
 	 */
 	public static void main(String[] args) throws DPGSException {
+		int[][][] eFtrs = new int[5][5][];
 		int[][][][] gFtrs = new int[5][5][5][];
 		int[][][][] sFtrs = new int[5][6][6][];
 
@@ -349,7 +386,7 @@ public class DPGSInference implements Inference {
 		sFtrs[2][5][4] = new int[] { 10 };
 
 		// Input structure.
-		DPGSInput input = new DPGSInput(gFtrs, sFtrs);
+		DPGSInput input = new DPGSInput(eFtrs, gFtrs, sFtrs);
 
 		// Inference object.
 		DPGSInference inference = new DPGSInference(input.size());

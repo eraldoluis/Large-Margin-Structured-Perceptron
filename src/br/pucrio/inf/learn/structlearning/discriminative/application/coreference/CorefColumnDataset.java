@@ -165,10 +165,28 @@ public class CorefColumnDataset extends DPColumnDataset {
 			edgeFeatures.add(idxMentionLeft);
 			edgeFeatures.add(idxMentionRight);
 
-			// Encode the edge features.
-			for (int idxFtr = 1; idxFtr < ftrValues.length - 1; ++idxFtr) {
+			/*
+			 * The next 6 features indentify the two mentions (their segment and
+			 * token indexes). These features are not encoded. They are stored
+			 * as their integer values themselves.
+			 */
+			int m1Segment = Integer.parseInt(ftrValues[1]);
+			int m1TokenIni = Integer.parseInt(ftrValues[2]);
+			int m1TokenFim = Integer.parseInt(ftrValues[3]);
+			int m2Segment = Integer.parseInt(ftrValues[4]);
+			int m2TokenIni = Integer.parseInt(ftrValues[5]);
+			int m2TokenFim = Integer.parseInt(ftrValues[6]);
+
+			edgeFeatures.add(m1Segment);
+			edgeFeatures.add(m1TokenIni);
+			edgeFeatures.add(m1TokenFim);
+			edgeFeatures.add(m2Segment);
+			edgeFeatures.add(m2TokenIni);
+			edgeFeatures.add(m2TokenFim);
+
+			// Encode the remaining edge features.
+			for (int idxFtr = 7; idxFtr < ftrValues.length - 1; ++idxFtr) {
 				String str = ftrValues[idxFtr];
-				// TODO deal with multi-valued features.
 				int code = basicEncoding.put(new String(str));
 				edgeFeatures.add(code);
 			}
@@ -270,14 +288,23 @@ public class CorefColumnDataset extends DPColumnDataset {
 					int[] ftrs = input.getBasicFeatures(idxLeft, idxRight);
 					if (ftrs == null)
 						continue;
+
 					// Id.
 					writer.write(idxLeft + ">" + idxRight);
-					// Features.
-					for (int idxFtr = 0; idxFtr < ftrs.length; ++idxFtr)
+
+					/*
+					 * The first 6 values are not encoded, they are the integer
+					 * values themselver.
+					 */
+					for (int idxFtr = 0; idxFtr < 6; ++idxFtr)
+						writer.write(" " + ftrs[idxFtr]);
+
+					// Ordinary encoded features.
+					for (int idxFtr = 6; idxFtr < ftrs.length; ++idxFtr)
 						writer.write(" "
 								+ basicEncoding.getValueByCode(ftrs[idxFtr]));
 
-					// Correct feature.
+					// Correct flag.
 					if (correctOutput.getClusterId(idxLeft) == correctOutput
 							.getClusterId(idxRight))
 						writer.write(" Y");
@@ -313,13 +340,20 @@ public class CorefColumnDataset extends DPColumnDataset {
 	 * 
 	 * @param fileName
 	 * @param predictedOuputs
+	 * @param root
+	 * @param saveGoldTrees
+	 *            if <code>true</code>, in the correct column, tag as Y only
+	 *            edges present in the constrained document tree, that is the
+	 *            edges that are predicted in the correct outputs. These "gold"
+	 *            trees must be predicted before calling this method.
 	 * @throws IOException
 	 * @throws DatasetException
 	 */
 	public void saveCorefTrees(String fileName, DPOutput[] predictedOuputs,
-			int root) throws IOException, DatasetException {
+			int root, boolean saveGoldTrees) throws IOException,
+			DatasetException {
 		BufferedWriter writer = new BufferedWriter(new FileWriter(fileName));
-		saveCorefTrees(writer, predictedOuputs, root);
+		saveCorefTrees(writer, predictedOuputs, root, saveGoldTrees);
 		writer.close();
 	}
 
@@ -334,12 +368,18 @@ public class CorefColumnDataset extends DPColumnDataset {
 	 * 
 	 * @param writer
 	 * @param predictedOuputs
+	 * @param root
+	 * @param saveGoldTrees
+	 *            if <code>true</code>, in the correct column, tag as Y only
+	 *            edges present in the constrained document tree, that is the
+	 *            edges that are predicted in the correct outputs. These "gold"
+	 *            trees must be predicted before calling this method.
 	 * @throws IOException
 	 * @throws DatasetException
 	 */
 	public void saveCorefTrees(BufferedWriter writer,
-			DPOutput[] predictedOuputs, int root) throws IOException,
-			DatasetException {
+			DPOutput[] predictedOuputs, int root, boolean saveGoldTrees)
+			throws IOException, DatasetException {
 		// Header.
 		writer.write("[features = id");
 		for (int idxFtr = 0; idxFtr < featureLabels.length; ++idxFtr)
@@ -361,17 +401,35 @@ public class CorefColumnDataset extends DPColumnDataset {
 						continue;
 					// Id.
 					writer.write(idxLeft + ">" + idxRight);
+
+					/*
+					 * The first 6 values are not encoded, they are the integer
+					 * values themselver.
+					 */
+					for (int idxFtr = 0; idxFtr < 6; ++idxFtr)
+						writer.write(" " + ftrs[idxFtr]);
+
 					// Features.
-					for (int idxFtr = 0; idxFtr < ftrs.length; ++idxFtr)
+					for (int idxFtr = 6; idxFtr < ftrs.length; ++idxFtr)
 						writer.write(" "
 								+ basicEncoding.getValueByCode(ftrs[idxFtr]));
 
-					// Correct feature. Consider the cluster, not the tree.
-					if (correctOutput.getClusterId(idxLeft) == correctOutput
-							.getClusterId(idxRight))
-						writer.write(" Y");
-					else
-						writer.write(" N");
+					// Append correct flag feature.
+					if (saveGoldTrees) {
+						// Only consider the tree.
+						if (idxLeft != root && idxRight != root
+								&& correctOutput.getHead(idxRight) == idxLeft)
+							writer.write(" Y");
+						else
+							writer.write(" N");
+					} else {
+						// Consider the cluster, not the tree.
+						if (correctOutput.getClusterId(idxLeft) == correctOutput
+								.getClusterId(idxRight))
+							writer.write(" Y");
+						else
+							writer.write(" N");
+					}
 
 					// Predicted feature. Only consider the tree.
 					if (idxLeft != root && idxRight != root

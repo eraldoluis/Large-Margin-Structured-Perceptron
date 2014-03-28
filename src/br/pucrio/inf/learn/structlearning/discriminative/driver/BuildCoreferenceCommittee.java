@@ -13,6 +13,7 @@ import org.json.JSONException;
 
 import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CorefColumnDataset;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPTemplateEvolutionModel;
+import br.pucrio.inf.learn.structlearning.discriminative.data.DatasetException;
 import br.pucrio.inf.learn.structlearning.discriminative.driver.Driver.Command;
 import br.pucrio.inf.learn.util.CommandLineOptionsUtil;
 
@@ -83,7 +84,7 @@ public class BuildCoreferenceCommittee implements Command {
 				LOG.info(String.format("Loading model '%s' with weight %f...",
 						fileAndWeight[0], weight));
 				DPTemplateEvolutionModel memberModel = new DPTemplateEvolutionModel(
-						fileAndWeight[0], emptyDataset);
+						fileAndWeight[0], emptyDataset, false);
 				// Include model in the committee.
 				finalModel.sumModel(memberModel, weight);
 			}
@@ -92,6 +93,9 @@ public class BuildCoreferenceCommittee implements Command {
 			LOG.error("Loading model", e);
 			System.exit(1);
 		} catch (IOException e) {
+			LOG.error("Loading model", e);
+			System.exit(1);
+		} catch (DatasetException e) {
 			LOG.error("Loading model", e);
 			System.exit(1);
 		}

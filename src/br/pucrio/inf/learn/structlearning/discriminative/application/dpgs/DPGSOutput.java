@@ -91,9 +91,8 @@ public class DPGSOutput implements ExampleOutput {
 	}
 
 	/**
-	 * Return the parent of the given head token (and, consequently, grandparent
-	 * of its children) according to the (not always feasible) grandparent
-	 * structure.
+	 * Return the <b>parent</b> of the given head token (the grandparent of its
+	 * children) according to the (not always feasible) grandparent structure.
 	 * 
 	 * @param idxHead
 	 * @return

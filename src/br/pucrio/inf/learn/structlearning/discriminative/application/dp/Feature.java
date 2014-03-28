@@ -70,6 +70,16 @@ public class Feature implements Cloneable {
 		this.values = values;
 	}
 
+	/**
+	 * Set a specific value within this feature array of values.
+	 * 
+	 * @param idx
+	 * @param val
+	 */
+	public void setValue(int idx, int val) {
+		values[idx] = val;
+	}
+
 	@Override
 	public int hashCode() {
 		return HashCodeUtil.hash(templateIndex, values);

@@ -1,5 +1,6 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.dp;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileWriter;
@@ -7,16 +8,24 @@ import java.io.IOException;
 import java.io.Writer;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeSet;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.json.JSONTokener;
 import org.json.JSONWriter;
+
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonParseException;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonToken;
 
 import br.pucrio.inf.learn.structlearning.discriminative.application.coreference.CorefColumnDataset;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPColumnDataset;
@@ -24,9 +33,11 @@ import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPI
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.AveragedParameter;
 import br.pucrio.inf.learn.structlearning.discriminative.data.Dataset;
+import br.pucrio.inf.learn.structlearning.discriminative.data.DatasetException;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
+import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.MapEncoding;
 
 /**
  * Represent a dependecy parsing model (head-dependent edge parameters) by means
@@ -45,6 +56,11 @@ import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEn
  * 
  */
 public class DPTemplateEvolutionModel implements DPModel {
+
+	/**
+	 * Logging object.
+	 */
+	private static Log LOG = LogFactory.getLog(DPTemplateEvolutionModel.class);
 
 	/**
 	 * Special root node.
@@ -81,33 +97,190 @@ public class DPTemplateEvolutionModel implements DPModel {
 	 * 
 	 * @param fileName
 	 * @param dataset
+	 * @param largeModel
 	 * @throws JSONException
 	 * @throws IOException
+	 * @throws DatasetException
 	 */
-	public DPTemplateEvolutionModel(String fileName, CorefColumnDataset dataset)
-			throws JSONException, IOException {
+	public DPTemplateEvolutionModel(String fileName,
+			CorefColumnDataset dataset, boolean largeModel)
+			throws JSONException, IOException, DatasetException {
 		this.updatedParameters = null;
 		this.parameters = new HashMap<Integer, AveragedParameter>();
 
 		// Model file input stream.
 		FileInputStream fis = new FileInputStream(fileName);
 
-		// Load JSON model object.
-		JSONObject jModel = new JSONObject(new JSONTokener(fis));
+		if (!largeModel) {
+			/*
+			 * Load using the JSON reference implementation:
+			 * https://github.com/douglascrockford/JSON-java.
+			 */
 
-		// Set dataset templates.
-		FeatureTemplate[][] templatesAllLevels = loadTemplatesFromJSON(jModel,
-				dataset);
-		dataset.setTemplates(templatesAllLevels);
+			// Load JSON model object.
+			JSONObject jModel = new JSONObject(new JSONTokener(fis));
 
-		// Set model parameters.
-		loadParametersFromJSON(jModel, dataset);
+			// Set dataset templates.
+			LOG.info("Loading templates...");
+			FeatureTemplate[][] templatesAllLevels = loadTemplatesFromJSON(
+					jModel, dataset);
+			dataset.setTemplates(templatesAllLevels);
 
-		// Close model file input stream.
-		fis.close();
+			// Set model parameters.
+			LOG.info("Loading parameters...");
+			loadParametersFromJSON(jModel, dataset);
 
-		// Get root value.
-		this.root = jModel.getInt("root");
+			// Close model file input stream.
+			fis.close();
+
+			// Get root value.
+			this.root = jModel.getInt("root");
+		} else {
+			/*
+			 * Load using Jackson high-performance streaming library:
+			 * http://jackson.codehaus.org/
+			 */
+			JsonFactory jf = new JsonFactory();
+			JsonParser jp = jf.createJsonParser(new File(fileName));
+			if (jp.nextToken() != JsonToken.START_OBJECT) {
+				String msg = String.format(
+						"Model file (%s) should contain an object", fileName);
+				LOG.error(msg);
+				throw new DatasetException(msg);
+			}
+
+			while (jp.nextToken() != JsonToken.END_OBJECT) {
+				String fName = jp.getCurrentName();
+				if ("root".equals(fName)) {
+					// Root node index.
+					if (jp.nextToken() != JsonToken.VALUE_NUMBER_INT) {
+						String msg = String
+								.format("Root value should be an integer");
+						LOG.error(msg);
+						throw new DatasetException(msg);
+					}
+					root = jp.getValueAsInt();
+				} else if ("templates".equals(fName)) {
+					// Feature templates.
+					LOG.info("Loading templates...");
+					FeatureTemplate[][] templatesAllLevels = loadTemplatesFromJackson(
+							jp, dataset);
+					dataset.setTemplates(templatesAllLevels);
+				} else if ("parameters".equals(fName)) {
+					// Model parameters.
+					LOG.info("Loading parameters...");
+					loadParametersFromJackson(jp, dataset);
+				}
+			}
+		}
+	}
+
+	/**
+	 * Load parameters using Jackson JSON library.
+	 * 
+	 * @param jp
+	 * @param dataset
+	 * @throws JsonParseException
+	 * @throws IOException
+	 * @throws DatasetException
+	 */
+	private void loadParametersFromJackson(JsonParser jp,
+			CorefColumnDataset dataset) throws JsonParseException, IOException,
+			DatasetException {
+		if (jp.nextToken() != JsonToken.START_ARRAY)
+			throw new DatasetException("Error parsing parameters");
+		MapEncoding<Feature> explicitEncoding = dataset
+				.getExplicitFeatureEncoding();
+		FeatureEncoding<String> basicEncoding = dataset.getFeatureEncoding();
+		while (jp.nextToken() != JsonToken.END_ARRAY) {
+			// Skip start array token for this parameter.
+			// Each parameter follows the format: [ idxTpl, [vals], weight ]
+			if (jp.nextToken() != JsonToken.VALUE_NUMBER_INT)
+				throw new DatasetException("Error parsing parameters");
+			// Template index.
+			int idxTpl = jp.getIntValue();
+			// Skip start array token for the feature values.
+			if (jp.nextToken() != JsonToken.START_ARRAY)
+				throw new DatasetException(
+						"Error parsing parameter feature values");
+			// List of values.
+			LinkedList<Integer> valuesL = new LinkedList<Integer>();
+			while (jp.nextToken() != JsonToken.END_ARRAY)
+				valuesL.add(basicEncoding.put(jp.getText()));
+			// Convert the list of values to an array.
+			int[] values = new int[valuesL.size()];
+			int idxVal = 0;
+			for (int val : valuesL)
+				values[idxVal++] = val;
+			// Create a feature object and encode it.
+			Feature ftr = new Feature(idxTpl, values);
+			int code = explicitEncoding.put(ftr);
+			// Put the new parameter weight in the parameters dictionary.
+			if (jp.nextToken() != JsonToken.VALUE_NUMBER_FLOAT
+					&& jp.getCurrentToken() != JsonToken.VALUE_NUMBER_INT)
+				throw new DatasetException(
+						"Error parsing parameter feature values");
+			parameters.put(code, new AveragedParameter(jp.getDoubleValue()));
+			// Skip the end array token.
+			if (jp.nextToken() != JsonToken.END_ARRAY)
+				throw new DatasetException("Error parsing parameters");
+		}
+	}
+
+	/**
+	 * Load feature templates using JSON Jackson library.
+	 * 
+	 * @param jp
+	 * @param dataset
+	 * @return
+	 * @throws JsonParseException
+	 * @throws IOException
+	 * @throws DatasetException
+	 */
+	private FeatureTemplate[][] loadTemplatesFromJackson(JsonParser jp,
+			CorefColumnDataset dataset) throws JsonParseException, IOException,
+			DatasetException {
+		/*
+		 * Next two tokens are array starts, since templates are represented as
+		 * an array of arrays of templates.
+		 */
+		if (jp.nextToken() != JsonToken.START_ARRAY
+				|| jp.nextToken() != JsonToken.START_ARRAY) {
+			String msg = String.format("Error parsing templates");
+			LOG.error(msg);
+			throw new DatasetException(msg);
+		}
+
+		/*
+		 * Parse the first array of templates. In this code, we are considering
+		 * only one (the first one) template set. However, there can be more
+		 * sets.
+		 */
+		int idxTpl = 0;
+		LinkedList<FeatureTemplate> templatesL = new LinkedList<FeatureTemplate>();
+		while (jp.nextToken() != JsonToken.END_ARRAY) {
+			// Parse one template, i.e., a list of feature labels.
+			LinkedList<Integer> ftrsL = new LinkedList<Integer>();
+			while (jp.nextToken() != JsonToken.END_ARRAY)
+				ftrsL.add(dataset.getFeatureIndex(jp.getText()));
+			// Convert list of features to array.
+			int[] ftrsV = new int[ftrsL.size()];
+			int idxFtr = 0;
+			for (int ftr : ftrsL)
+				ftrsV[idxFtr++] = ftr;
+			// Create a new template and add it to the list of templates.
+			templatesL.add(new SimpleFeatureTemplate(idxTpl, ftrsV));
+			++idxTpl;
+		}
+
+		jp.nextToken();
+
+		// Convert the list of templates to an array.
+		FeatureTemplate[][] templatesVAllLevels = new FeatureTemplate[1][];
+		templatesVAllLevels[0] = new FeatureTemplate[templatesL.size()];
+		templatesL.toArray(templatesVAllLevels[0]);
+
+		return templatesVAllLevels;
 	}
 
 	/**
@@ -151,6 +324,7 @@ public class DPTemplateEvolutionModel implements DPModel {
 		// JSON array of parameters.
 		JSONArray jParams = jModel.getJSONArray("parameters");
 		int numParams = jParams.length();
+		LOG.info(String.format("Loading %d parameters...", numParams));
 		for (int idxParam = 0; idxParam < numParams; ++idxParam) {
 			/*
 			 * JSON array that represents a complete parameter: its template
@@ -248,7 +422,6 @@ public class DPTemplateEvolutionModel implements DPModel {
 		double score = getEdgeScoreFromCurrentFeatures(input, idxHead,
 				idxDependent);
 		return score;
-		// TODO return fixedWeights[idxEx][idxHead][idxDependent] + score;
 	}
 
 	@Override

@@ -71,6 +71,19 @@ public class DisjointSets {
 	}
 
 	/**
+	 * Merge the sets of the two items given.
+	 * 
+	 * @param item1
+	 * @param item2
+	 */
+	public void unionFind(int item1, int item2) {
+		int set1 = find(item1);
+		int set2 = find(item2);
+		if (set1 != set2)
+			union(set1, set2);
+	}
+
+	/**
 	 * Cleat this partition so that it represents isolated elements.
 	 */
 	public void clear() {

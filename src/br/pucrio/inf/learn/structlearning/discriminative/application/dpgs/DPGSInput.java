@@ -46,6 +46,12 @@ public class DPGSInput implements ExampleInput, Serializable {
 	private int numberOfTokens;
 
 	/**
+	 * Basic (column-based) features for edge factors. Such factors are
+	 * identified by an index of the form (idxHead, idxModifier).
+	 */
+	private int[][][][] basicEdgeFeatures;
+
+	/**
 	 * Basic (column-based) features for grandparent factors. Each factor is
 	 * identified by an index of the form (idxHead, idxModifier,
 	 * idxGrandparent). Each factor has a list (columns) of features and each
@@ -64,6 +70,12 @@ public class DPGSInput implements ExampleInput, Serializable {
 	 * a list of values.
 	 */
 	private int[][][][][] basicSiblingsFeatures;
+
+	/**
+	 * Derived features from edge templates. These templates involve two
+	 * parameters: head and modifier.
+	 */
+	private int[][][] edgeFeatures;
 
 	/**
 	 * Derived features from grandparent templates. These templates involve
@@ -91,9 +103,15 @@ public class DPGSInput implements ExampleInput, Serializable {
 	public DPGSInput(String id, int numberOfTokens) {
 		this.id = id;
 		this.numberOfTokens = numberOfTokens;
+
+		// Arrays for basic features.
+		this.basicEdgeFeatures = new int[numberOfTokens][numberOfTokens][][];
 		this.basicGrandparentFeatures = new int[numberOfTokens][numberOfTokens][numberOfTokens][][];
-		this.grandparentFeatures = new int[numberOfTokens][numberOfTokens][numberOfTokens][];
 		this.basicSiblingsFeatures = new int[numberOfTokens][numberOfTokens + 1][numberOfTokens + 1][][];
+
+		// Arrays for derived features.
+		this.edgeFeatures = new int[numberOfTokens][numberOfTokens][];
+		this.grandparentFeatures = new int[numberOfTokens][numberOfTokens][numberOfTokens][];
 		this.siblingsFeatures = new int[numberOfTokens][numberOfTokens + 1][numberOfTokens + 1][];
 	}
 
@@ -102,22 +120,26 @@ public class DPGSInput implements ExampleInput, Serializable {
 	 * arrays as underlying features. The given arrays are not copied, that is
 	 * they are used as is and must not be modified after this method is called.
 	 * 
+	 * @param edgeFeatures
 	 * @param grandparentFeatures
 	 * @param siblingsFeatures
 	 * @throws DPGSException
 	 */
-	public DPGSInput(int[][][][] grandparentFeatures,
+	public DPGSInput(int[][][] edgeFeatures, int[][][][] grandparentFeatures,
 			int[][][][] siblingsFeatures) throws DPGSException {
-		if (grandparentFeatures.length != siblingsFeatures.length)
-			throw new DPGSException("Given grandparent feature array has "
-					+ "different length of the siblings array");
+		// All three arrays must have the same dimension.
+		if (grandparentFeatures.length != siblingsFeatures.length
+				|| edgeFeatures.length != siblingsFeatures.length)
+			throw new DPGSException("Feature array have different length");
+
 		this.numberOfTokens = grandparentFeatures.length;
+		this.edgeFeatures = edgeFeatures;
 		this.grandparentFeatures = grandparentFeatures;
 		this.siblingsFeatures = siblingsFeatures;
 	}
 
 	/**
-	 * Fill basic features with the given list of factors.
+	 * Add basic features of the given list of factors.
 	 * 
 	 * Each item in this list (i.e., a factor) contains a list of basic
 	 * features. The first item in this list contains an array with the factor
@@ -125,19 +147,22 @@ public class DPGSInput implements ExampleInput, Serializable {
 	 * feature value is an array of values with one or more items.
 	 * 
 	 * A factor parameter comprises an array with four integers. The first
-	 * integer can be 1 or 2 to indicate whether the factor is grandparent or
-	 * siblings, respectively. The remaining three integers are the proper
-	 * factor paramenter, that is (idxHead, idxModifier, idxGrandparent) for
-	 * grandparent factors or (idxHead, idxModifier, idxPreviousModifier) for
-	 * siblings factors.
+	 * integer indicates its type and can be 0 (edge factor), 1 (grandparent) or
+	 * 2 (siblings).
 	 * 
-	 * @param basicFeatures
+	 * The remaining three integers are the proper factor parameters. For
+	 * grandparent factors, (idxHead, idxModifier, idxGrandparent). For siblings
+	 * factors (idxHead, idxModifier, idxPreviousModifier). For edge factors it
+	 * is (idxHead, idxModifier) and the third parameter is irrelevant.
+	 * 
+	 * @param factors
+	 *            list of factors to be included in this input structure.
 	 * @throws DPGSException
 	 */
-	public void fillBasicFeatures(
-			Collection<? extends Collection<int[]>> basicFeatures)
+	public void addBasicFeaturesOfFactors(
+			Collection<? extends Collection<int[]>> factors)
 			throws DPGSException {
-		for (Collection<int[]> factor : basicFeatures) {
+		for (Collection<int[]> factor : factors) {
 			// Iterator of factor list items.
 			Iterator<int[]> it = factor.iterator();
 
@@ -165,7 +190,18 @@ public class DPGSInput implements ExampleInput, Serializable {
 			 * place with the underlying GS structures.
 			 */
 			switch (params[0]) {
+			case 0:
+				// EDGE factor.
+				columns = new int[numberOfColumns][];
+				if (basicEdgeFeatures[idxHead][idxModifier] != null)
+					throw new DPGSException(
+							String.format(
+									"Factor E(%d,%d,%d) in example %s is already filled",
+									idxHead, idxModifier, params[3], id));
+				basicEdgeFeatures[idxHead][idxModifier] = columns;
+				break;
 			case 1:
+				// GRANDPARENT factor.
 				int idxGrandparent = params[3];
 				columns = new int[numberOfColumns][];
 				if (basicGrandparentFeatures[idxHead][idxModifier][idxGrandparent] != null)
@@ -176,6 +212,7 @@ public class DPGSInput implements ExampleInput, Serializable {
 				basicGrandparentFeatures[idxHead][idxModifier][idxGrandparent] = columns;
 				break;
 			case 2:
+				// SIBLINGS factor.
 				int idxPrevModifier = params[3];
 				columns = new int[numberOfColumns][];
 				if (basicSiblingsFeatures[idxHead][idxModifier][idxPrevModifier] != null)
@@ -216,6 +253,18 @@ public class DPGSInput implements ExampleInput, Serializable {
 	}
 
 	/**
+	 * Return the list of feature codes in the given edge factor (idxHead,
+	 * idxModifier).
+	 * 
+	 * @param idxHead
+	 * @param idxModifier
+	 * @return
+	 */
+	public int[] getEdgeFeatures(int idxHead, int idxModifier) {
+		return edgeFeatures[idxHead][idxModifier];
+	}
+
+	/**
 	 * Return the list of feature codes in the given grandparent factor.
 	 * 
 	 * @param idxHead
@@ -241,6 +290,20 @@ public class DPGSInput implements ExampleInput, Serializable {
 		return siblingsFeatures[idxHead][idxModifier][idxSibling];
 	}
 
+	public void setEdgeFeatures(int idxHead, int idxModifier, int[] vals) {
+		edgeFeatures[idxHead][idxModifier] = vals;
+	}
+
+	public void setGrandparentFeatures(int idxHead, int idxModifier,
+			int idxGrandparent, int[] vals) {
+		grandparentFeatures[idxHead][idxModifier][idxGrandparent] = vals;
+	}
+
+	public void setSiblingsFeatures(int idxHead, int idxModifier,
+			int idxPrevModifier, int[] vals) {
+		siblingsFeatures[idxHead][idxModifier][idxPrevModifier] = vals;
+	}
+
 	@Override
 	public DPGSOutput createOutput() {
 		return new DPGSOutput(numberOfTokens);
@@ -257,7 +320,7 @@ public class DPGSInput implements ExampleInput, Serializable {
 	}
 
 	/**
-	 * Return the number of token in this sentence.
+	 * Return the number of tokens in this sentence.
 	 * 
 	 * @return
 	 */
@@ -265,23 +328,43 @@ public class DPGSInput implements ExampleInput, Serializable {
 		return numberOfTokens;
 	}
 
+	/**
+	 * Return the column-based features for the given edge factor (idxHead,
+	 * idxModifier).
+	 * 
+	 * @param idxHead
+	 * @param idxModifier
+	 * @return
+	 */
+	public int[][] getBasicEdgeFeatures(int idxHead, int idxModifier) {
+		return basicEdgeFeatures[idxHead][idxModifier];
+	}
+
+	/**
+	 * Return the column-based features for the given grandparent factor
+	 * (idxHead, idxModifier, idxGrandparent).
+	 * 
+	 * @param idxHead
+	 * @param idxModifier
+	 * @param idxGrandparent
+	 * @return
+	 */
 	public int[][] getBasicGrandparentFeatures(int idxHead, int idxModifier,
 			int idxGrandparent) {
 		return basicGrandparentFeatures[idxHead][idxModifier][idxGrandparent];
 	}
 
+	/**
+	 * Return the column-based features for the given siblings factor (idxHead,
+	 * idxModifier, idxSibling).
+	 * 
+	 * @param idxHead
+	 * @param idxModifier
+	 * @param idxPrevModifier
+	 * @return
+	 */
 	public int[][] getBasicSiblingsFeatures(int idxHead, int idxModifier,
 			int idxPrevModifier) {
 		return basicSiblingsFeatures[idxHead][idxModifier][idxPrevModifier];
-	}
-
-	public void setGrandparentFeatures(int idxHead, int idxModifier,
-			int idxGrandparent, int[] vals) {
-		grandparentFeatures[idxHead][idxModifier][idxGrandparent] = vals;
-	}
-
-	public void setSiblingsFeatures(int idxHead, int idxModifier,
-			int idxPrevModifier, int[] vals) {
-		siblingsFeatures[idxHead][idxModifier][idxPrevModifier] = vals;
 	}
 }

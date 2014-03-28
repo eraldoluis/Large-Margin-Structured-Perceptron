@@ -21,7 +21,9 @@ import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPModel;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPTemplateEvolutionModel;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPOutput;
+import br.pucrio.inf.learn.structlearning.discriminative.data.DatasetException;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
+import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.Murmur3Encoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.StringMapEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.driver.Driver.Command;
 import br.pucrio.inf.learn.util.CommandLineOptionsUtil;
@@ -48,6 +50,16 @@ public class ApplyCoreferenceModel implements Command {
 		options.addOption(OptionBuilder.withLongOpt("model")
 				.withArgName("filename").hasArg().isRequired()
 				.withDescription("File name with the model.").create());
+		options.addOption(OptionBuilder
+				.withLongOpt("hashsize")
+				.withArgName("size")
+				.hasArg()
+				.withDescription(
+						"Number of entries or bits (use "
+								+ "suffix b) in the hash function.").create());
+		options.addOption(OptionBuilder.withLongOpt("hashseed")
+				.withArgName("seed").hasArg()
+				.withDescription("Seed for the hash function.").create());
 		options.addOption(OptionBuilder.withLongOpt("test").isRequired()
 				.hasArg().withArgName("filename")
 				.withDescription("Test dataset file name.").create());
@@ -130,6 +142,8 @@ public class ApplyCoreferenceModel implements Command {
 		 * default values.
 		 */
 		String modelFileName = cmdLine.getOptionValue("model");
+		String hashSizeStr = cmdLine.getOptionValue("hashsize");
+		String hashSeedStr = cmdLine.getOptionValue("hashseed");
 		String testDatasetFileName = cmdLine.getOptionValue("test");
 		String scriptBasePathStr = cmdLine.getOptionValue("scriptpath");
 		String conllTestFileName = cmdLine.getOptionValue("conlltest");
@@ -170,11 +184,31 @@ public class ApplyCoreferenceModel implements Command {
 		FeatureEncoding<String> featureEncoding = null;
 		try {
 			/*
-			 * Create an empty and flexible feature encoding that will encode
-			 * unambiguously all feature values. If the training dataset is big,
-			 * this may not fit in memory.
+			 * The feature encoding converts textual feature values to integer
+			 * codes. The use has two options: simple encoding and hash
+			 * encoding. The simple encoding only gives a new code to each
+			 * unseen feature value. The hash encoding uses a hash function
+			 * (Murmur 3, in our case) to convert any string value to a code.
+			 * The latter case implies on some representation loss, due to
+			 * collisions in the hash function. On the other hand, the hash
+			 * trick can save lots of memory.
 			 */
-			featureEncoding = new StringMapEncoding();
+			if (hashSizeStr == null) {
+				if (hashSeedStr == null) {
+					featureEncoding = new StringMapEncoding();
+				} else {
+					LOG.error("Option --hashseed requires --hashsize");
+					System.exit(1);
+				}
+			} else {
+				int hashSize = TrainDP.parseValueDirectOrBits(hashSizeStr);
+				if (hashSeedStr == null) {
+					featureEncoding = new Murmur3Encoding(hashSize);
+				} else {
+					int hashSeed = Integer.parseInt(hashSeedStr);
+					featureEncoding = new Murmur3Encoding(hashSize, hashSeed);
+				}
+			}
 
 			LOG.info("Loading dataset...");
 			testDataset = new CorefColumnDataset(featureEncoding,
@@ -190,17 +224,21 @@ public class ApplyCoreferenceModel implements Command {
 		LOG.info("Loading model and templates...");
 		DPModel model = null;
 		try {
-			model = new DPTemplateEvolutionModel(modelFileName, testDataset);
+			model = new DPTemplateEvolutionModel(modelFileName, testDataset,
+					true);
 		} catch (JSONException e) {
 			LOG.error("Loading model", e);
 			System.exit(1);
 		} catch (IOException e) {
 			LOG.error("Loading model", e);
 			System.exit(1);
+		} catch (DatasetException e) {
+			LOG.error("Loading model", e);
+			System.exit(1);
 		}
 
-		LOG.info("Generating features from templates...");
-		testDataset.generateFeatures();
+		// LOG.info("Generating features from templates...");
+		// testDataset.generateFeatures();
 
 		// Inference algorithm.
 		CoreferenceMaxBranchInference inference = new CoreferenceMaxBranchInference(
@@ -217,23 +255,53 @@ public class ApplyCoreferenceModel implements Command {
 			predicteds[idx] = inputs[idx].createOutput();
 
 		// Fill the list of predicted outputs with predictions from the model.
-		for (int idx = 0; idx < inputs.length; ++idx)
+		LOG.info("Predicting...");
+		for (int idx = 0; idx < inputs.length; ++idx) {
+			// Allocate derived feature matrix memory.
+			inputs[idx].allocFeatureMatrix();
+			// Generate derived features from templates.
+			inputs[idx].generateFeatures(testDataset.getTemplates()[0],
+					testDataset.getExplicitFeatureEncoding());
 			// Predict (tag the output sequence).
 			inference.inference(model, inputs[idx], predicteds[idx]);
 
+			if (!outputCorefTrees)
+				// Free derived feature matrix.
+				inputs[idx].freeFeatureMatrix();
+
+			if ((idx + 1) % 100 == 0) {
+				System.out.print(".");
+				System.out.flush();
+			}
+		}
+
 		// Predicted test set filename.
 		String testPredictedFileName = outputFileName;
+		File f = new File(new File(testDatasetFileName).getName());
 		if (testPredictedFileName == null)
-			testPredictedFileName = testDatasetFileName + "."
+			testPredictedFileName = f.getAbsolutePath() + "."
 					+ new Random().nextInt() + ".pred";
 
 		try {
 			if (outputCorefTrees) {
+				LOG.info("Predicting \"golden\" trees for the correct outputs...");
+				DPOutput[] outputs = testDataset.getOutputs();
+				for (int idx = 0; idx < inputs.length; ++idx) {
+					// Constrained prediction.
+					inference.partialInference(model, inputs[idx],
+							outputs[idx], outputs[idx]);
+					// Free derived feature matrix.
+					inputs[idx].freeFeatureMatrix();
+					if ((idx + 1) % 100 == 0) {
+						System.out.print(".");
+						System.out.flush();
+					}
+				}
 				LOG.info("Saving test file (" + testPredictedFileName
 						+ ") with predicted column where correct edges "
 						+ "are only the ones in coreference trees...");
-				testDataset
-						.saveCorefTrees(testPredictedFileName, predicteds, 0);
+				testDataset.saveCorefTrees(testPredictedFileName, predicteds,
+						0, true);
 			} else {
 				LOG.info("Saving test file (" + testPredictedFileName
 						+ ") with predicted column...");
