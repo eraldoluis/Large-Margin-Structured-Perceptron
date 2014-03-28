@@ -52,6 +52,16 @@ public class CoreferenceMaxBranchInference implements Inference {
 		 * assumed as latent and predicted by Kruskal algorithm.
 		 */
 		LKRUSKAL,
+
+		/**
+		 * During training, do not use the current model to predict the golden
+		 * coreference trees. It chooses the closest (previous) mention as the
+		 * parent mention. Usually, this rule derives a chain (sequential) of
+		 * mentions for each entity cluster. However, since the input dataset
+		 * may not include all edges, for some cases, a completely sequential
+		 * chain is not possible and the resulting structure will be a tree.
+		 */
+		CHAIN,
 	}
 
 	/**
@@ -198,10 +208,19 @@ public class CoreferenceMaxBranchInference implements Inference {
 				(CorefOutput) predictedOutput);
 	}
 
+	/**
+	 * Predict the coreference trees based on the golden clusters in
+	 * <code>partiallyLabeledOutput</code>.
+	 * 
+	 * @param model
+	 * @param input
+	 * @param referenceOutput
+	 * @param predictedOutput
+	 */
 	public void partialInference(DPModel model, DPInput input,
-			CorefOutput partiallyLabeledOutput, CorefOutput predictedOutput) {
+			CorefOutput referenceOutput, CorefOutput predictedOutput) {
 		// Fill edge weights (not including incorrect edges).
-		fillPartialGraph(model, input, partiallyLabeledOutput);
+		fillPartialGraph(model, input, referenceOutput);
 
 		// Save current flag for unique root check.
 		boolean oldCheckFlag = maxBranchingAlgorithm.isCheckUniqueRoot();
@@ -240,7 +259,7 @@ public class CoreferenceMaxBranchInference implements Inference {
 		}
 
 		// Set the correct clustering for the predicted output structure.
-		predictedOutput.setClusteringEqualTo(partiallyLabeledOutput);
+		predictedOutput.setClusteringEqualTo(referenceOutput);
 	}
 
 	/**
