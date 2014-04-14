@@ -130,6 +130,7 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 	 */
 	protected int[] indexTrainingOrder;
 
+
 	/**
 	 * Create a perceptron to train the given initial model using the default
 	 * Collins' learning rate (1) and the default number of iterations (10).

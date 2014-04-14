@@ -45,6 +45,11 @@ public class ViterbiInference implements Inference {
 	 * not.
 	 */
 	private SequenceOutput lossPartiallyLabeledOutput;
+	
+	/**
+	 * Variable that going to multiply which transition loss
+	 */
+	private double transitionLossWeigth;
 
 	/**
 	 * Create a Viterbi inference algorithm using the given state as the default
@@ -58,6 +63,23 @@ public class ViterbiInference implements Inference {
 		this.lossNonAnnotatedWeight = 0d;
 		this.lossReferenceOutput = null;
 		this.lossPartiallyLabeledOutput = null;
+		this.transitionLossWeigth = 1.0d;
+	}
+	
+	/**
+	 * Create a Viterbi inference algorithm using the given state as the default
+	 * option for every token and set the transition loss weight
+	 * 
+	 * @param defaultState
+	 * @param transitionLossWeigth
+	 */
+	public ViterbiInference(int defaultState, double transitionLossWeigth) {
+		this.defaultState = defaultState;
+		this.lossAnnotatedWeight = 0d;
+		this.lossNonAnnotatedWeight = 0d;
+		this.lossReferenceOutput = null;
+		this.lossPartiallyLabeledOutput = null;
+		this.transitionLossWeigth = transitionLossWeigth;
 	}
 
 	@Override
@@ -214,10 +236,10 @@ public class ViterbiInference implements Inference {
 		// Choose the best previous state (consider only the transition weight).
 		int maxState = defaultState;
 		double maxWeight = delta[token - 1][defaultState]
-				+ hmm.getTransitionParameter(defaultState, toState);
+				+ getTransitionParameterMulByWeigth(hmm,defaultState, toState);
 		for (int fromState = 0; fromState < numStates; ++fromState) {
 			double weight = delta[token - 1][fromState]
-					+ hmm.getTransitionParameter(fromState, toState);
+					+ getTransitionParameterMulByWeigth(hmm, toState, fromState);
 			if (weight > maxWeight) {
 				maxWeight = weight;
 				maxState = fromState;
@@ -227,6 +249,18 @@ public class ViterbiInference implements Inference {
 		// Set delta and psi according to the best from-state.
 		psi[token][toState] = maxState;
 		delta[token][toState] = maxWeight + emissionWeight;
+	}
+
+	/**
+	 * Return the value o transition parameter multiply by transition loss weigth
+	 * @param hmm
+	 * @param toState
+	 * @param fromState
+	 * @return
+	 */
+	private double getTransitionParameterMulByWeigth(Hmm hmm, int toState,
+			int fromState) {
+		return hmm.getTransitionParameter(fromState, toState) * transitionLossWeigth;
 	}
 
 	/**
@@ -364,7 +398,7 @@ public class ViterbiInference implements Inference {
 			// as the best previous state.
 			psi[token][toState] = previousState;
 			delta[token][toState] = delta[token - 1][previousState]
-					+ hmm.getTransitionParameter(previousState, toState)
+					+ getTransitionParameterMulByWeigth(hmm, previousState, toState)
 					+ emissionWeight;
 		}
 	}

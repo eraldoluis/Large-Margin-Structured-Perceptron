@@ -46,6 +46,11 @@ public class Viterbi2ndOrderInference implements Inference {
 	 * not.
 	 */
 	private SequenceOutput lossPartiallyAnnotatedOutput;
+	
+	/**
+	 * Variable that going to multiply which transition loss
+	 */
+	private double transitionLossWeigth;
 
 	/**
 	 * Create a Viterbi inference algorithm using the given state as the default
@@ -59,7 +64,25 @@ public class Viterbi2ndOrderInference implements Inference {
 		this.lossNonAnnotatedWeight = 0d;
 		this.lossReferenceOutput = null;
 		this.lossPartiallyAnnotatedOutput = null;
+		this.transitionLossWeigth = 1d;
 	}
+	
+	/**
+	 * Create a Viterbi inference algorithm using the given state as the default
+	 * option for every token and set the transition loss weight
+	 * 
+	 * @param defaultState
+	 * @param transitionLossWeigth
+	 */
+	public Viterbi2ndOrderInference(int defaultState, double transitionLossWeigth) {
+		this.defaultState = defaultState;
+		this.lossAnnotatedWeight = 0d;
+		this.lossNonAnnotatedWeight = 0d;
+		this.lossReferenceOutput = null;
+		this.lossPartiallyAnnotatedOutput = null;
+		this.transitionLossWeigth = transitionLossWeigth;
+	}
+
 
 	@Override
 	public void inference(Model model, ExampleInput input, ExampleOutput output) {
@@ -102,6 +125,20 @@ public class Viterbi2ndOrderInference implements Inference {
 			double lossAnnotatedWeight, double lossNonAnnotatedWeight) {
 		throw new NotImplementedException();
 	}
+	
+	/**
+	 * Return the value o transition parameter multiply by transition loss weigth
+	 * @param hmm
+	 * @param state1
+	 * @param state2
+	 * @param state3
+	 * @return
+	 */
+	private double getTransitionParameterMulByWeigth(Hmm2ndOrder hmm,int state1, int state2,
+			int state3) {
+		return hmm.getTransitionParameter(state1,
+				state2, state3) * transitionLossWeigth;
+	}
 
 	/**
 	 * Tag the output with the best label sequence for the given input and HMM.
@@ -123,14 +160,14 @@ public class Viterbi2ndOrderInference implements Inference {
 			int maxState = defaultState;
 			double maxWeight = getLossAugmentedTokenEmissionWeight(hmm, input,
 					0, maxState)
-					+ hmm.getTransitionParameter(hmm.getNullState(),
+					+ getTransitionParameterMulByWeigth(hmm, hmm.getNullState(),
 							hmm.getNullState(), maxState);
 
 			for (int state = 0; state < numStates; ++state) {
 				// Weight for the first token at state 'state'.
 				double weight = getLossAugmentedTokenEmissionWeight(hmm, input,
 						0, state)
-						+ hmm.getTransitionParameter(hmm.getNullState(),
+						+ getTransitionParameterMulByWeigth(hmm, hmm.getNullState(),
 								hmm.getNullState(), state);
 				if (weight > maxWeight) {
 					maxWeight = weight;
@@ -152,7 +189,7 @@ public class Viterbi2ndOrderInference implements Inference {
 			// Weight for the first token at state 'state'.
 			delta[0][0][state] = getLossAugmentedTokenEmissionWeight(hmm,
 					input, 0, state)
-					+ hmm.getTransitionParameter(hmm.getNullState(),
+					+ getTransitionParameterMulByWeigth(hmm,hmm.getNullState(),
 							hmm.getNullState(), state);
 		}
 
@@ -167,7 +204,7 @@ public class Viterbi2ndOrderInference implements Inference {
 				 * previous state 'prevState'.
 				 */
 				delta[1][prevState][state] = delta[0][0][prevState]
-						+ hmm.getTransitionParameter(hmm.getNullState(),
+						+ getTransitionParameterMulByWeigth(hmm, hmm.getNullState(),
 								prevState, state) + emissionWeight;
 			}
 		}
@@ -233,12 +270,12 @@ public class Viterbi2ndOrderInference implements Inference {
 			// Choose the best state before the previous state 'prevState'.
 			int maxPrevPrevState = defaultState;
 			double maxPrevPrevWeight = delta[token - 1][maxPrevPrevState][prevState]
-					+ hmm.getTransitionParameter(maxPrevPrevState, prevState,
+					+ getTransitionParameterMulByWeigth(hmm,maxPrevPrevState, prevState,
 							finalState);
 
 			for (int prevPrevState = 0; prevPrevState < numStates; ++prevPrevState) {
 				double weight = delta[token - 1][prevPrevState][prevState]
-						+ hmm.getTransitionParameter(prevPrevState, prevState,
+						+ getTransitionParameterMulByWeigth( hmm, prevPrevState, prevState,
 								finalState);
 				if (weight > maxPrevPrevWeight) {
 					maxPrevPrevWeight = weight;

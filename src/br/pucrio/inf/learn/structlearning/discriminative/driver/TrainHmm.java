@@ -380,6 +380,13 @@ public class TrainHmm implements Command {
 				.withDescription(
 						"Normalize the input structures before "
 								+ "training and testing.").create());
+		options.addOption(OptionBuilder
+				.withLongOpt("transitionlossweigth")
+				.withArgName("numeric transition weight")
+				.hasArg()
+				.withDescription(
+						"The value that going to multiply which transition loss")
+				.create());
 
 		// Parse the command-line arguments.
 		CommandLine cmdLine = null;
@@ -434,6 +441,8 @@ public class TrainHmm implements Command {
 		boolean skipCompletelyNonAnnotatedExamples = cmdLine
 				.hasOption("skipunlabeled");
 		boolean normalizeInput = cmdLine.hasOption("norm");
+		double transitionLossWeight = Double.parseDouble(cmdLine
+				.getOptionValue("transitionlossweigth", "1d"));
 
 		SequenceDataset inputCorpusA = null;
 		SequenceDataset inputCorpusB = null;
@@ -667,7 +676,7 @@ public class TrainHmm implements Command {
 
 			// Ordinary Viterbi-based inference algorithm.
 			inference = new ViterbiInference(inputCorpusA.getStateEncoding()
-					.put(defaultLabel));
+					.put(defaultLabel), transitionLossWeight);
 
 			if (algType != AlgorithmType.DUAL_PERCEPTRON) {
 				// Ordinary HMM model.
@@ -703,7 +712,7 @@ public class TrainHmm implements Command {
 
 			// 2nd order Viterbi-based inference algorithm.
 			inference = new Viterbi2ndOrderInference(inputCorpusA
-					.getStateEncoding().put(defaultLabel));
+					.getStateEncoding().put(defaultLabel), transitionLossWeight);
 
 			// 2nd order HMM model.
 			model = new AveragedArrayHmm2ndOrder(
@@ -871,7 +880,7 @@ public class TrainHmm implements Command {
 
 		// Ignore features not seen in the training corpus.
 		inputCorpusA.getFeatureEncoding().setReadOnly(true);
-		inputCorpusA.getStateEncoding().setReadOnly(true);
+		inputCorpusA.getStateEncoding().setReadOnly(false);
 
 		// Evaluation after each training epoch.
 		if (testCorpusFileName != null && evalPerEpoch) {

@@ -8,6 +8,7 @@ import java.util.TreeMap;
 
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
+import br.pucrio.inf.learn.structlearning.discriminative.driver.TrainHmm;
 
 /**
  * Abstract class that provides methods to evaluate precision, recall and F1
@@ -101,12 +102,13 @@ public abstract class EntityF1Evaluation {
 			ExampleInput inputSeq = inputs[idxSeq];
 			ExampleOutput correctSeq = corrects[idxSeq];
 			ExampleOutput predictedSeq = predicteds[idxSeq];
-
+			
 			// Extract the correct entities.
 			decodeEntities(inputSeq, correctSeq, correctEntities);
 
 			// Extract the predicted entities.
 			decodeEntities(inputSeq, predictedSeq, predictedEntities);
+			
 
 			// Count the total number of entities (nobjects) and the number of
 			// correctly identified entities (nfullycorrect).
