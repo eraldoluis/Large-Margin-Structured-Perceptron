@@ -45,11 +45,11 @@ public class ViterbiInference implements Inference {
 	 * not.
 	 */
 	private SequenceOutput lossPartiallyLabeledOutput;
-	
+
 	/**
 	 * Variable that going to multiply which transition loss
 	 */
-	private double transitionLossWeigth;
+	private double transitionFeatureWeight;
 
 	/**
 	 * Create a Viterbi inference algorithm using the given state as the default
@@ -63,9 +63,9 @@ public class ViterbiInference implements Inference {
 		this.lossNonAnnotatedWeight = 0d;
 		this.lossReferenceOutput = null;
 		this.lossPartiallyLabeledOutput = null;
-		this.transitionLossWeigth = 1.0d;
+		this.transitionFeatureWeight = 1.0d;
 	}
-	
+
 	/**
 	 * Create a Viterbi inference algorithm using the given state as the default
 	 * option for every token and set the transition loss weight
@@ -73,13 +73,13 @@ public class ViterbiInference implements Inference {
 	 * @param defaultState
 	 * @param transitionLossWeigth
 	 */
-	public ViterbiInference(int defaultState, double transitionLossWeigth) {
+	public ViterbiInference(int defaultState, double transitionFeatureWeight) {
 		this.defaultState = defaultState;
 		this.lossAnnotatedWeight = 0d;
 		this.lossNonAnnotatedWeight = 0d;
 		this.lossReferenceOutput = null;
 		this.lossPartiallyLabeledOutput = null;
-		this.transitionLossWeigth = transitionLossWeigth;
+		this.transitionFeatureWeight = transitionFeatureWeight;
 	}
 
 	@Override
@@ -117,9 +117,8 @@ public class ViterbiInference implements Inference {
 	}
 
 	@Override
-	public void lossAugmentedInferenceWithNonAnnotatedWeight(
-			Model model, ExampleInput input,
-			ExampleOutput partiallyLabeledOutput,
+	public void lossAugmentedInferenceWithNonAnnotatedWeight(Model model,
+			ExampleInput input, ExampleOutput partiallyLabeledOutput,
 			ExampleOutput referenceOutput, ExampleOutput predictedOutput,
 			double lossAnnotatedWeight, double lossNonAnnotatedWeight) {
 		// Save the current configuration.
@@ -183,7 +182,8 @@ public class ViterbiInference implements Inference {
 		// Apply each step of the Viterbi algorithm.
 		for (int tkn = 1; tkn < lenExample; ++tkn) {
 			// Calculate emission weights at the current token.
-			getLossAugmentedTokenEmissionWeights(hmm, input, tkn, emissionWeights);
+			getLossAugmentedTokenEmissionWeights(hmm, input, tkn,
+					emissionWeights);
 			// Calculate best previous state for each possible state.
 			for (int state = 0; state < numberOfStates; ++state)
 				viterbi(hmm, delta, psi, tkn, state, emissionWeights[state],
@@ -236,10 +236,10 @@ public class ViterbiInference implements Inference {
 		// Choose the best previous state (consider only the transition weight).
 		int maxState = defaultState;
 		double maxWeight = delta[token - 1][defaultState]
-				+ getTransitionParameterMulByWeigth(hmm,defaultState, toState);
+				+ getTransitionParameterMulByWeigth(hmm, defaultState, toState);
 		for (int fromState = 0; fromState < numStates; ++fromState) {
 			double weight = delta[token - 1][fromState]
-					+ getTransitionParameterMulByWeigth(hmm, toState, fromState);
+					+ getTransitionParameterMulByWeigth(hmm, fromState, toState);
 			if (weight > maxWeight) {
 				maxWeight = weight;
 				maxState = fromState;
@@ -252,15 +252,18 @@ public class ViterbiInference implements Inference {
 	}
 
 	/**
-	 * Return the value o transition parameter multiply by transition loss weigth
+	 * Return the value o transition parameter multiply by transition loss
+	 * weigth
+	 * 
 	 * @param hmm
 	 * @param toState
 	 * @param fromState
 	 * @return
 	 */
-	private double getTransitionParameterMulByWeigth(Hmm hmm, int toState,
-			int fromState) {
-		return hmm.getTransitionParameter(fromState, toState) * transitionLossWeigth;
+	private double getTransitionParameterMulByWeigth(Hmm hmm, int fromState,
+			int toState) {
+		return hmm.getTransitionParameter(fromState, toState)
+				* transitionFeatureWeight;
 	}
 
 	/**
@@ -314,7 +317,8 @@ public class ViterbiInference implements Inference {
 			curState = partiallyLabeledOutput.getLabel(tkn);
 			if (curState == SequenceDataset.NON_ANNOTATED_STATE_CODE) {
 				// Get emission weights for each state.
-				getLossAugmentedTokenEmissionWeights(hmm, input, tkn, emissionWeights);
+				getLossAugmentedTokenEmissionWeights(hmm, input, tkn,
+						emissionWeights);
 				/*
 				 * If the current token is non-annotated, we need to calculate
 				 * the best previous state and corresponding weight for each
@@ -398,8 +402,8 @@ public class ViterbiInference implements Inference {
 			// as the best previous state.
 			psi[token][toState] = previousState;
 			delta[token][toState] = delta[token - 1][previousState]
-					+ getTransitionParameterMulByWeigth(hmm, previousState, toState)
-					+ emissionWeight;
+					+ getTransitionParameterMulByWeigth(hmm, previousState,
+							toState) + emissionWeight;
 		}
 	}
 

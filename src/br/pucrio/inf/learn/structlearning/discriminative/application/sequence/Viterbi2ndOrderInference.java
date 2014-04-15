@@ -50,7 +50,7 @@ public class Viterbi2ndOrderInference implements Inference {
 	/**
 	 * Variable that going to multiply which transition loss
 	 */
-	private double transitionLossWeigth;
+	private double transitionFeatureWeight;
 
 	/**
 	 * Create a Viterbi inference algorithm using the given state as the default
@@ -64,7 +64,7 @@ public class Viterbi2ndOrderInference implements Inference {
 		this.lossNonAnnotatedWeight = 0d;
 		this.lossReferenceOutput = null;
 		this.lossPartiallyAnnotatedOutput = null;
-		this.transitionLossWeigth = 1d;
+		this.transitionFeatureWeight = 1d;
 	}
 	
 	/**
@@ -74,13 +74,13 @@ public class Viterbi2ndOrderInference implements Inference {
 	 * @param defaultState
 	 * @param transitionLossWeigth
 	 */
-	public Viterbi2ndOrderInference(int defaultState, double transitionLossWeigth) {
+	public Viterbi2ndOrderInference(int defaultState, double transitionFeatureWeight) {
 		this.defaultState = defaultState;
 		this.lossAnnotatedWeight = 0d;
 		this.lossNonAnnotatedWeight = 0d;
 		this.lossReferenceOutput = null;
 		this.lossPartiallyAnnotatedOutput = null;
-		this.transitionLossWeigth = transitionLossWeigth;
+		this.transitionFeatureWeight = transitionFeatureWeight;
 	}
 
 
@@ -137,7 +137,7 @@ public class Viterbi2ndOrderInference implements Inference {
 	private double getTransitionParameterMulByWeigth(Hmm2ndOrder hmm,int state1, int state2,
 			int state3) {
 		return hmm.getTransitionParameter(state1,
-				state2, state3) * transitionLossWeigth;
+				state2, state3) * transitionFeatureWeight;
 	}
 
 	/**
