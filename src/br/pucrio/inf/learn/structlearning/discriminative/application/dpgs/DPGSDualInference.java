@@ -276,7 +276,8 @@ public class DPGSDualInference implements Inference {
 		 * the grandparent/siblings structure and the parse structure under the
 		 * grandparent/siblings objective function.
 		 */
-		lambda = dualObjectiveValue - bestOutputWeight;
+		// IRVING MUDEI
+		lambda = bestOutputWeight - dualObjectiveValue;
 
 		if (lambda == 0d)
 			lambda = 1d;
@@ -286,8 +287,9 @@ public class DPGSDualInference implements Inference {
 		 * We only need to recalculate the GS structure for these heads.
 		 */
 		boolean[] updatedHeads = new boolean[numTkns];
-
-		for (int step = 0; step < maxNumberOfSubgradientSteps; ++step) {
+		int step;
+		
+		for (step = 0; step < maxNumberOfSubgradientSteps; ++step) {
 
 			// Number of subgradient steps performed.
 			++numSubGradSteps;
@@ -351,17 +353,18 @@ public class DPGSDualInference implements Inference {
 				// Stop if the optimality condition is reached.
 				break;
 			} else {
-				// LOG.info(String
-				// .format("Solution at step %d after %d dual objective increments. Dual objective: %f. Weight: %f",
-				// step, numDualObjectiveIncrements,
-				// dualObjectiveValue, maxGSAlgorithm
-				// .calcObjectiveValueOfParse(
-				// output.getHeads(),
-				// output.size(),
-				// grandparentFactorWeights,
-				// siblingsFactorWeights, null,
-				// null)));
-				// LOG.info("\n" + output.toString());
+				/*LOG.info(String
+				.format("Solution at step %d after %d dual objective increments. Dual objective: %f. Weight: %f",
+				step, numDualObjectiveIncrements,
+				dualObjectiveValue, maxGSAlgorithm
+				.calcObjectiveValueOfParse(
+				output.getHeads(),
+				output.size(),
+				edgeFactorWeights,
+				grandparentFactorWeights,
+				siblingsFactorWeights, null,
+				null)));*/
+				//LOG.info("\n" + output.toString());
 			}
 
 			// Value of the dual objective function in this step.
@@ -418,6 +421,18 @@ public class DPGSDualInference implements Inference {
 			// Clear flag array of updated heads for the next iteration.
 			Arrays.fill(updatedHeads, false);
 		}
+		
+		LOG.info(String
+				.format("Stop in step %d with Dual objective: %f and Weight: %f",
+						step,
+						dualObjectiveValue, maxGSAlgorithm
+								.calcObjectiveValueOfParse(
+										output.getHeads(),
+										output.size(),
+										edgeFactorWeights,
+										grandparentFactorWeights,
+										siblingsFactorWeights, null,
+										null)));
 
 		// Copy the best parse tree to the output structure.
 		for (int tkn = 0; tkn < numTkns; ++tkn)
@@ -576,6 +591,9 @@ public class DPGSDualInference implements Inference {
 					siblingsFactorWeightsHeadModifier[idxSTART] = Double.NaN;
 			}
 		}
+		
+		// IRVING MUDEI
+		siblingsFactorWeights[0][0][0] = 0.0d;
 	}
 
 	/**

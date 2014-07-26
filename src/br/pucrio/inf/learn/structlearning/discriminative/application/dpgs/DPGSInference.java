@@ -123,13 +123,14 @@ public class DPGSInference implements Inference {
 		fillGrandparentFactorWeights(model, input, null, 0d);
 		fillSiblingsFactorWeights(model, input);
 
-		// Solve the inference problem.
+		// Solve the inference 2problem.
 		double score = maxGSAlgorithm.findMaximumGrandparentSiblings(
 				input.size(), edgeFactorWeights, grandparentFactorWeights,
 				siblingsFactorWeights, null, null, output.getGrandparents(),
 				output.getModifiers());
 
 		LOG.debug(String.format("Solution score: %f", score));
+		
 
 		if (copyPredictionToParse)
 			copyGrandparentToTree(output);

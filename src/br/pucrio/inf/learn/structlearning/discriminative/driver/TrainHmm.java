@@ -2,6 +2,7 @@ package br.pucrio.inf.learn.structlearning.discriminative.driver;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -385,7 +386,14 @@ public class TrainHmm implements Command {
 				.withArgName("numeric transition weight")
 				.hasArg()
 				.withDescription(
-						"The value that going to multiply which transition loss")
+						"The value that going to multiply which transition weigth")
+				.create());
+		options.addOption(OptionBuilder
+				.withLongOpt("predictionfile")
+				.withArgName("file path where the prediction will be saved")
+				.hasArg()
+				.withDescription(
+						"File path where the prediction to each token will be saved")
 				.create());
 
 		// Parse the command-line arguments.
@@ -443,6 +451,8 @@ public class TrainHmm implements Command {
 		boolean normalizeInput = cmdLine.hasOption("norm");
 		double transitionFeatureWeight = Double.parseDouble(cmdLine
 				.getOptionValue("transitionfeatureweight", "1d"));
+		
+		String predictionfile = cmdLine.getOptionValue("predictionfile");
 
 		SequenceDataset inputCorpusA = null;
 		SequenceDataset inputCorpusB = null;
@@ -879,7 +889,7 @@ public class TrainHmm implements Command {
 		}
 
 		// Ignore features not seen in the training corpus.
-		inputCorpusA.getFeatureEncoding().setReadOnly(true);
+		inputCorpusA.getFeatureEncoding().setReadOnly(false);
 		inputCorpusA.getStateEncoding().setReadOnly(false);
 
 		// Evaluation after each training epoch.
@@ -975,7 +985,7 @@ public class TrainHmm implements Command {
 				for (int idx = 0; idx < inputs.length; ++idx)
 					// Predict (tag the output sequence).
 					inference.inference(model, inputs[idx], predicteds[idx]);
-
+					
 				// Evaluate the sequences.
 				Map<String, F1Measure> results = eval.evaluateExamples(inputs,
 						outputs, predicteds);
@@ -983,6 +993,41 @@ public class TrainHmm implements Command {
 				// Write results (precision, recall and F-1) per class.
 				printF1Results("Final performance:", results);
 
+				if(predictionfile != null){
+					PrintStream ps = new PrintStream(predictionfile);
+					SequenceInput input;
+					SequenceOutput predicted;
+					
+					FeatureEncoding<String> featureEncodingPred = testset.getFeatureEncoding();
+					FeatureEncoding<String> stateEncodingPred = testset.getStateEncoding();
+					
+					for(int idx = 0; idx < inputs.length; ++idx){
+						input = inputs[idx];
+						predicted = predicteds[idx];
+						
+						
+						ps.print(idx);
+						
+						for(int tkn = 0; tkn < input.size(); tkn++){
+							Iterable<Integer> featureCodes = input.getFeatureCodes(tkn);
+							int index = 0;
+
+							ps.append('\t');
+							
+							for(Integer featureCode: featureCodes){
+								ps.append(featureEncodingPred.getValueByCode(input.getFeature(tkn, index)));
+								ps.append(' ');
+								index++;
+							}
+							
+							ps.append(stateEncodingPred.getValueByCode(predicted.getLabel(tkn)));
+						}
+						
+						ps.append('\n');
+					}
+					
+					ps.close();
+				}
 			} catch (Exception e) {
 				LOG.error("Loading testset " + testCorpusFileName, e);
 				System.exit(1);

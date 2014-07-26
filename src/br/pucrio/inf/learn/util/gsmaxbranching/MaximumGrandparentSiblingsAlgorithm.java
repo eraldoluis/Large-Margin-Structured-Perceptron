@@ -411,6 +411,11 @@ public class MaximumGrandparentSiblingsAlgorithm {
 			modifiers[idxHead][idxModifier] = true;
 			idxModifier = bestPreviousModifiers[idxModifier];
 		}
+		
+		// IRVING MUDEI
+		if(bestWeight == Double.NEGATIVE_INFINITY){
+			bestWeight= 0.0d;
+		}
 
 		// Return the weight of the best sequence of left and right modifiers.
 		return bestWeight;
