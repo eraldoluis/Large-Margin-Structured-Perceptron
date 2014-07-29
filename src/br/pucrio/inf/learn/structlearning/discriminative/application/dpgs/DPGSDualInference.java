@@ -1,6 +1,8 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.dpgs;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -276,8 +278,7 @@ public class DPGSDualInference implements Inference {
 		 * the grandparent/siblings structure and the parse structure under the
 		 * grandparent/siblings objective function.
 		 */
-		// IRVING MUDEI
-		lambda = bestOutputWeight - dualObjectiveValue;
+		lambda = dualObjectiveValue - bestOutputWeight;
 
 		if (lambda == 0d)
 			lambda = 1d;
@@ -289,10 +290,13 @@ public class DPGSDualInference implements Inference {
 		boolean[] updatedHeads = new boolean[numTkns];
 		int step;
 		
+		//double losses[] = new double[maxNumberOfSubgradientSteps];
+		
 		for (step = 0; step < maxNumberOfSubgradientSteps; ++step) {
 
 			// Number of subgradient steps performed.
 			++numSubGradSteps;
+			//double loss = 0.0d;
 
 			// Step size.
 			double stepSize = lambda / (1 + numDualObjectiveIncrements);
@@ -315,7 +319,9 @@ public class DPGSDualInference implements Inference {
 						// The subproblem for idxModifier head token changed.
 						updatedHeads[idxModifier] = true;
 						updated = true;
-
+						
+						//loss++;
+						
 						if (isBranching)
 							dualGrandparentVariables[idxHead][idxModifier] -= stepSize;
 						else
@@ -327,7 +333,9 @@ public class DPGSDualInference implements Inference {
 						// The subproblem for idxHead head token changed.
 						updatedHeads[idxHead] = true;
 						updated = true;
-
+						
+						//loss++;
+						
 						if (isBranching)
 							dualModifierVariables[idxHead][idxModifier] -= stepSize;
 						else
@@ -335,7 +343,9 @@ public class DPGSDualInference implements Inference {
 					}
 				}
 			}
-
+			
+			//losses[step] = loss;
+			
 			if (!updated) {
 				LOG.info(String
 						.format("Optimum found at step %d after %d dual objective increments. Dual objective: %f. Weight: %f",
@@ -421,7 +431,21 @@ public class DPGSDualInference implements Inference {
 			// Clear flag array of updated heads for the next iteration.
 			Arrays.fill(updatedHeads, false);
 		}
+		/*
+		String o = "";
+		double total = 0.0d;
+		double number = 0.0d;		
+		for (int i = 0; i < step && i < maxNumberOfSubgradientSteps; i++) {
+			o += losses[i] + " ";
+			total += losses[i];
+			number++;
+		}
+		 
+		LOG.info("Testing losses: " + o);
 		
+		if(number > 0)
+			LOG.info("AVG losses: " + (total/number));
+		*/
 		LOG.info(String
 				.format("Stop in step %d with Dual objective: %f and Weight: %f",
 						step,

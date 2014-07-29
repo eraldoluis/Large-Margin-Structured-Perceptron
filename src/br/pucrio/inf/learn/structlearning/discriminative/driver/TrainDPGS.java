@@ -489,6 +489,7 @@ public class TrainDPGS implements Command {
 			// DPOutput[] outputs = testset.getOutputs();
 			for (int idx = 0; idx < inputs.length; ++idx) {
 				// Predict (tag the output sequence).
+				//LOG.info("Input: " + idx);
 				inferenceImpl.inference(model, inputs[idx], predicteds[idx]);
 				if ((idx + 1) % 100 == 0) {
 					System.out.print(".");
