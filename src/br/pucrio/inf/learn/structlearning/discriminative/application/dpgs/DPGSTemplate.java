@@ -1,5 +1,6 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.dpgs;
 
+import java.io.Serializable;
 import java.util.List;
 
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.Feature;
@@ -12,7 +13,12 @@ import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.MapEncodi
  * @author eraldo
  * 
  */
-public class DPGSTemplate {
+public class DPGSTemplate implements Serializable {
+
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 100L;
 
 	/**
 	 * Template index.
@@ -55,6 +61,7 @@ public class DPGSTemplate {
 			MapEncoding<Feature> encoding) throws CloneNotSupportedException {
 		int[] ftrs = basicFeatures[featureIndexes[idxFtrInTemplate]];
 		int numFtrs = ftrs.length;
+
 		for (int idxFtr = 0; idxFtr < numFtrs; ++idxFtr) {
 			int ftrVal = ftrs[idxFtr];
 			tempFeature.setValue(idxFtrInTemplate, ftrVal);

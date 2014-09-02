@@ -151,6 +151,44 @@ public class DPGSOutput implements ExampleOutput {
 		return modifiers;
 	}
 
+	public boolean isPreviousModifier(int idxHead,int idxModifier, int idxPreviousModifier) {
+		int idxToStop = 0;
+		int idxFoundPreviosModifier = 0;
+		int nrTokens = heads.length;
+		
+		
+		if ((idxModifier != nrTokens && idxModifier != idxHead && 
+				idxHead != getHead(idxModifier))||(idxPreviousModifier != nrTokens
+						&& idxPreviousModifier != idxHead && idxHead != getHead(idxPreviousModifier))) {
+			return false;
+		}
+		
+		if(nrTokens == idxPreviousModifier){
+			idxFoundPreviosModifier = nrTokens;
+			idxToStop = idxHead;
+		}else if(idxPreviousModifier == idxHead){
+			idxFoundPreviosModifier = idxHead;
+			idxToStop = 0;
+		}else{
+			if(idxHead > idxModifier){
+				idxFoundPreviosModifier = idxHead;				
+			}else{
+				idxFoundPreviosModifier = nrTokens;
+			}
+			
+			idxToStop = idxPreviousModifier;
+		}	
+		
+		for (int idxPossiblePreviousMod = idxModifier - 1; idxPossiblePreviousMod >= idxToStop; idxPossiblePreviousMod--) {
+			if(isModifier(idxHead, idxPossiblePreviousMod)){
+				idxFoundPreviosModifier = idxPossiblePreviousMod;
+				break;
+			}
+		}
+		
+		return idxFoundPreviosModifier == idxPreviousModifier;
+	}
+
 	/**
 	 * Fill grandparent and siblings structures to reflect the heads structure
 	 * (the proper, feasible parser).

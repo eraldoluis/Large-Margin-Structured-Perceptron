@@ -1,5 +1,15 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.dpgs;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+import javax.management.RuntimeErrorException;
+
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -68,18 +78,257 @@ public class DPGSInference implements Inference {
 	 */
 	private boolean copyPredictionToParse;
 
+	private ExecutorService executor;
+	private int numberThreadsToFillWeight;
+
+	private abstract class FillerWeights implements Callable<Integer>, Runnable {
+		private int threadId;
+		private int numberThreads;
+		protected DPGSInput input;
+		protected DPGSModel model;
+		protected DPGSOutput correct;
+		protected double lossWeight;
+		private boolean loopUntilNumberTokens;
+
+		public FillerWeights(int threadId, int numberThreads, DPGSInput input,
+				DPGSModel model, DPGSOutput correct, double lossWeight,boolean loopUntilNumberTokens) {
+			this.threadId = threadId;
+			this.numberThreads = numberThreads;
+			this.input = input;
+			this.model = model;
+			this.correct = correct;
+			this.lossWeight = lossWeight;
+			this.loopUntilNumberTokens = loopUntilNumberTokens;
+		}
+
+		private int hash(int idxHead, int idxModifier) {
+			int hash = 1;
+			hash = hash * 211 + idxHead;
+			hash = hash * 421 + idxModifier;
+
+			return hash;
+		}
+
+		protected abstract void fill(int numberTokens, int idxHead,
+				int idxModifier, boolean loss);
+
+		@Override
+		public Integer call() throws Exception {
+			int numTkns = input.size();
+			boolean loss = (correct != null && lossWeight != 0d);
+			int numT = loopUntilNumberTokens ? numTkns : numTkns - 1;
+			try {
+			
+			for (int idxHead = 0; idxHead < numTkns; ++idxHead) {
+				for (int idxModifier = 0; idxModifier <= numT; ++idxModifier) {
+					if (hash(idxHead, idxModifier) % numberThreads == threadId) {
+						fill(numTkns, idxHead, idxModifier, loss);
+					}
+				}
+			}
+
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			return null;
+		}
+
+		@Override
+		public void run() {
+			try {
+				call();
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+	}
+
+	private class FillerSiblingWeights extends FillerWeights {
+
+		public FillerSiblingWeights(int threadId, int numberThreads,
+				DPGSInput input, DPGSModel model, DPGSOutput correct,
+				double lossWeight) {
+			super(threadId, numberThreads, input, model, correct, lossWeight,true);
+		}
+
+		@Override
+		public Integer call() throws Exception {
+			super.call();
+
+			// TODO test (this factor should be generated).
+			siblingsFactorWeights[0][0][0] = 0d;
+
+			return null;
+		}
+
+		@Override
+		public void run() {
+			try {
+				call();
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+
+		protected double getLossWeight(int idxHead, int idxModifier,
+				int idxPreviousModifier, boolean loss) {
+
+			if (loss && correct.isPreviousModifier(idxHead, idxModifier,
+							idxPreviousModifier)){
+				return 0.0D;
+			}
+
+			return lossWeight;
+		}
+
+		@Override
+		protected void fill(int numberTokens, int idxHead, int idxModifier,
+				boolean loss) {
+			/*
+			 * Consider here the proper modifier pairs (that is both modifiers
+			 * are real tokens/nodes) and pairs of the form <*, END>. Thus, do
+			 * not consider <START, *> at this point. We deal with such pairs in
+			 * the next block.
+			 */
+			double[] siblingsFactorWeightsHeadModifier = siblingsFactorWeights[idxHead][idxModifier];
+			/*
+			 * First modifier index depends whether the current modifier lies on
+			 * the LEFT (then the first modifier index is '0') or on the RIGHT
+			 * (then it is 'idxHead + 1') of the current head (idxHead).
+			 */
+			int firstModifier = (idxModifier <= idxHead ? 0 : idxHead + 1);
+			
+			for (int idxPreviousModifier = firstModifier; idxPreviousModifier < idxModifier; ++idxPreviousModifier) {
+				int[] ftrs = input.getSiblingsFeatures(idxHead, idxModifier,
+						idxPreviousModifier);
+				if (ftrs != null)
+					siblingsFactorWeightsHeadModifier[idxPreviousModifier] = model
+							.getFeatureListScore(ftrs)
+							+ getLossWeight(idxHead, idxModifier,
+									idxPreviousModifier, loss);
+				else
+					siblingsFactorWeightsHeadModifier[idxPreviousModifier] = Double.NaN;
+			}
+
+			/*
+			 * Modifier pairs of the form <START, *>. For modifiers on the left
+			 * side of the current head, START is equal to 'idxHead'. While for
+			 * modifiers on the right side of the current head, it is equal to
+			 * 'numTkns'.
+			 * 
+			 * START index depends whether the current modifier lies on the LEFT
+			 * side (then it is equal to 0) or on the RIGHT side (then it is
+			 * numTkns) of the current head (idxHead).
+			 */
+			int idxSTART = (idxModifier <= idxHead ? idxHead : numberTokens);
+			int[] ftrs = input.getSiblingsFeatures(idxHead, idxModifier,
+					idxSTART);
+			if (ftrs != null)
+				siblingsFactorWeightsHeadModifier[idxSTART] = model
+						.getFeatureListScore(ftrs)
+						+ getLossWeight(idxHead, idxModifier, idxSTART, loss);
+			else
+				siblingsFactorWeightsHeadModifier[idxSTART] = Double.NaN;
+		}
+	}
+
+	private class FillerGrandparentWeights extends FillerWeights {
+
+		public FillerGrandparentWeights(int threadId, int numberThreads,
+				DPGSInput input, DPGSModel model, DPGSOutput correct,
+				double lossWeight) {
+			super(threadId, numberThreads, input, model, correct, lossWeight,false);
+		}
+
+		protected double getLossWeight(int idxHead, int idxModifier,
+				int idxGrandparent, boolean loss) {
+			if (loss && correct.getHead(idxHead) == idxGrandparent
+					&& correct.getHead(idxModifier) == idxHead){
+				return 0.0D;
+			}
+
+			return lossWeight;
+		}
+
+		@Override
+		protected void fill(int numberTokens, int idxHead, int idxModifier,
+				boolean loss) {
+			double[] grandparentFactorWeightsHeadModifier = grandparentFactorWeights[idxHead][idxModifier];
+
+			// Fill factor weights for each grandparent.
+			for (int idxGrandparent = 0; idxGrandparent < numberTokens; ++idxGrandparent) {
+				// Get list of features for the current siblings
+				// factor.
+				int[] ftrs = input.getGrandparentFeatures(idxHead, idxModifier,
+						idxGrandparent);
+//				System.out.println(idxHead + " " + idxModifier + " " + idxGrandparent);
+				
+				if(idxGrandparent == 0 && idxHead == 4 && idxModifier == 2){
+					int a = 0;
+					a++;
+				}
+
+				if (ftrs != null) {
+					// Sum feature weights to achieve the factor
+					// weight.
+					grandparentFactorWeightsHeadModifier[idxGrandparent] = model
+							.getFeatureListScore(ftrs);
+					// Loss value for the current edge.
+					grandparentFactorWeightsHeadModifier[idxGrandparent] += getLossWeight(
+							idxHead, idxModifier, idxGrandparent, loss);
+					;
+				} else
+					grandparentFactorWeightsHeadModifier[idxGrandparent] = Double.NaN;
+			}
+
+		}
+
+	}
+
+	private class FillerEdgeWeights extends FillerWeights {
+
+		public FillerEdgeWeights(int threadId, int numberThreads,
+				DPGSInput input, DPGSModel model, DPGSOutput correct,
+				double lossWeight) {
+			super(threadId, numberThreads, input, model, correct, lossWeight,false);
+		}
+
+		protected double getLossWeight(int idxHead, int idxModifier,
+				boolean loss) {
+			if (loss && correct.getHead(idxModifier) == idxHead)
+				return 0.0D;
+			return lossWeight;
+		}
+
+		@Override
+		protected void fill(int numberTokens, int idxHead, int idxModifier,
+				boolean loss) {
+
+			edgeFactorWeights[idxHead][idxModifier] = model
+					.getFeatureListScore(input.getEdgeFeatures(idxHead,
+							idxModifier))
+					+ getLossWeight(idxHead, idxModifier, loss);
+		}
+	}
+
 	/**
 	 * Create a grandparent/sibling inference object that allocates the internal
 	 * data structures to support the given maximum number of tokens.
 	 * 
 	 * @param maxNumberOfTokens
 	 */
-	public DPGSInference(int maxNumberOfTokens) {
+	public DPGSInference(int maxNumberOfTokens, int numberThreadsToFillWeight) {
 		maxGSAlgorithm = new MaximumGrandparentSiblingsAlgorithm(
 				maxNumberOfTokens);
 		edgeFactorWeights = new double[maxNumberOfTokens][maxNumberOfTokens];
 		grandparentFactorWeights = new double[maxNumberOfTokens][maxNumberOfTokens][maxNumberOfTokens];
 		siblingsFactorWeights = new double[maxNumberOfTokens][maxNumberOfTokens + 1][maxNumberOfTokens + 1];
+
+		executor = Executors.newFixedThreadPool(numberThreadsToFillWeight);
+		this.numberThreadsToFillWeight = numberThreadsToFillWeight;
 	}
 
 	/**
@@ -118,10 +367,10 @@ public class DPGSInference implements Inference {
 	 *            structure.
 	 */
 	public void inference(DPGSModel model, DPGSInput input, DPGSOutput output) {
-		// Generate inference problem for the given input.
-		fillEdgeFactorWeights(model, input);
+
+		fillEdgeFactorWeights(model, input, null, 0d);
 		fillGrandparentFactorWeights(model, input, null, 0d);
-		fillSiblingsFactorWeights(model, input);
+		fillSiblingsFactorWeights(model, input, null, 0d);
 
 		// Solve the inference 2problem.
 		double score = maxGSAlgorithm.findMaximumGrandparentSiblings(
@@ -130,7 +379,6 @@ public class DPGSInference implements Inference {
 				output.getModifiers());
 
 		LOG.debug(String.format("Solution score: %f", score));
-		
 
 		if (copyPredictionToParse)
 			copyGrandparentToTree(output);
@@ -151,9 +399,9 @@ public class DPGSInference implements Inference {
 			DPGSOutput referenceOutput, DPGSOutput predictedOutput,
 			double lossWeight) {
 		// Generate loss-augmented inference problem for the given input.
-		fillEdgeFactorWeights(model, input);
+		fillEdgeFactorWeights(model, input, referenceOutput, lossWeight);
 		fillGrandparentFactorWeights(model, input, referenceOutput, lossWeight);
-		fillSiblingsFactorWeights(model, input);
+		fillSiblingsFactorWeights(model, input, referenceOutput, lossWeight);
 
 		// Solve the inference problem.
 		maxGSAlgorithm.findMaximumGrandparentSiblings(input.size(),
@@ -170,13 +418,30 @@ public class DPGSInference implements Inference {
 	 * @param model
 	 * @param input
 	 */
-	private void fillEdgeFactorWeights(DPGSModel model, DPGSInput input) {
-		int numTkns = input.size();
-		for (int idxHead = 0; idxHead < numTkns; ++idxHead)
-			for (int idxModifier = 0; idxModifier < numTkns; ++idxModifier)
-				edgeFactorWeights[idxHead][idxModifier] = model
-						.getFeatureListScore(input.getEdgeFeatures(idxHead,
-								idxModifier));
+	public void fillEdgeFactorWeights(DPGSModel model, DPGSInput input,
+			DPGSOutput correct, double lossWeight) {
+		Collection<Callable<Integer>> tasks = new ArrayList<Callable<Integer>>(
+				numberThreadsToFillWeight);
+		for (int i = 0; i < numberThreadsToFillWeight; i++) {
+			tasks.add(new FillerEdgeWeights(i, numberThreadsToFillWeight,
+					input, model, correct, lossWeight));
+		}
+
+		try {
+			executor.invokeAll(tasks);
+		} catch (InterruptedException e) { // TODO Auto-generatedcatch block
+			e.printStackTrace();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		// int numTkns = input.size();
+		//
+		// for (int idxHead = 0; idxHead < numTkns; ++idxHead)
+		// for (int idxModifier = 0; idxModifier < numTkns; ++idxModifier)
+		// edgeFactorWeights[idxHead][idxModifier] = model
+		// .getFeatureListScore(input.getEdgeFeatures(idxHead,
+		// idxModifier));
 	}
 
 	/**
@@ -192,34 +457,52 @@ public class DPGSInference implements Inference {
 	 */
 	private void fillGrandparentFactorWeights(DPGSModel model, DPGSInput input,
 			DPGSOutput correct, double lossWeight) {
-		// Loss augmented?
-		boolean loss = (correct != null && lossWeight != 0d);
-
-		int numTkns = input.size();
-		for (int idxHead = 0; idxHead < numTkns; ++idxHead) {
-			double[][] grandparentFactorWeightsHead = grandparentFactorWeights[idxHead];
-			for (int idxModifier = 0; idxModifier < numTkns; ++idxModifier) {
-				double[] grandparentFactorWeightsHeadModifier = grandparentFactorWeightsHead[idxModifier];
-				// Loss weight for the current edge (idxHead, idxModifier).
-				double lossWeightEdge = 0d;
-				if (loss && correct.getHead(idxModifier) != idxHead)
-					lossWeightEdge = lossWeight;
-				// Fill factor weights for each grandparent.
-				for (int idxGrandparent = 0; idxGrandparent < numTkns; ++idxGrandparent) {
-					// Get list of features for the current siblings factor.
-					int[] ftrs = input.getGrandparentFeatures(idxHead,
-							idxModifier, idxGrandparent);
-					if (ftrs != null) {
-						// Sum feature weights to achieve the factor weight.
-						grandparentFactorWeightsHeadModifier[idxGrandparent] = model
-								.getFeatureListScore(ftrs);
-						// Loss value for the current edge.
-						grandparentFactorWeightsHeadModifier[idxGrandparent] += lossWeightEdge;
-					} else
-						grandparentFactorWeightsHeadModifier[idxGrandparent] = Double.NaN;
-				}
-			}
+		Collection<Callable<Integer>> tasks = new ArrayList<Callable<Integer>>(
+				numberThreadsToFillWeight);
+		for (int i = 0; i < numberThreadsToFillWeight; i++) {
+			tasks.add(new FillerGrandparentWeights(i,
+					numberThreadsToFillWeight, input, model, correct,
+					lossWeight));
 		}
+
+		try {
+			executor.invokeAll(tasks);
+		} catch (InterruptedException e) { // TODO Auto-generatedcatch block
+			e.printStackTrace();
+		}
+
+		// // Loss augmented?
+		// boolean loss = (correct != null && lossWeight != 0d);
+		//
+		// int numTkns = input.size();
+		// for (int idxHead = 0; idxHead < numTkns; ++idxHead) {
+		// double[][] grandparentFactorWeightsHead =
+		// grandparentFactorWeights[idxHead];
+		// for (int idxModifier = 0; idxModifier < numTkns; ++idxModifier) {
+		// double[] grandparentFactorWeightsHeadModifier =
+		// grandparentFactorWeightsHead[idxModifier];
+		// // Loss weight for the current edge (idxHead, idxModifier).
+		// double lossWeightEdge = 0d;
+		// if (loss && correct.getHead(idxModifier) != idxHead)
+		// lossWeightEdge = lossWeight;
+		// // Fill factor weights for each grandparent.
+		// for (int idxGrandparent = 0; idxGrandparent < numTkns;
+		// ++idxGrandparent) {
+		// // Get list of features for the current siblings factor.
+		// int[] ftrs = input.getGrandparentFeatures(idxHead,
+		// idxModifier, idxGrandparent);
+		// if (ftrs != null) {
+		// // Sum feature weights to achieve the factor weight.
+		// grandparentFactorWeightsHeadModifier[idxGrandparent] = model
+		// .getFeatureListScore(ftrs);
+		// // Loss value for the current edge.
+		// grandparentFactorWeightsHeadModifier[idxGrandparent] +=
+		// lossWeightEdge;
+		// } else
+		// grandparentFactorWeightsHeadModifier[idxGrandparent] = Double.NaN;
+		// }
+		// }
+		// }
 	}
 
 	/**
@@ -229,59 +512,76 @@ public class DPGSInference implements Inference {
 	 * @param model
 	 * @param input
 	 */
-	private void fillSiblingsFactorWeights(DPGSModel model, DPGSInput input) {
-		int numTkns = input.size();
-		for (int idxHead = 0; idxHead < numTkns; ++idxHead) {
-			double[][] siblingsFactorWeightsHead = siblingsFactorWeights[idxHead];
-
-			/*
-			 * Consider here the proper modifier pairs (that is both modifiers
-			 * are real tokens/nodes) and pairs of the form <*, END>. Thus, do
-			 * not consider <START, *> at this point. We deal with such pairs in
-			 * the next block.
-			 */
-			for (int idxModifier = 0; idxModifier <= numTkns; ++idxModifier) {
-				double[] siblingsFactorWeightsHeadModifier = siblingsFactorWeightsHead[idxModifier];
-				/*
-				 * First modifier index depends whether the current modifier
-				 * lies on the LEFT (then the first modifier index is '0') or on
-				 * the RIGHT (then it is 'idxHead + 1') of the current head
-				 * (idxHead).
-				 */
-				int firstModifier = (idxModifier <= idxHead ? 0 : idxHead + 1);
-				for (int idxPreviousModifier = firstModifier; idxPreviousModifier < idxModifier; ++idxPreviousModifier) {
-					int[] ftrs = input.getSiblingsFeatures(idxHead,
-							idxModifier, idxPreviousModifier);
-					if (ftrs != null)
-						siblingsFactorWeightsHeadModifier[idxPreviousModifier] = model
-								.getFeatureListScore(ftrs);
-					else
-						siblingsFactorWeightsHeadModifier[idxPreviousModifier] = Double.NaN;
-				}
-
-				/*
-				 * Modifier pairs of the form <START, *>. For modifiers on the
-				 * left side of the current head, START is equal to 'idxHead'.
-				 * While for modifiers on the right side of the current head, it
-				 * is equal to 'numTkns'.
-				 * 
-				 * START index depends whether the current modifier lies on the
-				 * LEFT side (then it is equal to 0) or on the RIGHT side (then
-				 * it is numTkns) of the current head (idxHead).
-				 */
-				int idxSTART = (idxModifier <= idxHead ? idxHead : numTkns);
-				int[] ftrs = input.getSiblingsFeatures(idxHead, idxModifier,
-						idxSTART);
-				if (ftrs != null)
-					siblingsFactorWeightsHeadModifier[idxSTART] = model
-							.getFeatureListScore(ftrs);
-				else
-					siblingsFactorWeightsHeadModifier[idxSTART] = Double.NaN;
-			}
+	private void fillSiblingsFactorWeights(DPGSModel model, DPGSInput input,
+			DPGSOutput correct, double lossWeight) {
+		Collection<Callable<Integer>> tasks = new ArrayList<Callable<Integer>>(
+				numberThreadsToFillWeight);
+		for (int i = 0; i < numberThreadsToFillWeight; i++) {
+			tasks.add(new FillerSiblingWeights(i, numberThreadsToFillWeight,
+					input, model, correct, lossWeight));
 		}
 
-		// TODO test (this factor should be generated).
-		siblingsFactorWeights[0][0][0] = 0d;
+		try {
+			executor.invokeAll(tasks);
+		} catch (InterruptedException e) { // TODO Auto-generatedcatch block
+			e.printStackTrace();
+		}
+
+		// int numTkns = input.size();
+		// for (int idxHead = 0; idxHead < numTkns; ++idxHead) {
+		// double[][] siblingsFactorWeightsHead =
+		// siblingsFactorWeights[idxHead];
+		//
+		// /*
+		// * Consider here the proper modifier pairs (that is both modifiers
+		// * are real tokens/nodes) and pairs of the form <*, END>. Thus, do
+		// * not consider <START, *> at this point. We deal with such pairs in
+		// * the next block.
+		// */
+		// for (int idxModifier = 0; idxModifier <= numTkns; ++idxModifier) {
+		// double[] siblingsFactorWeightsHeadModifier =
+		// siblingsFactorWeightsHead[idxModifier];
+		// /*
+		// * First modifier index depends whether the current modifier
+		// * lies on the LEFT (then the first modifier index is '0') or on
+		// * the RIGHT (then it is 'idxHead + 1') of the current head
+		// * (idxHead).
+		// */
+		// int firstModifier = (idxModifier <= idxHead ? 0 : idxHead + 1);
+		// for (int idxPreviousModifier = firstModifier; idxPreviousModifier <
+		// idxModifier; ++idxPreviousModifier) {
+		// int[] ftrs = input.getSiblingsFeatures(idxHead,
+		// idxModifier, idxPreviousModifier);
+		// if (ftrs != null)
+		// siblingsFactorWeightsHeadModifier[idxPreviousModifier] = model
+		// .getFeatureListScore(ftrs);
+		// else
+		// siblingsFactorWeightsHeadModifier[idxPreviousModifier] = Double.NaN;
+		// }
+		//
+		// /*
+		// * Modifier pairs of the form <START, *>. For modifiers on the
+		// * left side of the current head, START is equal to 'idxHead'.
+		// * While for modifiers on the right side of the current head, it
+		// * is equal to 'numTkns'.
+		// *
+		// * START index depends whether the current modifier lies on the
+		// * LEFT side (then it is equal to 0) or on the RIGHT side (then
+		// * it is numTkns) of the current head (idxHead).
+		// */
+		// int idxSTART = (idxModifier <= idxHead ? idxHead : numTkns);
+		// int[] ftrs = input.getSiblingsFeatures(idxHead, idxModifier,
+		// idxSTART);
+		// if (ftrs != null)
+		// siblingsFactorWeightsHeadModifier[idxSTART] = model
+		// .getFeatureListScore(ftrs);
+		// else
+		// siblingsFactorWeightsHeadModifier[idxSTART] = Double.NaN;
+		// }
+		// }
+		//
+		// // TODO test (this factor should be generated).
+		// siblingsFactorWeights[0][0][0] = 0d;
 	}
 
 	/**
@@ -390,7 +690,7 @@ public class DPGSInference implements Inference {
 		DPGSInput input = new DPGSInput(eFtrs, gFtrs, sFtrs);
 
 		// Inference object.
-		DPGSInference inference = new DPGSInference(input.size());
+		DPGSInference inference = new DPGSInference(input.size(), 1);
 
 		// Model.
 		DPGSModel model = new DPGSModel(0);
@@ -408,4 +708,5 @@ public class DPGSInference implements Inference {
 		// Print output.
 		System.out.println(output);
 	}
+
 }

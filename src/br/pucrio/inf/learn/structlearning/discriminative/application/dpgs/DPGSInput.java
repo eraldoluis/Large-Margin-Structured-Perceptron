@@ -367,4 +367,11 @@ public class DPGSInput implements ExampleInput, Serializable {
 			int idxPrevModifier) {
 		return basicSiblingsFeatures[idxHead][idxModifier][idxPrevModifier];
 	}
+	
+	
+	public void cleanBasicFeatures(){
+		basicEdgeFeatures = null;
+		basicGrandparentFeatures = null;
+		basicSiblingsFeatures = null;
+	}
 }

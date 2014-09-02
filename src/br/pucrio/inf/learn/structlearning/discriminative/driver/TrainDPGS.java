@@ -15,13 +15,16 @@ import org.apache.commons.logging.LogFactory;
 
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.OnlineStructuredAlgorithm.LearnRateUpdateStrategy;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.TrainingListener;
+import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.LossAugmentedPerceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.Perceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSDataset;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSDualInference;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSInference;
-import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSInput;
+import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSInputArray;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSModel;
+import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSModel.DPGSModelLoadReturn;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSOutput;
+import br.pucrio.inf.learn.structlearning.discriminative.data.Dataset;
 import br.pucrio.inf.learn.structlearning.discriminative.data.DatasetException;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.StringMapEncoding;
@@ -43,6 +46,36 @@ public class TrainDPGS implements Command {
 	 * Logging object.
 	 */
 	private static final Log LOG = LogFactory.getLog(TrainDPGS.class);
+
+	/**
+	 * Available training algorithms.
+	 */
+	public static enum AlgorithmType {
+		/**
+		 * Ordinary structured Perceptron
+		 */
+		PERCEPTRON,
+
+		/**
+		 * Loss-augmented Perceptron.
+		 */
+		LOSS_PERCEPTRON,
+
+		/**
+		 * Away-from-worse Perceptron (McAllester et al., 2011).
+		 */
+		AWAY_FROM_WORSE_PERCEPTRON,
+
+		/**
+		 * Toward-better Perceptron (McAllester et al., 2011).
+		 */
+		TOWARD_BETTER_PERCEPTRON,
+
+		/**
+		 * Dual (kernelized) loss-augmented perceptron.
+		 */
+		DUAL_PERCEPTRON,
+	}
 
 	@SuppressWarnings("static-access")
 	@Override
@@ -125,6 +158,42 @@ public class TrainDPGS implements Command {
 								+ "vector instead of the average of each step "
 								+ "vectors.").create());
 
+		options.addOption(OptionBuilder
+				.withLongOpt("traincachesize")
+				.withArgName("long")
+				.hasArg()
+				.withDescription(
+						"Train Cache size of the loaded examples from disk.The default value is 4GB")
+				.create());
+
+		options.addOption(OptionBuilder
+				.withLongOpt("testcachesize")
+				.withArgName("long")
+				.hasArg()
+				.withDescription(
+						"Test Cache size of the loaded examples from disk.The default value is 4GB")
+				.create());
+		options.addOption(OptionBuilder.withLongOpt("modelfiletosave")
+				.withArgName("String").hasArg()
+				.withDescription("Model file name to save").create());
+		options.addOption(OptionBuilder.withLongOpt("modelfiletoload")
+				.withArgName("String").hasArg()
+				.withDescription("Model file name to load").create());
+		options.addOption(OptionBuilder.withLongOpt("numthreadtofillweight")
+				.withArgName("int").hasArg().withDescription("").create());
+		options.addOption(OptionBuilder
+				.withLongOpt("alg")
+				.withArgName("perc | loss | afworse | tobetter | dual")
+				.hasArg()
+				.withDescription(
+						"The training algorithm: "
+								+ "perc (ordinary perceptron), "
+								+ "loss (Loss-augmented perceptron), "
+								+ "afworse (away-from-worse perceptron), "
+								+ "tobetter (toward-better perceptron), "
+								+ "dual (dual (kernelized) perceptron")
+				.create());
+
 		// Parse the command-line arguments.
 		CommandLine cmdLine = null;
 		PosixParser parser = new PosixParser();
@@ -154,10 +223,22 @@ public class TrainDPGS implements Command {
 		int maxSubgradientSteps = Integer.valueOf(cmdLine.getOptionValue(
 				"maxsteps", "500"));
 		double beta = Double.valueOf(cmdLine.getOptionValue("beta", "0.001"));
-		// double lossWeight =
-		// Double.parseDouble(cmdLine.getOptionValue("lossweight", "0d"));
+		double lossWeight = Double.parseDouble(cmdLine.getOptionValue("lossweight", "0d"));
 		boolean averaged = !cmdLine.hasOption("noavg");
 		String seedStr = cmdLine.getOptionValue("seed");
+		final long trainCacheSize = Long.parseLong(cmdLine.getOptionValue(
+				"traincachesize", "4294967296"));
+		final long testCacheSize = Long.parseLong(cmdLine.getOptionValue(
+				"traincachesize", "4294967296"));
+
+		final String modelFileNameToSave = cmdLine
+				.getOptionValue("modelfiletosave");
+
+		final String modelFileNameToLoad = cmdLine
+				.getOptionValue("modelfiletoload");
+
+		final int numThreadToFillWeight = Integer.parseInt(cmdLine
+				.getOptionValue("numthreadtofillweight", "1"));
 
 		// Test options.
 		String testConllFileName = cmdLine.getOptionValue("testconll");
@@ -169,6 +250,21 @@ public class TrainDPGS implements Command {
 		String testRSDatasetFilename = testPrefix + ".siblings.right";
 		String script = cmdLine.getOptionValue("script");
 		boolean evalPerEpoch = cmdLine.hasOption("perepoch");
+
+		AlgorithmType algType = null;
+		String algTypeStr = cmdLine.getOptionValue("alg", "perc");
+
+		if (algTypeStr.equals("perc"))
+			algType = AlgorithmType.PERCEPTRON;
+		else if (algTypeStr.equals("loss"))
+			algType = AlgorithmType.LOSS_PERCEPTRON;
+		else if (algTypeStr.equals("dual"))
+			algType = AlgorithmType.DUAL_PERCEPTRON;
+		else {
+			// System.err.println("Unknown algorithm: " + algTypeStr);
+			// System.exit(1);
+			algType = AlgorithmType.PERCEPTRON;
+		}
 
 		/*
 		 * Options --testconll, --outputconll and --test must always be provided
@@ -183,124 +279,190 @@ public class TrainDPGS implements Command {
 
 		DPGSDataset trainDataset = null;
 		FeatureEncoding<String> featureEncoding = null;
+		DPGSModel model;
+
 		try {
-			/*
-			 * Create an empty and flexible feature encoding that will encode
-			 * unambiguously all feature values. If the training dataset is big,
-			 * this may not fit in memory and one should consider using a fixed
-			 * encoding dictionary (based on test data or frequency on training
-			 * data, for instance) or a hash-based encoding.
-			 */
-			featureEncoding = new StringMapEncoding();
 
-			trainDataset = new DPGSDataset(new String[] { "bet-postag",
-					"add-head-feats", "add-mod-feats" }, new String[] {
-					"bet-hm-postag", "bet-hg-postag", "add-head-feats",
-					"add-mod-feats", "add-gp-feats" }, new String[] {
-					"bet-hm-postag", "bet-ms-postag", "add-head-feats",
-					"add-mod-feats", "add-sib-feats" }, "|", featureEncoding);
+			if (modelFileNameToLoad == null) {
+				/*
+				 * Create an empty and flexible feature encoding that will
+				 * encode unambiguously all feature values. If the training
+				 * dataset is big, this may not fit in memory and one should
+				 * consider using a fixed encoding dictionary (based on test
+				 * data or frequency on training data, for instance) or a
+				 * hash-based encoding.
+				 */
+				featureEncoding = new StringMapEncoding();
 
-			LOG.info(String.format("Loading training edge dataset (%s)...",
-					trainEdgeDatasetFileName));
-			trainDataset.loadEdgeFactors(trainEdgeDatasetFileName);
+				trainDataset = new DPGSDataset(new String[] { "bet-postag",
+						"add-head-feats", "add-mod-feats" }, new String[] {
+						"bet-hm-postag", "bet-hg-postag", "add-head-feats",
+						"add-mod-feats", "add-gp-feats" }, new String[] {
+						"bet-hm-postag", "bet-ms-postag", "add-head-feats",
+						"add-mod-feats", "add-sib-feats" }, "|",
+						featureEncoding);
 
-			LOG.info(String.format(
-					"Loading training left siblings dataset (%s)...",
-					trainLSDatasetFileName));
-			trainDataset.loadSiblingsFactors(trainLSDatasetFileName);
+				/*
+				 * LOG.info(String.format("Loading training edge dataset (%s)..."
+				 * , trainEdgeDatasetFileName));
+				 * trainDataset.loadEdgeFactors(trainEdgeDatasetFileName);
+				 * 
+				 * LOG.info(String.format(
+				 * "Loading training left siblings dataset (%s)...",
+				 * trainLSDatasetFileName));
+				 * trainDataset.loadSiblingsFactors(trainLSDatasetFileName);
+				 * 
+				 * LOG.info(String.format(
+				 * "Loading training right siblings dataset (%s)...",
+				 * trainRSDatasetFileName));
+				 * trainDataset.loadSiblingsFactors(trainRSDatasetFileName);
+				 */
+				/*
+				 * Grandparent factors shall be the last ones to avoid problems
+				 * with short sentences (1 ordinary token), since grandparent
+				 * factors do not exist for such short sentences.
+				 */
+				/*
+				 * LOG.info(String.format(
+				 * "Loading training grandparent dataset (%s)...",
+				 * trainGPDatasetFileName));
+				 * trainDataset.loadGrandparentFactors(trainGPDatasetFileName);
+				 */
 
-			LOG.info(String.format(
-					"Loading training right siblings dataset (%s)...",
-					trainRSDatasetFileName));
-			trainDataset.loadSiblingsFactors(trainRSDatasetFileName);
+				// Template-based model.
+				LOG.info("Allocating initial model...");
 
-			/*
-			 * Grandparent factors shall be the last ones to avoid problems with
-			 * short sentences (1 ordinary token), since grandparent factors do
-			 * not exist for such short sentences.
-			 */
-			LOG.info(String.format(
-					"Loading training grandparent dataset (%s)...",
-					trainGPDatasetFileName));
-			trainDataset.loadGrandparentFactors(trainGPDatasetFileName);
+				// Model.
+				model = new DPGSModel(0);
 
-			// Set modifier variables in all output structures.
-			trainDataset.setModifierVariables();
+				// Templates.
+				/*
+				 * model.loadEdgeTemplates(templatesEdgeFileName, trainDataset);
+				 * model.loadGrandparentTemplates(templatesGPFileName,
+				 * trainDataset);
+				 * model.loadLeftSiblingsTemplates(templatesLSFileName,
+				 * trainDataset);
+				 * model.loadRightSiblingsTemplates(templatesRSFileName,
+				 * trainDataset);
+				 */
+				// Generate derived features from templates.
+				/* model.generateFeatures(trainDataset); */
 
-			// Template-based model.
-			LOG.info("Allocating initial model...");
+				String[] templatesFilename = new String[] {
+						templatesEdgeFileName, templatesGPFileName,
+						templatesLSFileName, templatesRSFileName };
 
-			// Model.
-			DPGSModel model = new DPGSModel(0);
+				trainDataset.loadExamplesAndGenerate(trainEdgeDatasetFileName,
+						trainGPDatasetFileName, trainLSDatasetFileName,
+						trainRSDatasetFileName, templatesFilename, model,
+						trainCacheSize, "trainInputs");
 
-			// Templates.
-			model.loadEdgeTemplates(templatesEdgeFileName, trainDataset);
-			model.loadGrandparentTemplates(templatesGPFileName, trainDataset);
-			model.loadLeftSiblingsTemplates(templatesLSFileName, trainDataset);
-			model.loadRightSiblingsTemplates(templatesRSFileName, trainDataset);
+				// Set modifier variables in all output structures.
+				trainDataset.setModifierVariables();
 
-			// Generate derived features from templates.
-			model.generateFeatures(trainDataset);
+				// Inference algorithm for training.
+				DPGSInference inference = new DPGSInference(
+						trainDataset.getMaxNumberOfTokens(),
+						numThreadToFillWeight);
 
-			// Inference algorithm for training.
-			DPGSInference inference = new DPGSInference(
-					trainDataset.getMaxNumberOfTokens());
+				// Learning algorithm.
+				Perceptron alg = null;
 
-			// Learning algorithm.
-			Perceptron alg = new Perceptron(inference, model, numEpochs, 1d,
-					true, averaged, LearnRateUpdateStrategy.NONE);
+				if (algType == AlgorithmType.PERCEPTRON)
+					alg = new Perceptron(inference, model, numEpochs, 1d, true,
+							averaged, LearnRateUpdateStrategy.NONE);
+				else if (algType == AlgorithmType.LOSS_PERCEPTRON)
+					alg = new LossAugmentedPerceptron(inference,
+							model, numEpochs, 1d,
+							lossWeight, true, averaged,
+							LearnRateUpdateStrategy.NONE);
 
-			if (seedStr != null)
-				// User provided seed to random number generator.
-				alg.setSeed(Long.parseLong(seedStr));
+				if (seedStr != null)
+					// User provided seed to random number generator.
+					alg.setSeed(Long.parseLong(seedStr));
 
-			if (testConllFileName != null && evalPerEpoch) {
-				LOG.info("Loading test factors...");
-				DPGSDataset testset = new DPGSDataset(trainDataset);
-				testset.loadEdgeFactors(testEdgeDatasetFilename);
-				testset.loadSiblingsFactors(testLSDatasetFilename);
-				testset.loadSiblingsFactors(testRSDatasetFilename);
-				testset.loadGrandparentFactors(testGPDatasetFilename);
-				testset.setModifierVariables();
-				model.generateFeatures(testset);
+				if (testConllFileName != null && evalPerEpoch) {
+					LOG.info("Loading test factors...");
+					/*
+					 * DPGSDataset testset = new DPGSDataset(trainDataset);
+					 * testset.loadEdgeFactors(testEdgeDatasetFilename);
+					 * testset.loadSiblingsFactors(testLSDatasetFilename);
+					 * testset.loadSiblingsFactors(testRSDatasetFilename);
+					 * testset.loadGrandparentFactors(testGPDatasetFilename);
+					 * model.generateFeatures(testset);
+					 */
+					DPGSDataset testset = new DPGSDataset(trainDataset);
+					testset.loadExamplesAndGenerate(testEdgeDatasetFilename,
+							testGPDatasetFilename, testLSDatasetFilename,
+							testRSDatasetFilename, model, testCacheSize,
+							"testInputs");
+					testset.setModifierVariables();
 
-				LOG.info("Evaluating...");
+					LOG.info("Evaluating...");
 
-				// Use dual inference algorithm for testing.
-				DPGSDualInference inferenceDual = new DPGSDualInference(
-						testset.getMaxNumberOfTokens());
-				inferenceDual
-						.setMaxNumberOfSubgradientSteps(maxSubgradientSteps);
-				inferenceDual.setBeta(beta);
+					// Use dual inference algorithm for testing.
+					DPGSDualInference inferenceDual = new DPGSDualInference(
+							testset.getMaxNumberOfTokens());
+					inferenceDual
+							.setMaxNumberOfSubgradientSteps(maxSubgradientSteps);
+					inferenceDual.setBeta(beta);
 
-				// // TODO test
-				// DPGSInference inferenceDual = new DPGSInference(
-				// testset.getMaxNumberOfTokens());
-				// inferenceDual.setCopyPredictionToParse(true);
+					// // TODO test
+					// DPGSInference inferenceDual = new DPGSInference(
+					// testset.getMaxNumberOfTokens());
+					// inferenceDual.setCopyPredictionToParse(true);
 
-				EvaluateModelListener eval = new EvaluateModelListener(script,
-						testConllFileName, outputConllFilename, testset,
-						averaged, inferenceDual);
-				eval.setQuiet(true);
-				alg.setListener(eval);
+					EvaluateModelListener eval = new EvaluateModelListener(
+							script, testConllFileName, outputConllFilename,
+							testset, averaged, inferenceDual);
+					eval.setQuiet(true);
+					alg.setListener(eval);
+
+				}
+
+				LOG.info("Training model...");
+				// Train model.
+				alg.train(trainDataset.getDPGSInputArray(),
+						trainDataset.getOutputs());
+				// alg.train(trainDataset.getInputs(),trainDataset.getOutputs()
+				// );
+
+				LOG.info(String.format("# updated parameters: %d",
+						model.getNumberOfUpdatedParameters()));
+
+				if (modelFileNameToSave != null) {
+					LOG.info("Saving Model...");
+					model.save(modelFileNameToSave, (Dataset) trainDataset);
+					LOG.info("Model save with successful");
+				}
+
+			} else {
+				DPGSModelLoadReturn r = DPGSModel.load(modelFileNameToLoad);
+				LOG.info("Loading Model..");
+				model = r.getModel();
+				trainDataset = r.getDataset();
+				LOG.info("Model load with successful");
 			}
-
-			LOG.info("Training model...");
-			// Train model.
-			alg.train(trainDataset.getInputs(), trainDataset.getOutputs());
-
-			LOG.info(String.format("# updated parameters: %d",
-					model.getNumberOfUpdatedParameters()));
 
 			if (testConllFileName != null && !evalPerEpoch) {
 				LOG.info("Loading test factors...");
+				/*
+				 * DPGSDataset testset = new DPGSDataset(trainDataset);
+				 * testset.loadEdgeFactors(testEdgeDatasetFilename);
+				 * testset.loadSiblingsFactors(testLSDatasetFilename);
+				 * testset.loadSiblingsFactors(testRSDatasetFilename);
+				 * testset.loadGrandparentFactors(testGPDatasetFilename);
+				 * model.generateFeatures(testset);
+				 */
+
 				DPGSDataset testset = new DPGSDataset(trainDataset);
-				testset.loadEdgeFactors(testEdgeDatasetFilename);
-				testset.loadSiblingsFactors(testLSDatasetFilename);
-				testset.loadSiblingsFactors(testRSDatasetFilename);
-				testset.loadGrandparentFactors(testGPDatasetFilename);
+
+				testset.loadExamplesAndGenerate(testEdgeDatasetFilename,
+						testGPDatasetFilename, testLSDatasetFilename,
+						testRSDatasetFilename, model, testCacheSize,
+						"testInputs");
+
 				testset.setModifierVariables();
-				model.generateFeatures(testset);
 
 				LOG.info("Evaluating...");
 
@@ -424,10 +586,11 @@ public class TrainDPGS implements Command {
 
 			// Allocate output sequences for predictions.
 			int numExs = testset.getNumberOfExamples();
-			DPGSInput[] inputs = testset.getInputs();
+			// DPGSInput[] inputs = testset.getInputs();
+			DPGSOutput[] outputs = testset.getOutputs();
 			this.predicteds = new DPGSOutput[numExs];
 			for (int idx = 0; idx < numExs; ++idx)
-				predicteds[idx] = inputs[idx].createOutput();
+				predicteds[idx] = (DPGSOutput) outputs[idx].createNewObject();
 		}
 
 		public void setQuiet(boolean val) {
@@ -485,12 +648,23 @@ public class TrainDPGS implements Command {
 			if (inference != null)
 				inferenceImpl = inference;
 			// Fill the list of predicted outputs.
-			DPGSInput[] inputs = testset.getInputs();
-			// DPOutput[] outputs = testset.getOutputs();
-			for (int idx = 0; idx < inputs.length; ++idx) {
+			// DPGSInput[] inputs = testset.getInputs();
+			DPGSInputArray inputs = testset.getDPGSInputArray();
+
+			int numberExamples = inputs.getNumberExamples();
+			int[] inputToLoad = new int[numberExamples];
+
+			for (int i = 0; i < inputToLoad.length; i++) {
+				inputToLoad[i] = i;
+			}
+
+			inputs.load(inputToLoad);
+
+			for (int idx = 0; idx < numberExamples; ++idx) {
 				// Predict (tag the output sequence).
-				//LOG.info("Input: " + idx);
-				inferenceImpl.inference(model, inputs[idx], predicteds[idx]);
+				// LOG.info("Input: " + idx);
+				inferenceImpl.inference(model, inputs.getInput(idx),
+						predicteds[idx]);
 				if ((idx + 1) % 100 == 0) {
 					System.out.print(".");
 					System.out.flush();

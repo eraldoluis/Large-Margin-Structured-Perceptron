@@ -7,6 +7,7 @@ import org.apache.commons.logging.LogFactory;
 
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.OnlineStructuredAlgorithm;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.TrainingListener;
+import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSInputArray;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
@@ -67,7 +68,7 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 	/**
 	 * Training input structures.
 	 */
-	protected ExampleInput[] inputs;
+	protected DPGSInputArray inputs;
 
 	/**
 	 * Training output structures.
@@ -129,7 +130,6 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 	 * Indexes that give the examples training order.
 	 */
 	protected int[] indexTrainingOrder;
-
 
 	/**
 	 * Create a perceptron to train the given initial model using the default
@@ -249,20 +249,21 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 		}
 	}
 
-	@Override
-	public void train(ExampleInput[] inputs, ExampleOutput[] outputs) {
+	public void train(DPGSInputArray inputs, ExampleOutput[] outputs) {
 		// Training examples.
 		this.inputs = inputs;
 		this.outputs = outputs;
 
+		int numbersExamples = inputs.getNumberExamples();
+
 		// Allocate predicted output objects for the training example.
 		predicteds = new ExampleOutput[outputs.length];
-		for (int idx = 0; idx < inputs.length; ++idx)
-			predicteds[idx] = inputs[idx].createOutput();
+		for (int idx = 0; idx < numbersExamples; ++idx)
+			predicteds[idx] = outputs[idx].createNewObject();
 
 		// Examples training order.
-		indexTrainingOrder = new int[inputs.length];
-		for (int idx = 0; idx < inputs.length; ++idx)
+		indexTrainingOrder = new int[numbersExamples];
+		for (int idx = 0; idx < numbersExamples; ++idx)
 			indexTrainingOrder[idx] = idx;
 
 		if (listener != null)
@@ -284,7 +285,7 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 			double loss = trainOneEpoch(inputs, outputs, predicteds);
 
 			LOG.info("Training loss: " + loss);
-			LOG.info("Normalized training loss: " + (loss / inputs.length));
+			LOG.info("Normalized training loss: " + (loss / numbersExamples));
 
 			if (listener != null) {
 				if (!listener.afterEpoch(inferenceImpl, model, epoch, loss,
@@ -316,14 +317,14 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 	 *            list of output sequences used to store the predicted values
 	 * @return the sum of the losses over all examples through this epoch
 	 */
-	public double trainOneEpoch(ExampleInput[] inputs, ExampleOutput[] outputs,
+	public double trainOneEpoch(DPGSInputArray inputs, ExampleOutput[] outputs,
 			ExampleOutput[] predicteds) {
 
 		// Accumulate the loss over all examples in this epoch.
 		double loss = 0d;
 
 		// Progress report.
-		int reportProgressInterval = (int) (inputs.length * reportProgressRate);
+		int reportProgressInterval = (int) (inputs.getNumberExamples() * reportProgressRate);
 		if (reportProgressInterval > 0)
 			System.out.print("Progress: ");
 
@@ -338,17 +339,20 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 			}
 		}
 
+		inputs.load(indexTrainingOrder);
+
 		// Iterate over the training examples, updating the weight vector.
-		for (int idx = 0; idx < inputs.length; ++idx) {
+		for (int idx = 0; idx < inputs.getNumberExamples(); ++idx) {
 
 			indexCurrentExample = indexTrainingOrder[idx];
-
 			/*
 			 * Update the current model weights according with the predicted
 			 * output for this training example.
 			 */
-			double loss1 = train(inputs[indexCurrentExample],
-					outputs[indexCurrentExample],
+
+			ExampleInput input = inputs.getInput(indexCurrentExample);
+
+			double loss1 = train(input, outputs[indexCurrentExample],
 					predicteds[indexCurrentExample]);
 
 			loss += loss1;
@@ -367,13 +371,14 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 			// Progress report.
 			if (reportProgressInterval > 0
 					&& (idx + 1) % reportProgressInterval == 0) {
-				LOG.info(Math.round((idx + 1) * 100d / inputs.length) + "% ");
+				LOG.info(Math.round((idx + 1) * 100d
+						/ inputs.getNumberExamples())
+						+ "% ");
 				// Progress report listener.
 				if (listener != null)
 					listener.progressReport(inferenceImpl, model, epoch, loss,
 							iteration);
 			}
-
 		}
 
 		// Progress report.
@@ -587,4 +592,13 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 		return iteration;
 	}
 
+	@Override
+	public void train(ExampleInput[] inputs, ExampleOutput[] outputs) {
+		throw new RuntimeException("Metódo não implementado");
+	}
+
+	public double trainOneEpoch(ExampleInput[] inputs, ExampleOutput[] outputs,
+			ExampleOutput[] predicteds) {
+		throw new RuntimeException("Metódo não implementado");
+	}
 }

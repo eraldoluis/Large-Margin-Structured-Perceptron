@@ -1,8 +1,6 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.dpgs;
 
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -32,7 +30,7 @@ import br.pucrio.inf.learn.util.maxbranching.DirectedMaxBranchAlgorithm;
  * 
  */
 public class DPGSDualInference implements Inference {
-
+	private static int a = 1;
 	/**
 	 * Log object.
 	 */
@@ -254,7 +252,8 @@ public class DPGSDualInference implements Inference {
 		// Fill the maximum branching for a zero-weight graph.
 		double dualObjectiveValue = maxBranchAlgorithm.findMaxBranching(
 				numTkns, graph, output.getHeads());
-
+		
+		double gsWeight = 0;
 		// Fill the complete maximum grandparent/siblings structure.
 		for (int idxHead = 0; idxHead < numTkns; ++idxHead) {
 			dualObjectiveValues[idxHead] = maxGSAlgorithm
@@ -264,13 +263,17 @@ public class DPGSDualInference implements Inference {
 							siblingsFactorWeights[idxHead],
 							dualGrandparentVariables, dualModifierVariables,
 							output.getGrandparents(), output.getModifiers());
+			gsWeight += dualObjectiveValues[idxHead];
 			dualObjectiveValue += dualObjectiveValues[idxHead];
 		}
 
 		// Current best solution.
-		double bestOutputWeight = maxGSAlgorithm.calcObjectiveValueOfParse(
+		
+		double treeWeight = maxGSAlgorithm.calcObjectiveValueOfParse(
 				output.getHeads(), output.size(), edgeFactorWeights,
 				grandparentFactorWeights, siblingsFactorWeights, null, null);
+		
+		double bestOutputWeight = treeWeight;
 		int[] bestOutput = output.getHeads().clone();
 
 		/*
@@ -278,10 +281,13 @@ public class DPGSDualInference implements Inference {
 		 * the grandparent/siblings structure and the parse structure under the
 		 * grandparent/siblings objective function.
 		 */
-		lambda = dualObjectiveValue - bestOutputWeight;
+		lambda = gsWeight - treeWeight;
 
+		LOG.info("input " + a++ + " lambda " + lambda);
+		
 		if (lambda == 0d)
 			lambda = 1d;
+		
 
 		/*
 		 * Set of heads whose dual vars were updated in the previous iteration.
@@ -289,18 +295,18 @@ public class DPGSDualInference implements Inference {
 		 */
 		boolean[] updatedHeads = new boolean[numTkns];
 		int step;
-		
-		//double losses[] = new double[maxNumberOfSubgradientSteps];
+		double outputWeight = treeWeight;
 		
 		for (step = 0; step < maxNumberOfSubgradientSteps; ++step) {
 
 			// Number of subgradient steps performed.
 			++numSubGradSteps;
-			//double loss = 0.0d;
 
 			// Step size.
 			double stepSize = lambda / (1 + numDualObjectiveIncrements);
-
+			
+			//LOG.info("stepsize " + stepSize);
+			
 			// Update dual variables.
 			boolean updated = false;
 			for (int idxHead = 0; idxHead < numTkns; ++idxHead) {
@@ -320,8 +326,6 @@ public class DPGSDualInference implements Inference {
 						updatedHeads[idxModifier] = true;
 						updated = true;
 						
-						//loss++;
-						
 						if (isBranching)
 							dualGrandparentVariables[idxHead][idxModifier] -= stepSize;
 						else
@@ -334,8 +338,6 @@ public class DPGSDualInference implements Inference {
 						updatedHeads[idxHead] = true;
 						updated = true;
 						
-						//loss++;
-						
 						if (isBranching)
 							dualModifierVariables[idxHead][idxModifier] -= stepSize;
 						else
@@ -343,8 +345,6 @@ public class DPGSDualInference implements Inference {
 					}
 				}
 			}
-			
-			//losses[step] = loss;
 			
 			if (!updated) {
 				LOG.info(String
@@ -363,6 +363,10 @@ public class DPGSDualInference implements Inference {
 				// Stop if the optimality condition is reached.
 				break;
 			} else {
+				/*LOG.info(String
+						.format("Solution at step %d. Dual objective: %f. Last Output Weight: %f. Best Output Weight %f.(Dual objective - Best Output) %f ",
+						step,dualObjectiveValue,outputWeight,bestOutputWeight, dualObjectiveValue - bestOutputWeight));
+				*/
 				/*LOG.info(String
 				.format("Solution at step %d after %d dual objective increments. Dual objective: %f. Weight: %f",
 				step, numDualObjectiveIncrements,
@@ -388,10 +392,11 @@ public class DPGSDualInference implements Inference {
 					graph, output.getHeads());
 
 			// Update the best output up to this iteration.
-			double outputWeight = maxGSAlgorithm
+			outputWeight = maxGSAlgorithm
 					.calcObjectiveValueOfParse(output.getHeads(), numTkns,
 							edgeFactorWeights, grandparentFactorWeights,
 							siblingsFactorWeights, null, null);
+			
 			if (outputWeight > bestOutputWeight) {
 				bestOutputWeight = outputWeight;
 				for (int tkn = 0; tkn < numTkns; ++tkn)
@@ -431,21 +436,7 @@ public class DPGSDualInference implements Inference {
 			// Clear flag array of updated heads for the next iteration.
 			Arrays.fill(updatedHeads, false);
 		}
-		/*
-		String o = "";
-		double total = 0.0d;
-		double number = 0.0d;		
-		for (int i = 0; i < step && i < maxNumberOfSubgradientSteps; i++) {
-			o += losses[i] + " ";
-			total += losses[i];
-			number++;
-		}
-		 
-		LOG.info("Testing losses: " + o);
 		
-		if(number > 0)
-			LOG.info("AVG losses: " + (total/number));
-		*/
 		LOG.info(String
 				.format("Stop in step %d with Dual objective: %f and Weight: %f",
 						step,
@@ -473,6 +464,13 @@ public class DPGSDualInference implements Inference {
 			System.out.println();
 		}
 	}
+	
+	private double convertNan(double a){
+		if(Double.isNaN(a))
+			return 0.0d;
+		
+		return a;
+	}
 
 	/**
 	 * Fill the underlying weights of the edge factors that are used by the
@@ -484,10 +482,17 @@ public class DPGSDualInference implements Inference {
 	private void fillEdgeFactorWeights(DPGSModel model, DPGSInput input) {
 		int numTkns = input.size();
 		for (int idxHead = 0; idxHead < numTkns; ++idxHead)
-			for (int idxModifier = 0; idxModifier < numTkns; ++idxModifier)
-				edgeFactorWeights[idxHead][idxModifier] = model
-						.getFeatureListScore(input.getEdgeFeatures(idxHead,
-								idxModifier));
+			for (int idxModifier = 0; idxModifier < numTkns; ++idxModifier){
+				int[] ftrs = input.getEdgeFeatures(idxHead,idxModifier);
+				
+ 				if (ftrs != null)
+					edgeFactorWeights[idxHead][idxModifier] = convertNan(model
+							.getFeatureListScore(ftrs));
+				else
+					edgeFactorWeights[idxHead][idxModifier] = convertNan(Double.NaN);
+			}
+		
+		
 	}
 
 	/**
@@ -547,12 +552,12 @@ public class DPGSDualInference implements Inference {
 							idxModifier, idxGrandparent);
 					if (ftrs != null) {
 						// Sum feature weights to achieve the factor weight.
-						grandparentFactorWeightsHeadModifier[idxGrandparent] = model
-								.getFeatureListScore(ftrs);
+						grandparentFactorWeightsHeadModifier[idxGrandparent] = convertNan(model
+								.getFeatureListScore(ftrs));
 						// Loss value for the current edge.
-						grandparentFactorWeightsHeadModifier[idxGrandparent] += lossWeightEdge;
+						grandparentFactorWeightsHeadModifier[idxGrandparent] += convertNan(lossWeightEdge);
 					} else
-						grandparentFactorWeightsHeadModifier[idxGrandparent] = Double.NaN;
+						grandparentFactorWeightsHeadModifier[idxGrandparent] = convertNan(Double.NaN);
 				}
 			}
 		}
@@ -589,10 +594,10 @@ public class DPGSDualInference implements Inference {
 					int[] ftrs = input.getSiblingsFeatures(idxHead,
 							idxModifier, idxPreviousModifier);
 					if (ftrs != null)
-						siblingsFactorWeightsHeadModifier[idxPreviousModifier] = model
-								.getFeatureListScore(ftrs);
+						siblingsFactorWeightsHeadModifier[idxPreviousModifier] = convertNan(model
+								.getFeatureListScore(ftrs));
 					else
-						siblingsFactorWeightsHeadModifier[idxPreviousModifier] = Double.NaN;
+						siblingsFactorWeightsHeadModifier[idxPreviousModifier] = convertNan(Double.NaN);
 				}
 
 				/*
@@ -609,10 +614,10 @@ public class DPGSDualInference implements Inference {
 				int[] ftrs = input.getSiblingsFeatures(idxHead, idxModifier,
 						idxSTART);
 				if (ftrs != null)
-					siblingsFactorWeightsHeadModifier[idxSTART] = model
-							.getFeatureListScore(ftrs);
+					siblingsFactorWeightsHeadModifier[idxSTART] = convertNan(model
+							.getFeatureListScore(ftrs));
 				else
-					siblingsFactorWeightsHeadModifier[idxSTART] = Double.NaN;
+					siblingsFactorWeightsHeadModifier[idxSTART] = convertNan(Double.NaN);
 			}
 		}
 		

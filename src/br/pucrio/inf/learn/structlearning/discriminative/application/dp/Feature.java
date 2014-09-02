@@ -1,5 +1,6 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.dp;
 
+import java.io.Serializable;
 import java.util.Arrays;
 
 import br.pucrio.inf.learn.util.HashCodeUtil;
@@ -11,7 +12,12 @@ import br.pucrio.inf.learn.util.HashCodeUtil;
  * @author eraldo
  * 
  */
-public class Feature implements Cloneable {
+public class Feature implements Cloneable,Serializable {
+
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = -6435178747355956743L;
 
 	/**
 	 * Template index that generated this feature.

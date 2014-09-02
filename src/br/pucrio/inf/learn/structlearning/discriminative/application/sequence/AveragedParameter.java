@@ -1,5 +1,7 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.sequence;
 
+import java.io.Serializable;
+
 /**
  * Model parameter that supports a voted perceptron implementation.
  * 
@@ -7,7 +9,12 @@ package br.pucrio.inf.learn.structlearning.discriminative.application.sequence;
  * 
  */
 public final class AveragedParameter implements Comparable<AveragedParameter>,
-		Cloneable {
+		Cloneable,Serializable {
+
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = -4279113815090427004L;
 
 	/**
 	 * The current (non-averaged) weight. This value must be used by the

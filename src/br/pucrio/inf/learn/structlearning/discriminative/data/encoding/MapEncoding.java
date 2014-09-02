@@ -8,6 +8,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.io.Serializable;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -24,7 +25,12 @@ import sun.reflect.generics.reflectiveObjects.NotImplementedException;
  * 
  * @param <ValueType>
  */
-public class MapEncoding<ValueType> implements FeatureEncoding<ValueType> {
+public class MapEncoding<ValueType> implements FeatureEncoding<ValueType>, Serializable {
+
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = -4800433976299550177L;
 
 	/**
 	 * Map from values to codes.

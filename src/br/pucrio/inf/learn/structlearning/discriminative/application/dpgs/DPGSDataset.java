@@ -1,12 +1,22 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.dpgs;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
@@ -19,6 +29,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
+import br.pucrio.inf.learn.structlearning.discriminative.data.Dataset;
 import br.pucrio.inf.learn.structlearning.discriminative.data.DatasetException;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.StringMapEncoding;
@@ -34,7 +45,7 @@ import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.StringMap
  * @author eraldo
  * 
  */
-public class DPGSDataset {
+public class DPGSDataset implements Dataset {
 
 	/**
 	 * Logging object.
@@ -92,6 +103,8 @@ public class DPGSDataset {
 	 * Input sentences.
 	 */
 	protected DPGSInput[] inputs;
+
+	protected DPGSInputArray inputArray;
 
 	/**
 	 * Output structures.
@@ -201,6 +214,10 @@ public class DPGSDataset {
 		return featureLabelsGrandparent.length;
 	}
 
+	public DPGSInputArray getDPGSInputArray() {
+		return inputArray;
+	}
+
 	/**
 	 * Return array of input structures (sentence factors).
 	 * 
@@ -246,6 +263,10 @@ public class DPGSDataset {
 	 * @return
 	 */
 	public int getNumberOfExamples() {
+		if (inputs == null) {
+			return inputArray.getNumberExamples();
+		}
+
 		return inputs.length;
 	}
 
@@ -337,6 +358,106 @@ public class DPGSDataset {
 		return featureLabelsSiblings[index];
 	}
 
+	public void loadExamplesAndGenerate(String fileNameEdgeFactors,
+			String fileNameGrandparentFactors,
+			String fileNameLeftSiblingsFactors,
+			String fileNameRightSiblingsFactors, DPGSModel model,
+			long cacheSize, String fileNameSaveInputs) throws IOException,
+			DatasetException, DPGSException {
+		loadExamplesAndGenerate(fileNameEdgeFactors,
+				fileNameGrandparentFactors, fileNameLeftSiblingsFactors,
+				fileNameRightSiblingsFactors, null, model, cacheSize,
+				fileNameSaveInputs);
+	}
+
+	public void loadExamplesAndGenerate(String fileNameEdgeFactors,
+			String fileNameGrandparentFactors,
+			String fileNameLeftSiblingsFactors,
+			String fileNameRightSiblingsFactors, String[] templatesFilename,
+			DPGSModel model, long cacheSize, String fileNameSaveInputs)
+			throws IOException, DatasetException, DPGSException {
+
+		BufferedReader readerEdge = new BufferedReader(new FileReader(
+				fileNameEdgeFactors));
+		BufferedReader readerGrandParent = new BufferedReader(new FileReader(
+				fileNameGrandparentFactors));
+		BufferedReader readerLeftSiblings = new BufferedReader(new FileReader(
+				fileNameLeftSiblingsFactors));
+		BufferedReader readerRightSiblings = new BufferedReader(new FileReader(
+				fileNameRightSiblingsFactors));
+		List<DPGSInput> listInput = new ArrayList<DPGSInput>(100);
+		List<DPGSOutput> listOutput = new ArrayList<DPGSOutput>(100);
+
+		// Load feature labels
+		Set<Integer> multiValuedFeaturesIndexesEdge = loadFeatureLabelsEdge(readerEdge);
+		Set<Integer> multiValuedFeaturesIndexesGrandparent = loadFeatureLabelsGrandparent(readerGrandParent);
+		Set<Integer> multiValuedFeaturesIndexesLS = loadFeatureLabelsSiblings(readerLeftSiblings);
+		Set<Integer> multiValuedFeaturesIndexesRS = loadFeatureLabelsSiblings(readerRightSiblings);
+
+		// It was necessary to load template here, because to load template
+		// is required to know the features labels.
+		if (templatesFilename != null) {
+			model.loadEdgeTemplates(templatesFilename[0], this);
+			model.loadGrandparentTemplates(templatesFilename[1], this);
+			model.loadLeftSiblingsTemplates(templatesFilename[2], this);
+			model.loadRightSiblingsTemplates(templatesFilename[3], this);
+		}
+		boolean existExample = true;
+		DPGSInput input;
+		DPGSOutput output;
+		int numberExample = 0;
+
+		if (inputArray == null) {
+			inputArray = new DPGSInputArray(cacheSize, fileNameSaveInputs);
+		}
+
+		System.out.println("Load examples");
+		do {
+			existExample &= parseExample(readerEdge,
+					multiValuedFeaturesIndexesEdge, listInput, listOutput,
+					null, null);
+
+			if (!existExample) {
+				break;
+			}
+
+			input = listInput.get(numberExample);
+			output = listOutput.get(numberExample);
+
+			existExample &= parseExample(readerGrandParent,
+					multiValuedFeaturesIndexesGrandparent, null, null, input,
+					output);
+			existExample &= parseExample(readerLeftSiblings,
+					multiValuedFeaturesIndexesLS, null, null, input, output);
+			existExample &= parseExample(readerRightSiblings,
+					multiValuedFeaturesIndexesRS, null, null, input, output);
+
+			model.generateFeaturesOneInput(input);
+			input.cleanBasicFeatures();
+
+			inputArray.putInput(input);
+
+			// Clean input of memory
+			listInput.set(numberExample, null);
+			input = null;
+
+			numberExample++;
+
+			if (numberExample % 100 == 0 && numberExample != 0) {
+				System.out.print(".");
+			}
+		} while (existExample);
+
+		System.out.println("");
+
+		outputs = listOutput.toArray(new DPGSOutput[0]);
+
+		readerEdge.close();
+		readerGrandParent.close();
+		readerLeftSiblings.close();
+		readerRightSiblings.close();
+	}
+
 	/**
 	 * Load edge dataset from the given file.
 	 * 
@@ -362,6 +483,14 @@ public class DPGSDataset {
 	 */
 	public void loadEdgeFactors(BufferedReader reader) throws IOException,
 			DatasetException, DPGSException {
+		Set<Integer> multiValuedFeaturesIndexes = loadFeatureLabelsEdge(reader);
+
+		// Load example factors from the given reader.
+		loadExampleFactors(reader, multiValuedFeaturesIndexes);
+	}
+
+	private Set<Integer> loadFeatureLabelsEdge(BufferedReader reader)
+			throws IOException, DPGSException {
 		// Parse feature labels in the first line of the file.
 		String[] tmpFeatureLabelsEdge = parseFeatureLabels(reader.readLine());
 
@@ -382,9 +511,7 @@ public class DPGSDataset {
 		Set<Integer> multiValuedFeaturesIndexes = new TreeSet<Integer>();
 		for (String label : multiValuedEdgeFeatures)
 			multiValuedFeaturesIndexes.add(getEdgeFeatureIndex(label));
-
-		// Load example factors from the given reader.
-		loadExampleFactors(reader, multiValuedFeaturesIndexes);
+		return multiValuedFeaturesIndexes;
 	}
 
 	/**
@@ -412,6 +539,14 @@ public class DPGSDataset {
 	 */
 	public void loadGrandparentFactors(BufferedReader reader)
 			throws IOException, DatasetException, DPGSException {
+		Set<Integer> multiValuedFeaturesIndexes = loadFeatureLabelsGrandparent(reader);
+
+		// Load example factors from the given reader.
+		loadExampleFactors(reader, multiValuedFeaturesIndexes);
+	}
+
+	private Set<Integer> loadFeatureLabelsGrandparent(BufferedReader reader)
+			throws IOException, DPGSException {
 		// Parse feature labels in the first line of the file.
 		String[] tmpFeatureLabelsGrandparent = parseFeatureLabels(reader
 				.readLine());
@@ -434,9 +569,7 @@ public class DPGSDataset {
 		Set<Integer> multiValuedFeaturesIndexes = new TreeSet<Integer>();
 		for (String label : multiValuedGrandparentFeatures)
 			multiValuedFeaturesIndexes.add(getGrandparentFeatureIndex(label));
-
-		// Load example factors from the given reader.
-		loadExampleFactors(reader, multiValuedFeaturesIndexes);
+		return multiValuedFeaturesIndexes;
 	}
 
 	/**
@@ -464,6 +597,14 @@ public class DPGSDataset {
 	 */
 	public void loadSiblingsFactors(BufferedReader reader) throws IOException,
 			DatasetException, DPGSException {
+		Set<Integer> multiValuedFeaturesIndexes = loadFeatureLabelsSiblings(reader);
+
+		// Load example factors from the given reader.
+		loadExampleFactors(reader, multiValuedFeaturesIndexes);
+	}
+
+	private Set<Integer> loadFeatureLabelsSiblings(BufferedReader reader)
+			throws IOException, DPGSException {
 		// Parse feature labels in the first line of the file.
 		String[] tmpFeatureLabelsSiblings = parseFeatureLabels(reader
 				.readLine());
@@ -485,9 +626,7 @@ public class DPGSDataset {
 		Set<Integer> multiValuedFeaturesIndexes = new TreeSet<Integer>();
 		for (String label : multiValuedSiblingsFeatures)
 			multiValuedFeaturesIndexes.add(getSiblingsFeatureIndex(label));
-
-		// Load example factors from the given reader.
-		loadExampleFactors(reader, multiValuedFeaturesIndexes);
+		return multiValuedFeaturesIndexes;
 	}
 
 	/**
@@ -552,6 +691,10 @@ public class DPGSDataset {
 				input = null;
 				output = null;
 			}
+
+			/*
+			 * if(numExs > 39){ break; }
+			 */
 		}
 		System.out.println();
 
@@ -1036,13 +1179,17 @@ public class DPGSDataset {
 	public void setModifierVariables() {
 		int numExs = outputs.length;
 		for (int idxEx = 0; idxEx < numExs; ++idxEx) {
-			DPGSOutput output = outputs[idxEx];
-			int numTkns = output.size();
-			for (int idxModifier = 0; idxModifier < numTkns; ++idxModifier) {
-				int idxHead = output.getHead(idxModifier);
-				if (idxHead != idxModifier && idxHead != -1)
-					output.setModifier(idxHead, idxModifier, true);
-			}
+			setModifierVariablesOneOutput(idxEx);
+		}
+	}
+
+	private void setModifierVariablesOneOutput(int idxEx) {
+		DPGSOutput output = outputs[idxEx];
+		int numTkns = output.size();
+		for (int idxModifier = 0; idxModifier < numTkns; ++idxModifier) {
+			int idxHead = output.getHead(idxModifier);
+			if (idxHead != idxModifier && idxHead != -1)
+				output.setModifier(idxHead, idxModifier, true);
 		}
 	}
 
@@ -1075,5 +1222,111 @@ public class DPGSDataset {
 	 */
 	public FeatureEncoding<String> getFeatureEncoding() {
 		return basicEncoding;
+	}
+
+	public void saveCore(ObjectOutputStream stream) throws IOException {
+
+		stream.writeObject(multiValuedEdgeFeatures
+				.toArray(new String[multiValuedEdgeFeatures.size()]));
+		stream.writeObject(multiValuedGrandparentFeatures
+				.toArray(new String[multiValuedGrandparentFeatures.size()]));
+		stream.writeObject(multiValuedSiblingsFeatures
+				.toArray(new String[multiValuedSiblingsFeatures.size()]));
+		stream.writeObject(separatorFeatureValues);
+
+		stream.writeObject(basicEncoding);
+	}
+
+	static public DPGSDataset loadCore(ObjectInputStream stream)
+			throws IOException, ClassNotFoundException {
+
+		String[] multiValuedEdgeFeatures = (String[]) stream.readObject();
+		String[] multiValuedGrandparentFeatures = (String[]) stream
+				.readObject();
+		String[] multiValuedSiblingsFeatures = (String[]) stream.readObject();
+		String separatorFeatureValues = (String) stream.readObject();
+		FeatureEncoding<String> basicEncoding = (FeatureEncoding<String>) stream
+				.readObject();
+
+		return new DPGSDataset(multiValuedEdgeFeatures,
+				multiValuedGrandparentFeatures, multiValuedSiblingsFeatures,
+				separatorFeatureValues, basicEncoding);
+	}
+
+	public void cleanBasicFeaturesOfInputs() {
+		for (int i = 0; i < inputs.length; i++) {
+			inputs[i].cleanBasicFeatures();
+		}
+
+		System.gc();
+	}
+
+	@Override
+	public void load(String fileName) throws IOException, DatasetException {
+		throw new NotImplementedException();
+	}
+
+	@Override
+	public void load(BufferedReader reader) throws IOException,
+			DatasetException {
+		throw new NotImplementedException();
+	}
+
+	@Override
+	public void load(InputStream is) throws IOException, DatasetException {
+		throw new NotImplementedException();
+	}
+
+	private void loadBasicEncoding() throws IOException, ClassNotFoundException {
+		File file = new File("basicEncodings");
+		if (!file.exists()) {
+			if (basicEncoding == null)
+				basicEncoding = new StringMapEncoding();
+		}
+
+		FileInputStream fileIn = null;
+		BufferedInputStream buf = null;
+		ObjectInputStream objInput = null;
+
+		try {
+			fileIn = new FileInputStream(file);
+			buf = new BufferedInputStream(fileIn);
+			objInput = new ObjectInputStream(buf);
+
+			basicEncoding = (FeatureEncoding<String>) objInput.readObject();
+		} finally {
+			if (objInput != null)
+				objInput.close();
+			else if (buf != null)
+				buf.close();
+			else if (fileIn != null)
+				fileIn.close();
+		}
+	}
+
+	private void unloadBasicEncoding() throws IOException,
+			ClassNotFoundException {
+		
+		FileOutputStream fileOut = null;
+		BufferedOutputStream bufOut = null;
+		ObjectOutputStream objOut = null;
+
+		
+		try{
+			fileOut = new FileOutputStream("basicEncodings");
+			bufOut = new BufferedOutputStream(fileOut);
+			objOut = new ObjectOutputStream(fileOut);
+
+			objOut.writeObject(basicEncoding);
+		}finally{
+			if (objOut != null)
+				objOut.close();
+			else if (bufOut != null)
+				bufOut.close();
+			else if (fileOut != null)
+				fileOut.close();
+		}
+		
+		basicEncoding = null;
 	}
 }
