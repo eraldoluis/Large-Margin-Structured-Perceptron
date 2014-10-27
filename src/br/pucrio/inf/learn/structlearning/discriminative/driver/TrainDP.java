@@ -28,9 +28,9 @@ import br.pucrio.inf.learn.structlearning.discriminative.application.dp.MaximumB
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPBasicDataset;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPColumnDataset;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPDataset;
-import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.evaluation.DPEvaluation;
+import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInputArray;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.HybridStringEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.JavaHashCodeEncoding;
@@ -739,16 +739,21 @@ public class TrainDP implements Command {
 					((DPColumnDataset) testset).generateFeatures();
 
 				// Allocate output sequences for predictions.
-				DPInput[] inputs = testset.getInputs();
+				ExampleInputArray inputs = testset.getInputs();
 				DPOutput[] outputs = testset.getOutputs();
-				DPOutput[] predicteds = new DPOutput[inputs.length];
-				for (int idx = 0; idx < inputs.length; ++idx)
-					predicteds[idx] = (DPOutput) inputs[idx].createOutput();
+				DPOutput[] predicteds = new DPOutput[inputs.getNumberExamples()];
+				
+				inputs.loadInOrder();
+				
+				for (int idx = 0; idx < inputs.getNumberExamples(); ++idx)
+					predicteds[idx] = (DPOutput) inputs.get(idx).createOutput();
+				
+				inputs.loadInOrder();
 
 				// Fill the list of predicted outputs.
-				for (int idx = 0; idx < inputs.length; ++idx)
+				for (int idx = 0; idx < inputs.getNumberExamples(); ++idx)
 					// Predict (tag the output sequence).
-					inference.inference(model, inputs[idx], predicteds[idx]);
+					inference.inference(model, inputs.get(idx), predicteds[idx]);
 
 				// Evaluate the sequences.
 				Map<String, Double> results = eval.evaluateExamples(inputs,
@@ -842,7 +847,7 @@ public class TrainDP implements Command {
 
 		private AccuracyEvaluation eval;
 
-		private DPInput[] inputs;
+		private ExampleInputArray inputs;
 
 		private DPOutput[] outputs;
 
@@ -863,10 +868,13 @@ public class TrainDP implements Command {
 			this.averageWeights = averageWeights;
 			this.explicitFeatures = explicitFeatures;
 			if (inputs != null) {
-				this.predicteds = new DPOutput[inputs.length];
+				this.predicteds = new DPOutput[inputs.getNumberExamples()];
+				
+				inputs.loadInOrder();
+				
 				// Allocate output sequences for predictions.
-				for (int idx = 0; idx < inputs.length; ++idx)
-					predicteds[idx] = (DPOutput) inputs[idx].createOutput();
+				for (int idx = 0; idx < inputs.getNumberExamples(); ++idx)
+					predicteds[idx] = (DPOutput) inputs.get(idx).createOutput();
 			}
 		}
 
@@ -912,10 +920,12 @@ public class TrainDP implements Command {
 			if (averageWeights)
 				curModel.average(iteration);
 
+			inputs.loadInOrder();
+			
 			// Fill the list of predicted outputs.
-			for (int idx = 0; idx < inputs.length; ++idx)
+			for (int idx = 0; idx < inputs.getNumberExamples(); ++idx)
 				// Predict (tag the output sequence).
-				inferenceImpl.inference(curModel, inputs[idx], predicteds[idx]);
+				inferenceImpl.inference(curModel, inputs.get(idx), predicteds[idx]);
 
 			// Evaluate the sequences.
 			Map<String, Double> results = eval.evaluateExamples(inputs,

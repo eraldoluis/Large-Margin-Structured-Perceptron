@@ -11,6 +11,7 @@ import java.util.TreeSet;
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceOutput;
+import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInputArray;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.task.DualModel;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Inference;
@@ -40,7 +41,7 @@ public class DualHmm extends Hmm implements DualModel {
 	 * Base input patterns used to represent the weights. These are the
 	 * candidates for support vector.
 	 */
-	private final SequenceInput[] inputs;
+	private final ExampleInputArray inputs;
 
 	/**
 	 * Correct output patterns for each base input pattern.
@@ -85,7 +86,7 @@ public class DualHmm extends Hmm implements DualModel {
 	 * @param numberOfStates
 	 * @param exponent
 	 */
-	public DualHmm(final SequenceInput[] inputs,
+	public DualHmm(final ExampleInputArray inputs,
 			final SequenceOutput[] outputs, int numberOfStates, int exponent) {
 		// Input/output patterns.
 		this.inputs = inputs;
@@ -118,7 +119,7 @@ public class DualHmm extends Hmm implements DualModel {
 	 * @param inputs
 	 * @param outputs
 	 */
-	protected DualHmm(final SequenceInput[] inputs,
+	protected DualHmm(final ExampleInputArray inputs,
 			final SequenceOutput[] outputs) {
 		// Input/output patterns.
 		this.inputs = inputs;
@@ -269,7 +270,10 @@ public class DualHmm extends Hmm implements DualModel {
 			 * structures.
 			 */
 			int idxSequence = entrySequence.getKey();
-			SequenceInput input = inputs[idxSequence];
+			
+			inputs.load(new int[idxSequence]);
+			
+			SequenceInput input = (SequenceInput) inputs.get(idxSequence);
 			SequenceOutput output = outputs[idxSequence];
 			SequenceOutput predicted = (SequenceOutput) outputsCache[idxSequence];
 
@@ -389,7 +393,9 @@ public class DualHmm extends Hmm implements DualModel {
 					 * Evaluate the kernel function between the training example
 					 * token and the current support vector.
 					 */
-					k = kernel(inputs[idxSeqSV], idxTknSV, input, idxTknTrain);
+					inputs.load(new int[idxSeqSV]);
+					
+					k = kernel((SequenceInput) inputs.get(idxSeqSV), idxTknSV, input, idxTknTrain);
 
 					/*
 					 * Store the kernel function value in the current example
@@ -540,10 +546,13 @@ public class DualHmm extends Hmm implements DualModel {
 		 * Store kernel function value between the new support vector and
 		 * itself.
 		 */
+		
+		inputs.load(new int [sequenceId]);
+		
 		kernelCache.put(
 				new DualEmissionKeyPair(sequenceId, idxToken, sequenceId,
 						idxToken),
-				kernel(inputs[sequenceId], idxToken, inputs[sequenceId],
+				kernel((SequenceInput) inputs.get(sequenceId), idxToken, (SequenceInput) inputs.get(sequenceId),
 						idxToken));
 
 		// Sequence variables.
@@ -612,7 +621,9 @@ public class DualHmm extends Hmm implements DualModel {
 			return 0d;
 
 		// Input structure.
-		SequenceInput input = inputs[sequenceId];
+		inputs.load(new int[sequenceId]);
+		
+		SequenceInput input = (SequenceInput) inputs.get(sequenceId);
 		// Correct output structure.
 		SequenceOutput outputCorrect = outputReference;
 

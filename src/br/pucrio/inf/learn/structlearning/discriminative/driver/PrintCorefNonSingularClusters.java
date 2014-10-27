@@ -30,6 +30,7 @@ import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPI
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.AveragedParameter;
 import br.pucrio.inf.learn.structlearning.discriminative.data.DatasetException;
+import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInputArray;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.MapEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.StringMapEncoding;
@@ -165,13 +166,16 @@ public class PrintCorefNonSingularClusters implements Command {
 		/*
 		 * Model application.
 		 */
-		DPInput[] inputs = testDataset.getInputs();
+		ExampleInputArray inputs = testDataset.getInputs();
 		DPOutput[] outputs = testDataset.getOutputs();
 
 		// Allocate predicted output structures.
-		DPOutput[] predicteds = new DPOutput[inputs.length];
-		for (int idx = 0; idx < inputs.length; ++idx)
-			predicteds[idx] = inputs[idx].createOutput();
+		DPOutput[] predicteds = new DPOutput[inputs.getNumberExamples()];
+		
+		inputs.loadInOrder();
+		
+		for (int idx = 0; idx < inputs.getNumberExamples(); ++idx)
+			predicteds[idx] = (DPOutput) inputs.get(idx).createOutput();
 
 		/*
 		 * Fill the list of predicted outputs and the latent trees for the
@@ -179,11 +183,17 @@ public class PrintCorefNonSingularClusters implements Command {
 		 */
 		int numExsCorrects = 0;
 		int numExsWithNonSingularClusters = 0;
-		for (int idx = 0; idx < inputs.length; ++idx) {
+		
+		inputs.loadInOrder();
+		
+		for (int idx = 0; idx < inputs.getNumberExamples(); ++idx) {
+			
+			DPInput input = (DPInput) inputs.get(idx);
+			
 			// Predict (tag the output sequence).
-			inference.inference(model, inputs[idx], predicteds[idx]);
+			inference.inference(model,input , predicteds[idx]);
 			// Constrained prediction: latent structures.
-			inference.partialInference(model, inputs[idx], outputs[idx],
+			inference.partialInference(model, input, outputs[idx],
 					outputs[idx]);
 
 			if (onlyCorrect

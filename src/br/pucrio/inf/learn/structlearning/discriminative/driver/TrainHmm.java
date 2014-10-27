@@ -31,6 +31,7 @@ import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.da
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.evaluation.IobChunkEvaluation;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.evaluation.LabeledTokenEvaluation;
+import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInputArray;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.HybridStringEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.JavaHashCodeEncoding;
@@ -974,17 +975,21 @@ public class TrainHmm implements Command {
 							.getMaxNumberOfEmissionFeatures());
 
 				// Allocate output sequences for predictions.
-				SequenceInput[] inputs = testset.getInputs();
+				ExampleInputArray inputs = testset.getInputs();
 				SequenceOutput[] outputs = testset.getOutputs();
-				SequenceOutput[] predicteds = new SequenceOutput[inputs.length];
-				for (int idx = 0; idx < inputs.length; ++idx)
-					predicteds[idx] = (SequenceOutput) inputs[idx]
+				SequenceOutput[] predicteds = new SequenceOutput[inputs.getNumberExamples()];
+				
+				inputs.loadInOrder();
+				
+				for (int idx = 0; idx < inputs.getNumberExamples(); ++idx)
+					predicteds[idx] = (SequenceOutput) inputs.get(idx)
 							.createOutput();
 
+				inputs.loadInOrder();
 				// Fill the list of predicted outputs.
-				for (int idx = 0; idx < inputs.length; ++idx)
+				for (int idx = 0; idx < inputs.getNumberExamples(); ++idx)
 					// Predict (tag the output sequence).
-					inference.inference(model, inputs[idx], predicteds[idx]);
+					inference.inference(model, inputs.get(idx), predicteds[idx]);
 					
 				// Evaluate the sequences.
 				Map<String, F1Measure> results = eval.evaluateExamples(inputs,
@@ -1001,8 +1006,11 @@ public class TrainHmm implements Command {
 					FeatureEncoding<String> featureEncodingPred = testset.getFeatureEncoding();
 					FeatureEncoding<String> stateEncodingPred = testset.getStateEncoding();
 					
-					for(int idx = 0; idx < inputs.length; ++idx){
-						input = inputs[idx];
+					
+					inputs.loadInOrder();
+					
+					for(int idx = 0; idx < inputs.getNumberExamples(); ++idx){
+						input = (SequenceInput) inputs.get(idx);
 						predicted = predicteds[idx];
 						
 						
@@ -1126,7 +1134,7 @@ public class TrainHmm implements Command {
 
 		private EntityF1Evaluation eval;
 
-		private SequenceInput[] inputs;
+		private ExampleInputArray inputs;
 
 		private SequenceOutput[] outputs;
 
@@ -1137,7 +1145,7 @@ public class TrainHmm implements Command {
 		private boolean dual;
 
 		public EvaluateModelListener(EntityF1Evaluation eval,
-				SequenceInput[] inputs, SequenceOutput[] outputs,
+				ExampleInputArray inputs, SequenceOutput[] outputs,
 				FeatureEncoding<String> stateEncoding, String nullLabel,
 				boolean averageWeights, boolean dual) {
 			this.inputs = inputs;
@@ -1146,10 +1154,13 @@ public class TrainHmm implements Command {
 			this.averageWeights = averageWeights;
 			this.dual = dual;
 			if (inputs != null) {
-				this.predicteds = new SequenceOutput[inputs.length];
+				this.predicteds = new SequenceOutput[inputs.getNumberExamples()];
 				// Allocate output sequences for predictions.
-				for (int idx = 0; idx < inputs.length; ++idx)
-					predicteds[idx] = (SequenceOutput) inputs[idx]
+				
+				inputs.loadInOrder();
+				
+				for (int idx = 0; idx < inputs.getNumberExamples(); ++idx)
+					predicteds[idx] = (SequenceOutput) inputs.get(idx)
 							.createOutput();
 			}
 		}
@@ -1198,9 +1209,9 @@ public class TrainHmm implements Command {
 			}
 
 			// Fill the list of predicted outputs.
-			for (int idx = 0; idx < inputs.length; ++idx)
+			for (int idx = 0; idx < inputs.getNumberExamples(); ++idx)
 				// Predict (tag the output sequence).
-				inferenceImpl.inference(hmm, inputs[idx], predicteds[idx]);
+				inferenceImpl.inference(hmm, inputs.get(idx), predicteds[idx]);
 
 			// Evaluate the sequences.
 			Map<String, F1Measure> results = eval.evaluateExamples(inputs,

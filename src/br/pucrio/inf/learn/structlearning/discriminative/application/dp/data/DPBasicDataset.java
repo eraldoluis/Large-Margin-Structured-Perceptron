@@ -26,6 +26,8 @@ import org.apache.commons.logging.LogFactory;
 
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 import br.pucrio.inf.learn.structlearning.discriminative.data.DatasetException;
+import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInputArray;
+import br.pucrio.inf.learn.structlearning.discriminative.data.SimpleExampleInputArray;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.StringMapEncoding;
 
@@ -60,7 +62,7 @@ public class DPBasicDataset implements DPDataset {
 	/**
 	 * Input sequences.
 	 */
-	private DPInput[] inputs;
+	private ExampleInputArray inputs;
 
 	/**
 	 * Output branchings.
@@ -95,7 +97,7 @@ public class DPBasicDataset implements DPDataset {
 	}
 
 	@Override
-	public DPInput[] getInputs() {
+	public ExampleInputArray getInputs() {
 		return inputs;
 	}
 
@@ -106,7 +108,8 @@ public class DPBasicDataset implements DPDataset {
 
 	@Override
 	public DPInput getInput(int index) {
-		return inputs[index];
+		inputs.load(new int[index]);
+		return (DPInput) inputs.get(index);
 	}
 
 	@Override
@@ -116,7 +119,7 @@ public class DPBasicDataset implements DPDataset {
 
 	@Override
 	public int getNumberOfExamples() {
-		return inputs.length;
+		return inputs.getNumberExamples();
 	}
 
 	@Override
@@ -157,10 +160,15 @@ public class DPBasicDataset implements DPDataset {
 			}
 		}
 		System.out.println();
-		inputs = inputList.toArray(new DPInput[0]);
+		inputs = new SimpleExampleInputArray(inputList.size());
+		
+		for (DPInput dpInput : inputList) {
+			inputs.put(dpInput);
+		}
+		
 		outputs = outputList.toArray(new DPOutput[0]);
 
-		LOG.info("Read " + inputs.length + " examples.");
+		LOG.info("Read " + inputs.getNumberExamples() + " examples.");
 	}
 
 	@Override
@@ -445,7 +453,16 @@ public class DPBasicDataset implements DPDataset {
 			}
 		}
 		System.out.println();
-		inputs = inputList.toArray(new DPInput[0]);
+		inputs = new SimpleExampleInputArray(inputList.size());
+		
+		for (DPInput dpInput : inputList) {
+			try {
+				inputs.put(dpInput);
+			} catch (DatasetException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
 		outputs = outputList.toArray(new DPOutput[0]);
 		training = (Boolean) obj;
 		maxNumberOfTokens = (Integer) is.readObject();

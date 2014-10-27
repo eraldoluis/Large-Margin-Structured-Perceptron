@@ -4,6 +4,7 @@ import java.util.Map;
 import java.util.TreeMap;
 
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
+import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInputArray;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 
 /**
@@ -23,7 +24,7 @@ public abstract class AccuracyEvaluation {
 	 * @param predicteds
 	 * @return
 	 */
-	public Map<String, Double> evaluateExamples(ExampleInput[] inputs,
+	public Map<String, Double> evaluateExamples(ExampleInputArray inputs,
 			ExampleOutput[] corrects, ExampleOutput[] predicteds) {
 
 		// Store the average accuracy and the accucary per-examples.
@@ -36,9 +37,11 @@ public abstract class AccuracyEvaluation {
 		// Number of correctly classified examples.
 		double numCorrectExamples = 0;
 
+		inputs.loadInOrder();
+		
 		// Evaluate each sentence.
-		for (int idxSeq = 0; idxSeq < inputs.length; ++idxSeq) {
-			ExampleInput input = inputs[idxSeq];
+		for (int idxSeq = 0; idxSeq < inputs.getNumberExamples(); ++idxSeq) {
+			ExampleInput input = inputs.get(idxSeq);
 			ExampleOutput correct = corrects[idxSeq];
 			ExampleOutput predicted = predicteds[idxSeq];
 
@@ -52,7 +55,7 @@ public abstract class AccuracyEvaluation {
 				numCorrectExamples += 1;
 		}
 
-		res.put("example", numCorrectExamples / inputs.length);
+		res.put("example", numCorrectExamples / inputs.getNumberExamples());
 		res.put("average", numCorrectItems / numItems);
 
 		return res;

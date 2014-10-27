@@ -9,6 +9,7 @@ import java.util.TreeSet;
 
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPColumnDataset;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPInput;
+import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInputArray;
 import br.pucrio.inf.learn.util.HashCodeUtil;
 
 /**
@@ -51,10 +52,13 @@ public class InvertedIndex {
 	 */
 	private void initIndex() {
 		index = new HashMap<BasicFeature, TreeSet<Edge>>();
-		DPInput[] inputs = corpus.getInputs();
+		ExampleInputArray inputs = corpus.getInputs();
 		int numFtrs = corpus.getNumberOfFeatures();
-		for (int example = 0; example < inputs.length; ++example) {
-			DPInput input = inputs[example];
+		
+		inputs.loadInOrder();
+		
+		for (int example = 0; example < inputs.getNumberExamples(); ++example) {
+			DPInput input = (DPInput) inputs.get(example);
 			int len = input.getNumberOfTokens();
 			for (int head = 0; head < len; ++head) {
 				for (int dependent = 0; dependent < len; ++dependent) {

@@ -20,12 +20,12 @@ import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.Pe
 import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSDataset;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSDualInference;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSInference;
-import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSInputArray;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSModel;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSModel.DPGSModelLoadReturn;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.Dataset;
 import br.pucrio.inf.learn.structlearning.discriminative.data.DatasetException;
+import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInputArray;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.StringMapEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.driver.Driver.Command;
@@ -122,6 +122,14 @@ public class TrainDPGS implements Command {
 				.withDescription(
 						"The evaluation on the test corpus will "
 								+ "be performed after each training epoch.")
+				.create());
+		options.addOption(OptionBuilder
+				.withLongOpt("pernumepoch")
+				.withArgName("integer")
+				.hasArg()
+				.withDescription(
+						"The evaluation on the test corpus will "
+								+ "be performed after a certain number of training epoch.")
 				.create());
 		options.addOption(OptionBuilder
 				.withLongOpt("maxsteps")
@@ -250,6 +258,12 @@ public class TrainDPGS implements Command {
 		String testRSDatasetFilename = testPrefix + ".siblings.right";
 		String script = cmdLine.getOptionValue("script");
 		boolean evalPerEpoch = cmdLine.hasOption("perepoch");
+		int perNumEpoch = Integer.parseInt(cmdLine
+				.getOptionValue("pernumepoch", "0"));
+		
+		if(evalPerEpoch && perNumEpoch == 0){
+			perNumEpoch = 1;
+		}
 
 		AlgorithmType algType = null;
 		String algTypeStr = cmdLine.getOptionValue("alg", "perc");
@@ -359,6 +373,8 @@ public class TrainDPGS implements Command {
 
 				// Set modifier variables in all output structures.
 				trainDataset.setModifierVariables();
+				
+				LOG.debug("Número de exemplos do treino: " + trainDataset.getNumberOfExamples());
 
 				// Inference algorithm for training.
 				DPGSInference inference = new DPGSInference(
@@ -381,7 +397,7 @@ public class TrainDPGS implements Command {
 					// User provided seed to random number generator.
 					alg.setSeed(Long.parseLong(seedStr));
 
-				if (testConllFileName != null && evalPerEpoch) {
+				if (testConllFileName != null && perNumEpoch > 0) {
 					LOG.info("Loading test factors...");
 					/*
 					 * DPGSDataset testset = new DPGSDataset(trainDataset);
@@ -416,6 +432,7 @@ public class TrainDPGS implements Command {
 							script, testConllFileName, outputConllFilename,
 							testset, averaged, inferenceDual);
 					eval.setQuiet(true);
+					eval.setNumberEpochsToEvalute(perNumEpoch);
 					alg.setListener(eval);
 
 				}
@@ -573,6 +590,8 @@ public class TrainDPGS implements Command {
 		private boolean quiet;
 
 		private Inference inference;
+		
+		private int perNumEpoch;
 
 		public EvaluateModelListener(String script, String conllGolden,
 				String conllPredicted, DPGSDataset testset, boolean averaged,
@@ -591,6 +610,10 @@ public class TrainDPGS implements Command {
 			this.predicteds = new DPGSOutput[numExs];
 			for (int idx = 0; idx < numExs; ++idx)
 				predicteds[idx] = (DPGSOutput) outputs[idx].createNewObject();
+		}
+
+		public void setNumberEpochsToEvalute(int perNumEpoch) {
+			this.perNumEpoch = perNumEpoch;
 		}
 
 		public void setQuiet(boolean val) {
@@ -615,7 +638,11 @@ public class TrainDPGS implements Command {
 		@Override
 		public boolean afterEpoch(Inference inferenceImpl, Model model,
 				int epoch, double loss, int iteration) {
-
+			
+			if(perNumEpoch != 0 &&(epoch + 1) % perNumEpoch != 0 ){
+				return true;
+			}
+			
 			if (averaged) {
 				try {
 					// Clone the current model to average it, if necessary.
@@ -649,7 +676,7 @@ public class TrainDPGS implements Command {
 				inferenceImpl = inference;
 			// Fill the list of predicted outputs.
 			// DPGSInput[] inputs = testset.getInputs();
-			DPGSInputArray inputs = testset.getDPGSInputArray();
+			ExampleInputArray inputs = testset.getDPGSInputArray();
 
 			int numberExamples = inputs.getNumberExamples();
 			int[] inputToLoad = new int[numberExamples];
@@ -663,7 +690,7 @@ public class TrainDPGS implements Command {
 			for (int idx = 0; idx < numberExamples; ++idx) {
 				// Predict (tag the output sequence).
 				// LOG.info("Input: " + idx);
-				inferenceImpl.inference(model, inputs.getInput(idx),
+				inferenceImpl.inference(model, inputs.get(idx),
 						predicteds[idx]);
 				if ((idx + 1) % 100 == 0) {
 					System.out.print(".");

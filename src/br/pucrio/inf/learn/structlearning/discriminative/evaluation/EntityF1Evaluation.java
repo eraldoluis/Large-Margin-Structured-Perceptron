@@ -7,8 +7,8 @@ import java.util.Set;
 import java.util.TreeMap;
 
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
+import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInputArray;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
-import br.pucrio.inf.learn.structlearning.discriminative.driver.TrainHmm;
 
 /**
  * Abstract class that provides methods to evaluate precision, recall and F1
@@ -81,7 +81,7 @@ public abstract class EntityF1Evaluation {
 	 * @param predicteds
 	 * @return
 	 */
-	public Map<String, F1Measure> evaluateExamples(ExampleInput[] inputs,
+	public Map<String, F1Measure> evaluateExamples(ExampleInputArray inputs,
 			ExampleOutput[] corrects, ExampleOutput[] predicteds) {
 
 		// Temporary sets to store the correct and predicted entities within
@@ -97,9 +97,10 @@ public abstract class EntityF1Evaluation {
 		F1Measure overall = new F1Measure("overall");
 		res.put(overall.getCaption(), overall);
 
+		inputs.loadInOrder();
 		// Evaluate each sentence.
 		for (int idxSeq = 0; idxSeq < corrects.length; ++idxSeq) {
-			ExampleInput inputSeq = inputs[idxSeq];
+			ExampleInput inputSeq = inputs.get(idxSeq);
 			ExampleOutput correctSeq = corrects[idxSeq];
 			ExampleOutput predictedSeq = predicteds[idxSeq];
 			

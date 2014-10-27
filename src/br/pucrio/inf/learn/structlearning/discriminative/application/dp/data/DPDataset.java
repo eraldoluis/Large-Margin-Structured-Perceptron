@@ -5,6 +5,7 @@ import java.io.IOException;
 
 import br.pucrio.inf.learn.structlearning.discriminative.data.Dataset;
 import br.pucrio.inf.learn.structlearning.discriminative.data.DatasetException;
+import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInputArray;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
 
 /**
@@ -16,7 +17,7 @@ import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEn
 public interface DPDataset extends Dataset {
 
 	@Override
-	public DPInput[] getInputs();
+	public ExampleInputArray getInputs();
 
 	@Override
 	public DPOutput[] getOutputs();

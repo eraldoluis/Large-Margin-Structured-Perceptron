@@ -23,6 +23,8 @@ import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.Feature;
 import br.pucrio.inf.learn.structlearning.discriminative.data.Dataset;
 import br.pucrio.inf.learn.structlearning.discriminative.data.DatasetException;
+import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInputArray;
+import br.pucrio.inf.learn.structlearning.discriminative.data.SimpleExampleInputArray;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.MapEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.StringMapEncoding;
@@ -68,7 +70,7 @@ public class BisectionDataset implements Dataset {
 	/**
 	 * Array of input structures.
 	 */
-	private BisectionInput[] inputExamples;
+	private ExampleInputArray inputExamples;
 
 	/**
 	 * Array of golden output structures (correct prediction for the input
@@ -306,10 +308,13 @@ public class BisectionDataset implements Dataset {
 		// List of feature values used for every edge.
 		LinkedList<Double> ftrValues = new LinkedList<Double>();
 		// Iterate over all examples.
-		int numExs = inputExamples.length;
+		int numExs = inputExamples.getNumberExamples();
+		
+		inputExamples.loadInOrder();
+		
 		for (int idxEx = 0; idxEx < numExs; ++idxEx) {
 			// Current input structure.
-			BisectionInput input = inputExamples[idxEx];
+			BisectionInput input = (BisectionInput) inputExamples.get(idxEx);
 
 			// Allocate derived features matrix.
 			input.allocFeatureArray();
@@ -492,7 +497,13 @@ public class BisectionDataset implements Dataset {
 		System.out.println();
 
 		// Convert the list of examples (input and output) to arrays.
-		inputExamples = inputList.toArray(new BisectionInput[0]);
+		inputExamples = new SimpleExampleInputArray(inputList.size());
+		
+		for (BisectionInput bisectionInput : inputList) {
+			inputExamples.put(bisectionInput);
+		}
+		
+		
 		outputExamples = outputList.toArray(new BisectionOutput[0]);
 
 		LOG.info("Read " + numExs + " examples.");
@@ -713,11 +724,11 @@ public class BisectionDataset implements Dataset {
 
 	@Override
 	public int getNumberOfExamples() {
-		return inputExamples.length;
+		return inputExamples.getNumberExamples();
 	}
 
 	@Override
-	public BisectionInput[] getInputs() {
+	public ExampleInputArray getInputs() {
 		return inputExamples;
 	}
 
@@ -728,7 +739,7 @@ public class BisectionDataset implements Dataset {
 
 	@Override
 	public BisectionInput getInput(int index) {
-		return inputExamples[index];
+		throw new NotImplementedException();
 	}
 
 	@Override
@@ -777,8 +788,9 @@ public class BisectionDataset implements Dataset {
 
 	public void save(PrintStream ps, BisectionOutput[] predicteds) {
 		int numExs = getNumberOfExamples();
+		inputExamples.loadInOrder();
 		for (int idxEx = 0; idxEx < numExs; ++idxEx) {
-			BisectionInput in = inputExamples[idxEx];
+			BisectionInput in = (BisectionInput) inputExamples.get(idxEx);
 			BisectionOutput out = predicteds[idxEx];
 			ps.print(in.getAuthorId() + ",");
 			int size = out.size();

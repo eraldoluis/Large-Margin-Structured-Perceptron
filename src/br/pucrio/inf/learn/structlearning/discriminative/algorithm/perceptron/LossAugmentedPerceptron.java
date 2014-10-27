@@ -1,6 +1,7 @@
 package br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron;
 
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
+import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInputArray;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Inference;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Model;
@@ -70,7 +71,7 @@ public class LossAugmentedPerceptron extends Perceptron {
 	}
 
 	@Override
-	public double trainOneEpoch(ExampleInput[] inputs, ExampleOutput[] outputs,
+	public double trainOneEpoch(ExampleInputArray inputs, ExampleOutput[] outputs,
 			ExampleOutput[] predicteds) {
 		double loss = super.trainOneEpoch(inputs, outputs, predicteds);
 		if (lossNonAnnotatedWeight >= 0d && lossNonAnnotatedWeightInc != 0d)
@@ -81,9 +82,9 @@ public class LossAugmentedPerceptron extends Perceptron {
 	}
 
 	@Override
-	public double trainOneEpoch(ExampleInput[] inputsA,
+	public double trainOneEpoch(ExampleInputArray inputsA,
 			ExampleOutput[] outputsA, ExampleOutput[] predictedsA,
-			double weightA, ExampleInput[] inputsB, ExampleOutput[] outputsB,
+			double weightA, ExampleInputArray inputsB, ExampleOutput[] outputsB,
 			ExampleOutput[] predictedsB) {
 		double loss = super.trainOneEpoch(inputsA, outputsA, predictedsA,
 				weightA, inputsB, outputsB, predictedsB);

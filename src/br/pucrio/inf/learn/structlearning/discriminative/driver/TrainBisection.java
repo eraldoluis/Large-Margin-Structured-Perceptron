@@ -15,10 +15,11 @@ import br.pucrio.inf.learn.structlearning.discriminative.algorithm.OnlineStructu
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.LossAugmentedPerceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.application.bisection.BisectionDataset;
 import br.pucrio.inf.learn.structlearning.discriminative.application.bisection.BisectionInference;
-import br.pucrio.inf.learn.structlearning.discriminative.application.bisection.BisectionInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.bisection.BisectionModel;
 import br.pucrio.inf.learn.structlearning.discriminative.application.bisection.BisectionOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.DatasetException;
+import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
+import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInputArray;
 import br.pucrio.inf.learn.structlearning.discriminative.driver.Driver.Command;
 import br.pucrio.inf.learn.util.CommandLineOptionsUtil;
 
@@ -250,12 +251,15 @@ public class TrainBisection implements Command {
 
 			LOG.info("Predicting test examples...");
 			int numExs = testDataset.getNumberOfExamples();
-			BisectionInput[] inputs = testDataset.getInputs();
+			ExampleInputArray inputs = testDataset.getInputs();
 			BisectionOutput[] predicteds = new BisectionOutput[numExs];
 			double map = 0;
+			
+			inputs.loadInOrder();
 			for (int idxEx = 0; idxEx < numExs; ++idxEx) {
-				predicteds[idxEx] = inputs[idxEx].createOutput();
-				inference.inference(model, inputs[idxEx], predicteds[idxEx]);
+				ExampleInput bisectionInput = inputs.get(idxEx);
+				predicteds[idxEx] = (BisectionOutput) bisectionInput.createOutput();
+				inference.inference(model, bisectionInput, predicteds[idxEx]);
 			}
 
 			// Mean average precision.

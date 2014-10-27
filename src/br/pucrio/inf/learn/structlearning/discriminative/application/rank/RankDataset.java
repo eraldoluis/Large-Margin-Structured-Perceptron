@@ -22,6 +22,8 @@ import br.pucrio.inf.learn.structlearning.discriminative.application.dp.Feature;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.FeatureTemplate;
 import br.pucrio.inf.learn.structlearning.discriminative.data.Dataset;
 import br.pucrio.inf.learn.structlearning.discriminative.data.DatasetException;
+import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInputArray;
+import br.pucrio.inf.learn.structlearning.discriminative.data.SimpleExampleInputArray;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.MapEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.StringMapEncoding;
@@ -63,7 +65,7 @@ public class RankDataset implements Dataset {
 	/**
 	 * Array of input structures.
 	 */
-	protected RankInput[] inputExamples;
+	protected ExampleInputArray inputExamples;
 
 	/**
 	 * Array of golden output structures (correct prediction for the input
@@ -246,10 +248,13 @@ public class RankDataset implements Dataset {
 	public void generateFeatures() {
 		LinkedList<Integer> ftrs = new LinkedList<Integer>();
 		FeatureTemplate[] tpls = templates;
-		int numExs = inputExamples.length;
+		int numExs = inputExamples.getNumberExamples();
+		
+		inputExamples.loadInOrder();
+		
 		for (int idxEx = 0; idxEx < numExs; ++idxEx) {
 			// Current input structure.
-			RankInput input = inputExamples[idxEx];
+			RankInput input = (RankInput) inputExamples.get(idxEx);
 
 			// Allocate explicit features matrix.
 			input.allocFeatureArray();
@@ -341,7 +346,12 @@ public class RankDataset implements Dataset {
 		System.out.println();
 
 		// Convert the list of examples (input and output) to arrays.
-		inputExamples = inputList.toArray(new RankInput[0]);
+		inputExamples = new SimpleExampleInputArray(inputList.size());
+		
+		for (RankInput rankInput : inputList) {
+			inputExamples.put(rankInput);
+		}
+		
 		outputExamples = outputList.toArray(new RankOutput[0]);
 
 		LOG.info("Read " + numExs + " examples.");
@@ -481,11 +491,11 @@ public class RankDataset implements Dataset {
 
 	@Override
 	public int getNumberOfExamples() {
-		return inputExamples.length;
+		return inputExamples.getNumberExamples();
 	}
 
 	@Override
-	public RankInput[] getInputs() {
+	public ExampleInputArray getInputs() {
 		return inputExamples;
 	}
 
@@ -496,7 +506,8 @@ public class RankDataset implements Dataset {
 
 	@Override
 	public RankInput getInput(int index) {
-		return inputExamples[index];
+		throw new NotImplementedException();
+//		return inputExamples[index];
 	}
 
 	@Override
@@ -538,8 +549,11 @@ public class RankDataset implements Dataset {
 
 	public void save(PrintStream ps, RankOutput[] predicteds) {
 		int numExs = getNumberOfExamples();
+		
+		inputExamples.loadInOrder();
+		
 		for (int idxEx = 0; idxEx < numExs; ++idxEx) {
-			RankInput in = inputExamples[idxEx];
+			RankInput in = (RankInput) inputExamples.get(idxEx);
 			RankOutput out = predicteds[idxEx];
 			ps.print(in.getQueryId() + ",");
 			int numItems = out.size();

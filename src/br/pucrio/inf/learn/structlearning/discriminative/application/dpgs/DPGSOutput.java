@@ -33,6 +33,12 @@ public class DPGSOutput implements ExampleOutput {
 	 * siblings structure.
 	 */
 	private boolean[][] modifiers;
+	
+	/**
+	 * For each head token, stores which tokens are its modifiers. This is the
+	 * siblings structure.
+	 */
+	private int[][] previousModifiers;
 
 	/**
 	 * Allocate an output structure for sentence with the given number of
@@ -44,6 +50,7 @@ public class DPGSOutput implements ExampleOutput {
 		heads = new int[numberOfTokens];
 		grandparents = new int[numberOfTokens];
 		modifiers = new boolean[numberOfTokens][numberOfTokens];
+		previousModifiers = new int[numberOfTokens][numberOfTokens];
 	}
 
 	@Override
@@ -150,43 +157,20 @@ public class DPGSOutput implements ExampleOutput {
 	public boolean[][] getModifiers() {
 		return modifiers;
 	}
+	
+	/**
+	 * Set the modifier flag for the given dependency (idxHead, idxModifier).
+	 * 
+	 * @param idxHead
+	 * @param idxModifier
+	 * @param val
+	 */
+	public void setPreviousModifier(int idxHead, int idxModifier, int idxPreviousModifier) {
+		previousModifiers[idxHead][idxModifier - 1] = idxPreviousModifier;
+	}
 
 	public boolean isPreviousModifier(int idxHead,int idxModifier, int idxPreviousModifier) {
-		int idxToStop = 0;
-		int idxFoundPreviosModifier = 0;
-		int nrTokens = heads.length;
-		
-		
-		if ((idxModifier != nrTokens && idxModifier != idxHead && 
-				idxHead != getHead(idxModifier))||(idxPreviousModifier != nrTokens
-						&& idxPreviousModifier != idxHead && idxHead != getHead(idxPreviousModifier))) {
-			return false;
-		}
-		
-		if(nrTokens == idxPreviousModifier){
-			idxFoundPreviosModifier = nrTokens;
-			idxToStop = idxHead;
-		}else if(idxPreviousModifier == idxHead){
-			idxFoundPreviosModifier = idxHead;
-			idxToStop = 0;
-		}else{
-			if(idxHead > idxModifier){
-				idxFoundPreviosModifier = idxHead;				
-			}else{
-				idxFoundPreviosModifier = nrTokens;
-			}
-			
-			idxToStop = idxPreviousModifier;
-		}	
-		
-		for (int idxPossiblePreviousMod = idxModifier - 1; idxPossiblePreviousMod >= idxToStop; idxPossiblePreviousMod--) {
-			if(isModifier(idxHead, idxPossiblePreviousMod)){
-				idxFoundPreviosModifier = idxPossiblePreviousMod;
-				break;
-			}
-		}
-		
-		return idxFoundPreviosModifier == idxPreviousModifier;
+		return previousModifiers[idxHead][idxModifier - 1] == idxPreviousModifier;
 	}
 
 	/**

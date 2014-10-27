@@ -1,5 +1,6 @@
 package br.pucrio.inf.learn.structlearning.discriminative.driver;
 
+import java.io.IOException;
 import java.util.Random;
 
 import org.apache.commons.cli.CommandLine;
@@ -16,8 +17,10 @@ import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.Lo
 import br.pucrio.inf.learn.structlearning.discriminative.application.pq.PQInference2PBM;
 import br.pucrio.inf.learn.structlearning.discriminative.application.pq.PQModel2;
 import br.pucrio.inf.learn.structlearning.discriminative.application.pq.data.PQDataset2;
-import br.pucrio.inf.learn.structlearning.discriminative.application.pq.data.PQInput2;
 import br.pucrio.inf.learn.structlearning.discriminative.application.pq.data.PQOutput2;
+import br.pucrio.inf.learn.structlearning.discriminative.data.DatasetException;
+import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInputArray;
+import br.pucrio.inf.learn.structlearning.discriminative.data.SimpleExampleInputArray;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.StringMapEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.driver.Driver.Command;
@@ -124,7 +127,7 @@ public class TrainPQ2 implements Command {
 
 		// Establish the number of folds and generate the fold mask.
 		int numFolds = 5;
-		int numExamples = inputCorpusA.getInputs().length;
+		int numExamples = inputCorpusA.getInputs().getNumberExamples();
 		Random generator = new Random();
 		int[] mask = new int[numExamples];
 		for (int i = 0; i < numExamples; ++i) {
@@ -147,25 +150,37 @@ public class TrainPQ2 implements Command {
 				if (mask[j] != fold)
 					++numTrainExamples;
 
-			PQInput2[] trainCorpusInput = new PQInput2[numTrainExamples];
+			ExampleInputArray trainCorpusInput = new SimpleExampleInputArray(
+					numTrainExamples);
 			PQOutput2[] trainCorpusOutput = new PQOutput2[numTrainExamples];
-			PQInput2[] devCorpusInput = new PQInput2[numExamples
-					- numTrainExamples];
+			ExampleInputArray devCorpusInput = new SimpleExampleInputArray(
+					numExamples - numTrainExamples);
 			PQOutput2[] devCorpusOutput = new PQOutput2[numExamples
 					- numTrainExamples];
 
 			int trainIdx = 0;
 			int devIdx = 0;
-			for (int j = 0; j < numExamples; ++j) {
-				if (mask[j] == fold) {
-					devCorpusInput[devIdx] = inputCorpusA.getInput(j);
-					devCorpusOutput[devIdx] = inputCorpusA.getOutput(j);
-					++devIdx;
-				} else {
-					trainCorpusInput[trainIdx] = inputCorpusA.getInput(j);
-					trainCorpusOutput[trainIdx] = inputCorpusA.getOutput(j);
-					++trainIdx;
+			ExampleInputArray inputs = inputCorpusA.getInputs();
+
+			inputs.loadInOrder();
+			try {
+				for (int j = 0; j < numExamples; ++j) {
+					if (mask[j] == fold) {
+						devCorpusInput.put(inputs.get(j));
+						devCorpusOutput[devIdx] = inputCorpusA.getOutput(j);
+						++devIdx;
+					} else {
+						trainCorpusInput.put(inputs.get(j));
+						trainCorpusOutput[trainIdx] = inputCorpusA.getOutput(j);
+						++trainIdx;
+					}
 				}
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (DatasetException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
 			}
 
 			// Create a new model at each iteration.
@@ -186,17 +201,23 @@ public class TrainPQ2 implements Command {
 			// inputCorpusA.getFeatureEncoding().setReadOnly(true);
 
 			// Allocate output sequences for predictions.
-			PQInput2[] inputs = devCorpusInput;
+			inputs = devCorpusInput;
 			PQOutput2[] outputs = devCorpusOutput;
-			PQOutput2[] predicteds = new PQOutput2[inputs.length];
-			for (int idx = 0; idx < inputs.length; ++idx)
-				predicteds[idx] = (PQOutput2) inputs[idx].createOutput();
+			PQOutput2[] predicteds = new PQOutput2[inputs.getNumberExamples()];
+
+			inputs.loadInOrder();
+
+			for (int idx = 0; idx < inputs.getNumberExamples(); ++idx)
+				predicteds[idx] = (PQOutput2) inputs.get(idx).createOutput();
 
 			F1Measure eval = new F1Measure("Quotation-Person");
+
+			inputs.loadInOrder();
+
 			// Fill the list of predicted outputs.
-			for (int idx = 0; idx < inputs.length; ++idx) {
+			for (int idx = 0; idx < inputs.getNumberExamples(); ++idx) {
 				// Predict (tag the output example).
-				inference.inference(model, inputs[idx], predicteds[idx]);
+				inference.inference(model, inputs.get(idx), predicteds[idx]);
 				// Increment data for evaluation.
 				int outputsSize = outputs[idx].size();
 
@@ -301,7 +322,7 @@ public class TrainPQ2 implements Command {
 	 */
 	private static class EvaluateModelListener implements TrainingListener {
 
-		private PQInput2[] inputs;
+		private ExampleInputArray inputs;
 
 		private PQOutput2[] outputs;
 
@@ -309,16 +330,20 @@ public class TrainPQ2 implements Command {
 
 		private boolean averageWeights;
 
-		public EvaluateModelListener(PQInput2[] inputs, PQOutput2[] outputs,
-				boolean averageWeights) {
+		public EvaluateModelListener(ExampleInputArray inputs,
+				PQOutput2[] outputs, boolean averageWeights) {
 			this.inputs = inputs;
 			this.outputs = outputs;
 			this.averageWeights = averageWeights;
 			if (inputs != null) {
-				this.predicteds = new PQOutput2[inputs.length];
+				this.predicteds = new PQOutput2[inputs.getNumberExamples()];
 				// Allocate output sequences for predictions.
-				for (int idx = 0; idx < inputs.length; ++idx)
-					predicteds[idx] = (PQOutput2) inputs[idx].createOutput();
+
+				inputs.loadInOrder();
+
+				for (int idx = 0; idx < inputs.getNumberExamples(); ++idx)
+					predicteds[idx] = (PQOutput2) inputs.get(idx)
+							.createOutput();
 			}
 		}
 
@@ -365,12 +390,13 @@ public class TrainPQ2 implements Command {
 
 			F1Measure eval = new F1Measure("Quotation-Person");
 
+			inputs.loadInOrder();
 			// Fill the list of predicted outputs.
-			for (int idx = 0; idx < inputs.length; ++idx) {
+			for (int idx = 0; idx < inputs.getNumberExamples(); ++idx) {
 				// Predict (tag the output example).
 				// inferenceImpl.lossAugmentedInference(model, inputs[idx],
 				// outputs[idx], predicteds[idx], loss);
-				inferenceImpl.inference(model, inputs[idx], predicteds[idx]);
+				inferenceImpl.inference(model, inputs.get(idx), predicteds[idx]);
 				// Increment data for evaluation.
 				int outputsSize = outputs[idx].size();
 				for (int j = 0; j < outputsSize; ++j) {

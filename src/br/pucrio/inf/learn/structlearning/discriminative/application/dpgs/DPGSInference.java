@@ -1,14 +1,10 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.dpgs;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
-import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-
-import javax.management.RuntimeErrorException;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -115,7 +111,7 @@ public class DPGSInference implements Inference {
 		@Override
 		public Integer call() throws Exception {
 			int numTkns = input.size();
-			boolean loss = (correct != null && lossWeight != 0d);
+			boolean loss = (correct != null /*&& lossWeight != 0d*/);
 			int numT = loopUntilNumberTokens ? numTkns : numTkns - 1;
 			try {
 			
@@ -175,8 +171,8 @@ public class DPGSInference implements Inference {
 
 		protected double getLossWeight(int idxHead, int idxModifier,
 				int idxPreviousModifier, boolean loss) {
-
-			if (loss && correct.isPreviousModifier(idxHead, idxModifier,
+			
+			if (!loss || correct.isPreviousModifier(idxHead, idxModifier,
 							idxPreviousModifier)){
 				return 0.0D;
 			}
@@ -245,11 +241,12 @@ public class DPGSInference implements Inference {
 
 		protected double getLossWeight(int idxHead, int idxModifier,
 				int idxGrandparent, boolean loss) {
-			if (loss && correct.getHead(idxHead) == idxGrandparent
-					&& correct.getHead(idxModifier) == idxHead){
+			
+			if (!loss || (correct.getHead(idxHead) == idxGrandparent
+					&& correct.getHead(idxModifier) == idxHead)){
 				return 0.0D;
 			}
-
+			
 			return lossWeight;
 		}
 
@@ -266,11 +263,6 @@ public class DPGSInference implements Inference {
 						idxGrandparent);
 //				System.out.println(idxHead + " " + idxModifier + " " + idxGrandparent);
 				
-				if(idxGrandparent == 0 && idxHead == 4 && idxModifier == 2){
-					int a = 0;
-					a++;
-				}
-
 				if (ftrs != null) {
 					// Sum feature weights to achieve the factor
 					// weight.
@@ -298,7 +290,7 @@ public class DPGSInference implements Inference {
 
 		protected double getLossWeight(int idxHead, int idxModifier,
 				boolean loss) {
-			if (loss && correct.getHead(idxModifier) == idxHead)
+			if (!loss || correct.getHead(idxModifier) == idxHead)
 				return 0.0D;
 			return lossWeight;
 		}
@@ -400,6 +392,9 @@ public class DPGSInference implements Inference {
 			double lossWeight) {
 		// Generate loss-augmented inference problem for the given input.
 		fillEdgeFactorWeights(model, input, referenceOutput, lossWeight);
+		
+		lossWeight = 0.0d;
+		
 		fillGrandparentFactorWeights(model, input, referenceOutput, lossWeight);
 		fillSiblingsFactorWeights(model, input, referenceOutput, lossWeight);
 

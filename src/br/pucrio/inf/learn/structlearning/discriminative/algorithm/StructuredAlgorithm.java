@@ -1,6 +1,7 @@
 package br.pucrio.inf.learn.structlearning.discriminative.algorithm;
 
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
+import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInputArray;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Model;
 
@@ -19,7 +20,7 @@ public interface StructuredAlgorithm {
 	 * @param inputs
 	 * @param outputs
 	 */
-	public void train(ExampleInput[] inputs, ExampleOutput[] outputs);
+	public void train(ExampleInputArray inputs, ExampleOutput[] outputs);
 
 	/**
 	 * Train a model on two datasets. The first dataset (A) has a different
@@ -38,8 +39,8 @@ public interface StructuredAlgorithm {
 	 * @param inputsB
 	 * @param outputsB
 	 */
-	public void train(ExampleInput[] inputsA, ExampleOutput[] outputsA,
-			double weightA, double weightStep, ExampleInput[] inputsB,
+	public void train(ExampleInputArray inputsA, ExampleOutput[] outputsA,
+			double weightA, double weightStep, ExampleInputArray inputsB,
 			ExampleOutput[] outputsB);
 
 	/**

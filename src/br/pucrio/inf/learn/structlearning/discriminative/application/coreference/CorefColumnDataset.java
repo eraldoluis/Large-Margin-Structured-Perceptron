@@ -274,10 +274,12 @@ public class CorefColumnDataset extends DPColumnDataset {
 		for (int idxFtr = 0; idxFtr < featureLabels.length; ++idxFtr)
 			writer.write(", " + featureLabels[idxFtr]);
 		writer.write(", correct, predicted]\n\n");
+		
+		inputs.loadInOrder();
 
 		// Examples.
-		for (int idxEx = 0; idxEx < inputs.length; ++idxEx) {
-			DPInput input = inputs[idxEx];
+		for (int idxEx = 0; idxEx < inputs.getNumberExamples(); ++idxEx) {
+			DPInput input = (DPInput) inputs.get(idxEx);
 			CorefOutput correctOutput = (CorefOutput) outputs[idxEx];
 			CorefOutput predictedOutput = (CorefOutput) predictedOuputs[idxEx];
 
@@ -386,9 +388,11 @@ public class CorefColumnDataset extends DPColumnDataset {
 			writer.write(", " + featureLabels[idxFtr]);
 		writer.write(", correct, predicted]\n\n");
 
+		inputs.loadInOrder();
+		
 		// Examples.
-		for (int idxEx = 0; idxEx < inputs.length; ++idxEx) {
-			DPInput input = inputs[idxEx];
+		for (int idxEx = 0; idxEx < inputs.getNumberExamples(); ++idxEx) {
+			DPInput input = (DPInput) inputs.get(idxEx);
 			CorefOutput correctOutput = (CorefOutput) outputs[idxEx];
 			CorefOutput predictedOutput = (CorefOutput) predictedOuputs[idxEx];
 

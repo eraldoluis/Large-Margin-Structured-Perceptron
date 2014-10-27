@@ -6,7 +6,6 @@ import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
@@ -29,8 +28,10 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
+import br.pucrio.inf.learn.structlearning.discriminative.data.CacheExampleInputArray;
 import br.pucrio.inf.learn.structlearning.discriminative.data.Dataset;
 import br.pucrio.inf.learn.structlearning.discriminative.data.DatasetException;
+import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInputArray;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.StringMapEncoding;
 
@@ -102,9 +103,7 @@ public class DPGSDataset implements Dataset {
 	/**
 	 * Input sentences.
 	 */
-	protected DPGSInput[] inputs;
-
-	protected DPGSInputArray inputArray;
+	protected ExampleInputArray inputs;
 
 	/**
 	 * Output structures.
@@ -214,8 +213,8 @@ public class DPGSDataset implements Dataset {
 		return featureLabelsGrandparent.length;
 	}
 
-	public DPGSInputArray getDPGSInputArray() {
-		return inputArray;
+	public ExampleInputArray getDPGSInputArray() {
+		return inputs;
 	}
 
 	/**
@@ -223,7 +222,7 @@ public class DPGSDataset implements Dataset {
 	 * 
 	 * @return
 	 */
-	public DPGSInput[] getInputs() {
+	public ExampleInputArray getInputs() {
 		return inputs;
 	}
 
@@ -244,7 +243,8 @@ public class DPGSDataset implements Dataset {
 	 * @return
 	 */
 	public DPGSInput getInput(int index) {
-		return inputs[index];
+		throw new NotImplementedException();
+//		return inputs[index];
 	}
 
 	/**
@@ -263,11 +263,7 @@ public class DPGSDataset implements Dataset {
 	 * @return
 	 */
 	public int getNumberOfExamples() {
-		if (inputs == null) {
-			return inputArray.getNumberExamples();
-		}
-
-		return inputs.length;
+		return inputs.getNumberExamples();
 	}
 
 	/**
@@ -407,8 +403,8 @@ public class DPGSDataset implements Dataset {
 		DPGSOutput output;
 		int numberExample = 0;
 
-		if (inputArray == null) {
-			inputArray = new DPGSInputArray(cacheSize, fileNameSaveInputs);
+		if (inputs == null) {
+			inputs = new CacheExampleInputArray(cacheSize, fileNameSaveInputs);
 		}
 
 		System.out.println("Load examples");
@@ -435,7 +431,7 @@ public class DPGSDataset implements Dataset {
 			model.generateFeaturesOneInput(input);
 			input.cleanBasicFeatures();
 
-			inputArray.putInput(input);
+			inputs.put(input);
 
 			// Clean input of memory
 			listInput.set(numberExample, null);
@@ -458,36 +454,6 @@ public class DPGSDataset implements Dataset {
 		readerRightSiblings.close();
 	}
 
-	/**
-	 * Load edge dataset from the given file.
-	 * 
-	 * @param fileName
-	 * @throws IOException
-	 * @throws DatasetException
-	 * @throws DPGSException
-	 */
-	public void loadEdgeFactors(String fileName) throws IOException,
-			DatasetException, DPGSException {
-		BufferedReader reader = new BufferedReader(new FileReader(fileName));
-		loadEdgeFactors(reader);
-		reader.close();
-	}
-
-	/**
-	 * Load edge dataset (factors) from the given buffered reader.
-	 * 
-	 * @param reader
-	 * @throws IOException
-	 * @throws DatasetException
-	 * @throws DPGSException
-	 */
-	public void loadEdgeFactors(BufferedReader reader) throws IOException,
-			DatasetException, DPGSException {
-		Set<Integer> multiValuedFeaturesIndexes = loadFeatureLabelsEdge(reader);
-
-		// Load example factors from the given reader.
-		loadExampleFactors(reader, multiValuedFeaturesIndexes);
-	}
 
 	private Set<Integer> loadFeatureLabelsEdge(BufferedReader reader)
 			throws IOException, DPGSException {
@@ -514,36 +480,6 @@ public class DPGSDataset implements Dataset {
 		return multiValuedFeaturesIndexes;
 	}
 
-	/**
-	 * Load dataset from the given file.
-	 * 
-	 * @param fileName
-	 * @throws IOException
-	 * @throws DatasetException
-	 * @throws DPGSException
-	 */
-	public void loadGrandparentFactors(String fileName) throws IOException,
-			DatasetException, DPGSException {
-		BufferedReader reader = new BufferedReader(new FileReader(fileName));
-		loadGrandparentFactors(reader);
-		reader.close();
-	}
-
-	/**
-	 * Load dataset from the given buffered reader.
-	 * 
-	 * @param reader
-	 * @throws IOException
-	 * @throws DatasetException
-	 * @throws DPGSException
-	 */
-	public void loadGrandparentFactors(BufferedReader reader)
-			throws IOException, DatasetException, DPGSException {
-		Set<Integer> multiValuedFeaturesIndexes = loadFeatureLabelsGrandparent(reader);
-
-		// Load example factors from the given reader.
-		loadExampleFactors(reader, multiValuedFeaturesIndexes);
-	}
 
 	private Set<Integer> loadFeatureLabelsGrandparent(BufferedReader reader)
 			throws IOException, DPGSException {
@@ -572,36 +508,7 @@ public class DPGSDataset implements Dataset {
 		return multiValuedFeaturesIndexes;
 	}
 
-	/**
-	 * Load siblings dataset from the given file.
-	 * 
-	 * @param fileName
-	 * @throws IOException
-	 * @throws DatasetException
-	 * @throws DPGSException
-	 */
-	public void loadSiblingsFactors(String fileName) throws IOException,
-			DatasetException, DPGSException {
-		BufferedReader reader = new BufferedReader(new FileReader(fileName));
-		loadSiblingsFactors(reader);
-		reader.close();
-	}
 
-	/**
-	 * Load siblings dataset from the given buffered reader.
-	 * 
-	 * @param reader
-	 * @throws IOException
-	 * @throws DatasetException
-	 * @throws DPGSException
-	 */
-	public void loadSiblingsFactors(BufferedReader reader) throws IOException,
-			DatasetException, DPGSException {
-		Set<Integer> multiValuedFeaturesIndexes = loadFeatureLabelsSiblings(reader);
-
-		// Load example factors from the given reader.
-		loadExampleFactors(reader, multiValuedFeaturesIndexes);
-	}
 
 	private Set<Integer> loadFeatureLabelsSiblings(BufferedReader reader)
 			throws IOException, DPGSException {
@@ -647,65 +554,7 @@ public class DPGSDataset implements Dataset {
 		return featureLabels;
 	}
 
-	/**
-	 * Load example factors from the given reader.
-	 * 
-	 * @param reader
-	 * @param multiValuedFeaturesIndexes
-	 * @throws IOException
-	 * @throws DatasetException
-	 * @throws DPGSException
-	 */
-	protected void loadExampleFactors(BufferedReader reader,
-			Set<Integer> multiValuedFeaturesIndexes) throws IOException,
-			DatasetException, DPGSException {
-		List<DPGSInput> inputList = null;
-		List<DPGSOutput> outputList = null;
-		if (inputs == null) {
-			inputList = new LinkedList<DPGSInput>();
-			outputList = new LinkedList<DPGSOutput>();
-		}
 
-		int numExs = 0;
-		DPGSInput input = null;
-		DPGSOutput output = null;
-		if (inputs != null) {
-			input = inputs[0];
-			output = outputs[0];
-		}
-
-		// Parse examples and create new inputs/outputs or fill existing ones.
-		while (parseExample(reader, multiValuedFeaturesIndexes, inputList,
-				outputList, input, output)) {
-			if ((numExs + 1) % 100 == 0) {
-				System.out.print(".");
-				System.out.flush();
-			}
-
-			++numExs;
-
-			if (inputs != null && numExs < inputs.length) {
-				input = inputs[numExs];
-				output = outputs[numExs];
-			} else {
-				input = null;
-				output = null;
-			}
-
-			/*
-			 * if(numExs > 39){ break; }
-			 */
-		}
-		System.out.println();
-
-		// Convert list of structures to arrays.
-		if (inputs == null) {
-			inputs = inputList.toArray(new DPGSInput[0]);
-			outputs = outputList.toArray(new DPGSOutput[0]);
-		}
-
-		LOG.info("Read " + inputs.length + " examples.");
-	}
 
 	/**
 	 * Save dataset to the given file.
@@ -786,10 +635,11 @@ public class DPGSDataset implements Dataset {
 		// Index of the current example.
 		int idxEx = 0;
 		while (true) {
+			String lastLine = null;
 			DPGSOutput output = predictedOuputs[idxEx];
 			int numTokens = output.size();
 			for (int idxMod = 1; idxMod < numTokens; ++idxMod) {
-				String line = reader.readLine();
+				String line = lastLine =reader.readLine();
 				if (line == null)
 					throw new DatasetException("Missing lines in input file");
 				if (line.trim().length() == 0)
@@ -818,9 +668,12 @@ public class DPGSDataset implements Dataset {
 				else
 					break;
 			} else {
-				if (line.trim().length() > 0)
+				if (line.trim().length() > 0){
+					System.out.println(lastLine);
+					System.out.println(line);
 					throw new DatasetException("More lines than expected in "
 							+ "input file");
+				}
 				else if (idxEx == numExs) {
 					/*
 					 * Make sure output file has the same length of input. This
@@ -830,10 +683,16 @@ public class DPGSDataset implements Dataset {
 
 					// Make sure all remaining lines are blank.
 					while ((line = reader.readLine()) != null) {
-						if (line.trim().length() > 0)
+						if (line.trim().length() > 0){
+							System.out.println(numExs);
+							System.out.println(idxEx);
+							System.out.println(lastLine);
+							System.out.println(lastLine);
+							System.out.println(line);
 							throw new DatasetException(
 									"More lines than expected in "
 											+ "input file");
+						}
 						/*
 						 * Make sure output file has the same length of input.
 						 * This is a requirement of the official CoNLL
@@ -1131,6 +990,7 @@ public class DPGSDataset implements Dataset {
 					setAndCheckEdgeVariable(output, input.getId(), params,
 							idxHead, idxPrevMod);
 				}
+				output.setPreviousModifier(idxHead, idxMod, idxPrevMod);
 			}
 		}
 
@@ -1253,13 +1113,6 @@ public class DPGSDataset implements Dataset {
 				separatorFeatureValues, basicEncoding);
 	}
 
-	public void cleanBasicFeaturesOfInputs() {
-		for (int i = 0; i < inputs.length; i++) {
-			inputs[i].cleanBasicFeatures();
-		}
-
-		System.gc();
-	}
 
 	@Override
 	public void load(String fileName) throws IOException, DatasetException {

@@ -2,9 +2,7 @@ package br.pucrio.inf.learn.structlearning.discriminative.application.bisection;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Comparator;
-import java.util.Set;
 
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 import br.pucrio.inf.learn.structlearning.discriminative.application.bisection.BisectionOutput.WeightedPaper;
@@ -12,7 +10,6 @@ import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Inference;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Model;
-import br.pucrio.inf.learn.util.maxbranching.DisjointSets;
 import br.pucrio.inf.learn.util.maxbranching.KruskalAlgorithm;
 import br.pucrio.inf.learn.util.maxbranching.SimpleWeightedEdge;
 

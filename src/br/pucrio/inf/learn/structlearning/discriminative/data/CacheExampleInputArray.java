@@ -1,4 +1,4 @@
-package br.pucrio.inf.learn.structlearning.discriminative.application.dpgs;
+package br.pucrio.inf.learn.structlearning.discriminative.data;
 
 import java.io.BufferedInputStream;
 import java.io.ByteArrayOutputStream;
@@ -12,6 +12,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -22,7 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ConcurrentSkipListSet;
 
-public class DPGSInputArray {
+public class CacheExampleInputArray implements ExampleInputArray {	
 	private static final int initialCapacity = 100;
 	// private static final long MAX_SIZE = 0X000800000L;// 0X100000000L;// 8GB
 
@@ -32,7 +33,7 @@ public class DPGSInputArray {
 	private File file;
 	private final long CACHE_SIZE;
 
-	private Map<Integer, DPGSInput> cacheDPGSInput = new ConcurrentHashMap<Integer, DPGSInput>();
+	private Map<Integer, ExampleInput> cacheDPGSInput = new ConcurrentHashMap<Integer, ExampleInput>();
 	private long numberMemoryLoad;
 	private ConcurrentLinkedDeque<Integer> indexToLoad;
 	private ConcurrentSkipListSet<Integer> indexLoaded;
@@ -74,14 +75,14 @@ public class DPGSInputArray {
 									while (numberMemoryLoad
 											+ positionAndSize[1] > CACHE_SIZE) {
 
-										Set<Entry<Integer, DPGSInput>> set = cacheDPGSInput
+										Set<Entry<Integer, ExampleInput>> set = cacheDPGSInput
 												.entrySet();
 
 										Integer key;
 
 										for (Iterator iterator = set.iterator(); iterator
 												.hasNext();) {
-											Entry<Integer, DPGSInput> entry = (Entry<Integer, DPGSInput>) iterator
+											Entry<Integer, ExampleInput> entry = (Entry<Integer, ExampleInput>) iterator
 													.next();
 
 											key = entry.getKey();
@@ -123,7 +124,7 @@ public class DPGSInputArray {
 
 								numberMemoryLoad += positionAndSize[1];
 								cacheDPGSInput.put(i,
-										(DPGSInput) ois.readObject());
+										(ExampleInput) ois.readObject());
 							} catch (IOException e) {
 								// TODO Auto-generated catch block
 								e.printStackTrace();
@@ -167,7 +168,7 @@ public class DPGSInputArray {
 		}
 	}
 
-	public DPGSInputArray(long cacheSize, String fileName) throws IOException {
+	public CacheExampleInputArray(long cacheSize, String fileName) throws IOException {
 		positionInFileOfExamples = new ArrayList<long[]>(initialCapacity);
 		numberExamples = 0;
 		producerThread = new Thread(new DPGSInputRunnable());
@@ -193,8 +194,8 @@ public class DPGSInputArray {
 		return positionInFileOfExamples.get(i);
 	}
 
-	public DPGSInput getInput(int index) {
-		DPGSInput input;
+	public ExampleInput get(int index) {
+		ExampleInput input;
 		boolean addToQueue = true;
 
 		synchronized (notifyConsumer) {
@@ -222,6 +223,7 @@ public class DPGSInputArray {
 
 					return input;
 				}
+				
 
 				/*
 				 * // TODO - Add index to load when using get if (addToQueue) {
@@ -236,8 +238,18 @@ public class DPGSInputArray {
 		}
 
 	}
+	
+	@Override
+	public void put(ExampleInputArray input) throws IOException,
+			DatasetException {
+		input.loadInOrder();
+		
+		for (int i = 0; i < input.getNumberExamples(); i++) {
+			put(input.get(i));
+		}
+	}
 
-	public void putInput(DPGSInput input) throws IOException, DPGSException {
+	public void put(ExampleInput input) throws IOException, DatasetException {
 
 		ByteArrayOutputStream byteOutputStream = null;
 		ObjectOutputStream objOutputStream = null;
@@ -255,7 +267,7 @@ public class DPGSInputArray {
 			size = postingBytes.length;
 
 			if (size > CACHE_SIZE) {
-				throw new DPGSException(
+				throw new DatasetException(
 						"The sample size is larger than cache size."
 								+ " Sample size : " + size + ", Cache size: "
 								+ CACHE_SIZE);
@@ -312,6 +324,25 @@ public class DPGSInputArray {
 				}
 			}).start();
 		}
+	}
+	
+	public void loadInOrder() {
+		int [] array = new int[getNumberExamples()];
+		
+		for (int i = 0; i < array.length; i++) {
+			array[i] = i;
+		}
+		
+		load(array);
+	}
+
+	@Override
+	public void put(Collection<ExampleInput> inputs) throws IOException,
+			DatasetException {
+		for (ExampleInput exampleInput : inputs) {
+			put(exampleInput);
+		}
+		
 	}
 
 	/*

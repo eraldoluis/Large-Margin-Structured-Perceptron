@@ -28,6 +28,7 @@ import br.pucrio.inf.learn.structlearning.discriminative.application.dp.Feature;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.AveragedParameter;
 import br.pucrio.inf.learn.structlearning.discriminative.data.Dataset;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
+import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInputArray;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.MapEncoding;
@@ -705,10 +706,13 @@ public class DPGSModel implements Model {
 
 		// Number of examples in the given dataset.
 		int numExs = dataset.getNumberOfExamples();
+		ExampleInputArray inputArray = dataset.getInputs();
 
+		inputArray.loadInOrder();
+		
 		for (int idxEx = 0; idxEx < numExs; ++idxEx) {
 			// Current input structure.
-			DPGSInput input = dataset.getInput(idxEx);
+			DPGSInput input = (DPGSInput) inputArray.get(idxEx);
 			generateFeaturesOneInput(input);
 
 			// Progess report.

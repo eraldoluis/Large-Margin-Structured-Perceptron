@@ -20,7 +20,7 @@ public interface Dataset {
 	/**
 	 * @return the array of input structures
 	 */
-	public ExampleInput[] getInputs();
+	public ExampleInputArray getInputs();
 
 	/**
 	 * @return the array of output structures

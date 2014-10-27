@@ -14,8 +14,11 @@ import java.util.LinkedList;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 import br.pucrio.inf.learn.structlearning.discriminative.data.Dataset;
 import br.pucrio.inf.learn.structlearning.discriminative.data.DatasetException;
+import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInputArray;
+import br.pucrio.inf.learn.structlearning.discriminative.data.SimpleExampleInputArray;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.StringMapEncoding;
 
@@ -71,7 +74,7 @@ public class SequenceDataset implements Dataset {
 	/**
 	 * Vector of the input-part of the examples.
 	 */
-	protected SequenceInput[] inputSequences;
+	protected ExampleInputArray inputSequences;
 
 	/**
 	 * Vector of the output-part of the examples (correct predictions).
@@ -224,11 +227,11 @@ public class SequenceDataset implements Dataset {
 
 	@Override
 	public int getNumberOfExamples() {
-		return inputSequences.length;
+		return inputSequences.getNumberExamples();
 	}
 
 	@Override
-	public SequenceInput[] getInputs() {
+	public ExampleInputArray getInputs() {
 		return inputSequences;
 	}
 
@@ -239,7 +242,8 @@ public class SequenceDataset implements Dataset {
 
 	@Override
 	public SequenceInput getInput(int index) {
-		return inputSequences[index];
+		throw new NotImplementedException();
+//		return inputSequences[index];
 	}
 
 	@Override
@@ -318,8 +322,13 @@ public class SequenceDataset implements Dataset {
 		LOG.info("Skipped " + (numTotal - numAdded) + " examples of "
 				+ numTotal + " (" + (numTotal - numAdded) * 100d / numTotal
 				+ "%)");
+		
+		this.inputSequences = new SimpleExampleInputArray();
 
-		this.inputSequences = inputSequences.toArray(new SequenceInput[0]);
+		for (ArraySequenceInput arraySequenceInput : inputSequences) {
+			this.inputSequences.put(arraySequenceInput);
+		}
+
 		this.outputSequences = outputSequences.toArray(new SequenceOutput[0]);
 	}
 
@@ -327,34 +336,33 @@ public class SequenceDataset implements Dataset {
 	 * Add the examples in the given dataset to this dataset.
 	 * 
 	 * @param other
+	 * @throws IOException 
 	 */
-	public void add(SequenceDataset other) throws DatasetException {
+	public void add(SequenceDataset other) throws DatasetException, IOException {
 		if (!featureEncoding.equals(other.featureEncoding)
 				|| !stateEncoding.equals(other.stateEncoding))
 			throw new DatasetException("Different encodings");
 
 		// Alloc room to store both datasets (this one and the given one).
-		SequenceInput[] newInputSequences = new SequenceInput[inputSequences.length
-				+ other.inputSequences.length];
 		SequenceOutput[] newOutputSequences = new SequenceOutput[outputSequences.length
 				+ other.outputSequences.length];
 
 		// Copy (only reference) the examples in this dataset to the new arrays.
 		int idx = 0;
-		for (; idx < inputSequences.length; ++idx) {
-			newInputSequences[idx] = inputSequences[idx];
+		
+		inputSequences.put(other.inputSequences);
+		
+		for (; idx < outputSequences.length; ++idx) {
 			newOutputSequences[idx] = outputSequences[idx];
 		}
 
 		// Copy (only reference) the examples in the given dataset to the new
 		// arrays.
-		for (int idxO = 0; idxO < other.inputSequences.length; ++idxO, ++idx) {
-			newInputSequences[idx] = other.inputSequences[idxO];
+		for (int idxO = 0; idxO < other.outputSequences.length; ++idxO, ++idx) {
 			newOutputSequences[idx] = other.outputSequences[idxO];
 		}
 
 		// Adjust the pointers of this dataset to the new arrays.
-		this.inputSequences = newInputSequences;
 		this.outputSequences = newOutputSequences;
 	}
 
@@ -494,8 +502,11 @@ public class SequenceDataset implements Dataset {
 	 *            an output stream to where the dataset is saved.
 	 */
 	public void save(PrintStream ps) {
+		
+		inputSequences.loadInOrder();
+		
 		for (int idxSequence = 0; idxSequence < getNumberOfExamples(); ++idxSequence) {
-			SequenceInput input = inputSequences[idxSequence];
+			SequenceInput input = (SequenceInput) inputSequences.get(idxSequence);
 			SequenceOutput output = outputSequences[idxSequence];
 
 			// The sentence identifier string.
@@ -527,9 +538,9 @@ public class SequenceDataset implements Dataset {
 	 * 
 	 * @return the number of tokens within the given example index.
 	 */
-	public int getNumberOfTokens(int idxExample) {
-		return inputSequences[idxExample].size();
-	}
+//	public int getNumberOfTokens(int idxExample) {
+//		return inputSequences[idxExample].size();
+//	}
 
 	/**
 	 * Return the number of symbols in the dataset feature-value encoding
@@ -572,8 +583,11 @@ public class SequenceDataset implements Dataset {
 	 * @param norm
 	 */
 	public void normalizeInputStructures(double norm) {
-		for (SequenceInput in : inputSequences)
-			in.normalize(norm);
+		inputSequences.loadInOrder();
+		
+		for (int i = 0; i < inputSequences.getNumberExamples(); i++) {
+			inputSequences.get(i).normalize(norm);
+		}
 	}
 
 	/**
@@ -590,8 +604,12 @@ public class SequenceDataset implements Dataset {
 	 * computations.
 	 */
 	public void sortFeatureValues() {
-		for (SequenceInput seq : inputSequences)
-			seq.sortFeatures();
+		inputSequences.loadInOrder();
+		
+		
+		for (int i = 0; i < inputSequences.getNumberExamples(); i++) {
+			inputSequences.get(i).sortFeatures();
+		}
 	}
 
 	@Override

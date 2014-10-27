@@ -31,9 +31,9 @@ import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPModel;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPTemplateEvolutionModel;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.MaximumBranchingInference;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPColumnDataset;
-import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.DatasetException;
+import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInputArray;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.Murmur3Encoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.StringMapEncoding;
@@ -384,12 +384,15 @@ public class TrainCoreference implements Command {
 			 * golden cluster.
 			 */
 			DPOutput[] outs = ((CorefColumnDataset) inDataset).getOutputs();
-			DPInput[] ins = ((CorefColumnDataset) inDataset).getInputs();
+			ExampleInputArray ins = ((CorefColumnDataset) inDataset).getInputs();
 			int idxDoc = 0;
+			
+			ins.loadInOrder();
+			
 			for (DPOutput out : outs) {
 				// Current coreference output and input structures.
 				CorefOutput cout = (CorefOutput) out;
-				CorefInput cin = (CorefInput) ins[idxDoc];
+				CorefInput cin = (CorefInput) ins.get(idxDoc);
 				// Number of mentions.
 				int numMentions = cout.size();
 
@@ -524,15 +527,20 @@ public class TrainCoreference implements Command {
 			}
 
 			// Allocate output sequences for predictions.
-			DPInput[] inputs = testset.getInputs();
-			DPOutput[] predicteds = new DPOutput[inputs.length];
-			for (int idx = 0; idx < inputs.length; ++idx)
-				predicteds[idx] = inputs[idx].createOutput();
+			ExampleInputArray inputs = testset.getInputs();
+			DPOutput[] predicteds = new DPOutput[inputs.getNumberExamples()];
+			
+			inputs.loadInOrder();
+			
+			for (int idx = 0; idx < inputs.getNumberExamples(); ++idx)
+				predicteds[idx] = (DPOutput) inputs.get(idx).createOutput();
 
+			inputs.loadInOrder();
+			
 			// Fill the list of predicted outputs.
-			for (int idx = 0; idx < inputs.length; ++idx)
+			for (int idx = 0; idx < inputs.getNumberExamples(); ++idx)
 				// Predict (tag the output sequence).
-				inference.inference(model, inputs[idx], predicteds[idx]);
+				inference.inference(model, inputs.get(idx), predicteds[idx]);
 
 			// Predicted test set filename.
 			File f = new File(new File(testDatasetFileName).getName());
@@ -697,10 +705,13 @@ public class TrainCoreference implements Command {
 			this.considerSingletons = considerSingletons;
 			int numExs = testset.getNumberOfExamples();
 			// Allocate output sequences for predictions.
-			DPInput[] inputs = testset.getInputs();
+			ExampleInputArray inputs = testset.getInputs();
 			this.predicteds = new DPOutput[numExs];
+			
+			inputs.loadInOrder();
+			
 			for (int idx = 0; idx < numExs; ++idx)
-				predicteds[idx] = (DPOutput) inputs[idx].createOutput();
+				predicteds[idx] = (DPOutput) inputs.get(idx).createOutput();
 		}
 
 		@Override
@@ -743,11 +754,11 @@ public class TrainCoreference implements Command {
 			}
 
 			// Fill the list of predicted outputs.
-			DPInput[] inputs = testset.getInputs();
+			ExampleInputArray inputs = testset.getInputs();
 			// DPOutput[] outputs = testset.getOutputs();
-			for (int idx = 0; idx < inputs.length; ++idx)
+			for (int idx = 0; idx < inputs.getNumberExamples(); ++idx)
 				// Predict (tag the output sequence).
-				inferenceImpl.inference(model, inputs[idx], predicteds[idx]);
+				inferenceImpl.inference(model, inputs.get(idx), predicteds[idx]);
 
 			try {
 				String testPredictedOnEpochFileName = testPredictedFileName

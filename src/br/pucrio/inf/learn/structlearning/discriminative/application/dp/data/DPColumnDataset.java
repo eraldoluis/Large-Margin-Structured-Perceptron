@@ -27,6 +27,8 @@ import br.pucrio.inf.learn.structlearning.discriminative.application.dp.FeatureT
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.InvertedIndex;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.SimpleFeatureTemplate;
 import br.pucrio.inf.learn.structlearning.discriminative.data.DatasetException;
+import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInputArray;
+import br.pucrio.inf.learn.structlearning.discriminative.data.SimpleExampleInputArray;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.MapEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.StringMapEncoding;
@@ -105,7 +107,7 @@ public class DPColumnDataset implements DPDataset {
 	/**
 	 * Input sequences.
 	 */
-	protected DPInput[] inputs;
+	protected ExampleInputArray inputs;
 
 	/**
 	 * Output branchings.
@@ -188,7 +190,7 @@ public class DPColumnDataset implements DPDataset {
 	}
 
 	@Override
-	public DPInput[] getInputs() {
+	public ExampleInputArray getInputs() {
 		return inputs;
 	}
 
@@ -199,7 +201,8 @@ public class DPColumnDataset implements DPDataset {
 
 	@Override
 	public DPInput getInput(int index) {
-		return inputs[index];
+		throw new NotImplementedException();
+//		return inputs[index];
 	}
 
 	@Override
@@ -209,7 +212,7 @@ public class DPColumnDataset implements DPDataset {
 
 	@Override
 	public int getNumberOfExamples() {
-		return inputs.length;
+		return inputs.getNumberExamples();
 	}
 
 	@Override
@@ -340,14 +343,20 @@ public class DPColumnDataset implements DPDataset {
 			}
 		}
 		System.out.println();
-		inputs = inputList.toArray(new DPInput[0]);
+		
+		inputs = new SimpleExampleInputArray(inputList.size());
+		
+		for (DPInput dpInput : inputList) {
+			inputs.put(dpInput);
+		}
+		
 		outputs = outputList.toArray(new DPOutput[0]);
 
 		// Close punctuation file.
 		if (fileNamePunc != null)
 			readerPunc.close();
 
-		LOG.info("Read " + inputs.length + " examples.");
+		LOG.info("Read " + inputs.getNumberExamples() + " examples.");
 	}
 
 	@Override
@@ -416,8 +425,10 @@ public class DPColumnDataset implements DPDataset {
 		writer.write(", correct, predicted]\n\n");
 
 		// Examples.
-		for (int idxEx = 0; idxEx < inputs.length; ++idxEx) {
-			DPInput input = inputs[idxEx];
+		
+		inputs.loadInOrder();
+		for (int idxEx = 0; idxEx < inputs.getNumberExamples(); ++idxEx) {
+			DPInput input = (DPInput) inputs.get(idxEx);
 			DPOutput correctOutput = outputs[idxEx];
 			DPOutput predictedOutput = predictedOuputs[idxEx];
 
@@ -775,13 +786,14 @@ public class DPColumnDataset implements DPDataset {
 	}
 
 	public void allocFeatureMatrix() {
-		int numExs = inputs.length;
-		for (int idxEx = 0; idxEx < numExs; ++idxEx) {
-			// Current input structure.
-			DPInput input = inputs[idxEx];
-			// Allocate explicit features matrix.
-			input.allocFeatureMatrix();
-		}
+		throw new NotImplementedException();
+//		int numExs = inputs.length;
+//		for (int idxEx = 0; idxEx < numExs; ++idxEx) {
+//			// Current input structure.
+//			DPInput input = inputs[idxEx];
+//			// Allocate explicit features matrix.
+//			input.allocFeatureMatrix();
+//		}
 	}
 
 	/**
@@ -806,10 +818,13 @@ public class DPColumnDataset implements DPDataset {
 	public void generateFeatures() {
 		LinkedList<Integer> ftrs = new LinkedList<Integer>();
 		FeatureTemplate[] tpls = templates[currentPartition];
-		int numExs = inputs.length;
+		int numExs = inputs.getNumberExamples();
+		
+		inputs.loadInOrder();
+		
 		for (int idxEx = 0; idxEx < numExs; ++idxEx) {
 			// Current input structure.
-			DPInput input = inputs[idxEx];
+			DPInput input = (DPInput) inputs.get(idxEx);
 
 			// Number of tokens within the current input.
 			int numTkns = input.getNumberOfTokens();
@@ -868,10 +883,13 @@ public class DPColumnDataset implements DPDataset {
 	 */
 	public void generateBasicFeatures() {
 		LinkedList<Integer> ftrs = new LinkedList<Integer>();
-		int numExs = inputs.length;
+		int numExs = inputs.getNumberExamples();
+		
+		inputs.loadInOrder();
+		
 		for (int idxEx = 0; idxEx < numExs; ++idxEx) {
 			// Current input structure.
-			DPInput input = inputs[idxEx];
+			DPInput input = (DPInput) inputs.get(idxEx);
 
 			// Number of tokens within the current input.
 			int numTkns = input.getNumberOfTokens();

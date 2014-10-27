@@ -22,6 +22,8 @@ import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPTempla
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.DatasetException;
+import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
+import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInputArray;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.Murmur3Encoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.StringMapEncoding;
@@ -247,27 +249,34 @@ public class ApplyCoreferenceModel implements Command {
 		/*
 		 * Model application.
 		 */
-		DPInput[] inputs = testDataset.getInputs();
+		ExampleInputArray inputs = testDataset.getInputs();
 
 		// Allocate predicted output structures.
-		DPOutput[] predicteds = new DPOutput[inputs.length];
-		for (int idx = 0; idx < inputs.length; ++idx)
-			predicteds[idx] = inputs[idx].createOutput();
+		DPOutput[] predicteds = new DPOutput[inputs.getNumberExamples()];
+		
+		inputs.loadInOrder();
+		
+		for (int idx = 0; idx < inputs.getNumberExamples(); ++idx)
+			predicteds[idx] = (DPOutput) inputs.get(idx).createOutput();
 
 		// Fill the list of predicted outputs with predictions from the model.
 		LOG.info("Predicting...");
-		for (int idx = 0; idx < inputs.length; ++idx) {
+		
+		inputs.loadInOrder();
+		
+		for (int idx = 0; idx < inputs.getNumberExamples(); ++idx) {
+			DPInput input = (DPInput) inputs.get(idx);
 			// Allocate derived feature matrix memory.
-			inputs[idx].allocFeatureMatrix();
+			input.allocFeatureMatrix();
 			// Generate derived features from templates.
-			inputs[idx].generateFeatures(testDataset.getTemplates()[0],
+			input.generateFeatures(testDataset.getTemplates()[0],
 					testDataset.getExplicitFeatureEncoding());
 			// Predict (tag the output sequence).
-			inference.inference(model, inputs[idx], predicteds[idx]);
+			inference.inference(model, input, predicteds[idx]);
 
 			if (!outputCorefTrees)
 				// Free derived feature matrix.
-				inputs[idx].freeFeatureMatrix();
+				input.freeFeatureMatrix();
 
 			if ((idx + 1) % 100 == 0) {
 				System.out.print(".");
@@ -286,12 +295,17 @@ public class ApplyCoreferenceModel implements Command {
 			if (outputCorefTrees) {
 				LOG.info("Predicting \"golden\" trees for the correct outputs...");
 				DPOutput[] outputs = testDataset.getOutputs();
-				for (int idx = 0; idx < inputs.length; ++idx) {
+				
+				inputs.loadInOrder();
+				
+				for (int idx = 0; idx < inputs.getNumberExamples(); ++idx) {
+					DPInput input = (DPInput) inputs.get(idx);
+					
 					// Constrained prediction.
-					inference.partialInference(model, inputs[idx],
+					inference.partialInference(model, input,
 							outputs[idx], outputs[idx]);
 					// Free derived feature matrix.
-					inputs[idx].freeFeatureMatrix();
+					input.freeFeatureMatrix();
 					if ((idx + 1) % 100 == 0) {
 						System.out.print(".");
 						System.out.flush();

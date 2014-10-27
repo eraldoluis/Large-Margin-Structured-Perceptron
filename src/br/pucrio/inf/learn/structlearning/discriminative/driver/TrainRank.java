@@ -19,6 +19,7 @@ import br.pucrio.inf.learn.structlearning.discriminative.application.rank.RankIn
 import br.pucrio.inf.learn.structlearning.discriminative.application.rank.RankModel;
 import br.pucrio.inf.learn.structlearning.discriminative.application.rank.RankOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.DatasetException;
+import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInputArray;
 import br.pucrio.inf.learn.structlearning.discriminative.driver.Driver.Command;
 import br.pucrio.inf.learn.util.CommandLineOptionsUtil;
 
@@ -216,18 +217,22 @@ public class TrainRank implements Command {
 
 			LOG.info("Predicting test examples...");
 			int numExs = testDataset.getNumberOfExamples();
-			RankInput[] inputs = testDataset.getInputs();
+			ExampleInputArray inputs = testDataset.getInputs();
 			RankOutput[] corrects = testDataset.getOutputs();
 			RankOutput[] predicteds = new RankOutput[numExs];
 			double map = 0;
+			
+			inputs.loadInOrder();
+			
 			for (int idxEx = 0; idxEx < numExs; ++idxEx) {
-				predicteds[idxEx] = inputs[idxEx].createOutput();
-				inference.inference(model, inputs[idxEx], predicteds[idxEx]);
+				RankInput input = (RankInput) inputs.get(idxEx);
+				predicteds[idxEx] = input.createOutput();
+				inference.inference(model, input, predicteds[idxEx]);
 				/*
 				 * The loss is the value that misses to achieve a average
 				 * precision of 1.
 				 */
-				map += 1 - model.loss(inputs[idxEx], corrects[idxEx],
+				map += 1 - model.loss(input, corrects[idxEx],
 						predicteds[idxEx]);
 			}
 

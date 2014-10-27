@@ -7,12 +7,16 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.LinkedList;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import br.pucrio.inf.learn.structlearning.discriminative.data.DatasetException;
+import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
+import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInputArray;
+import br.pucrio.inf.learn.structlearning.discriminative.data.SimpleExampleInputArray;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.StringMapEncoding;
 
@@ -44,7 +48,7 @@ public class PQDataset2 {
 	/**
 	 * Vector of the input-part of the examples.
 	 */
-	protected PQInput2[] inputExamples;
+	protected ExampleInputArray inputExamples;
 
 	/**
 	 * Vector of the output-part of the examples (correct predictions).
@@ -122,24 +126,20 @@ public class PQDataset2 {
 		load(fileName);
 	}
 
-	public PQInput2 getPQInput2(int index) {
-		return inputExamples[index];
-	}
-
 	/**
 	 * Return the number of examples within this dataset.
 	 * 
 	 * @return the number of examples within this dataset
 	 */
 	public int getNumberOfExamples() {
-		return inputExamples.length;
+		return inputExamples.getNumberExamples();
 	}
 
 	public FeatureEncoding<String> getFeatureEncoding() {
 		return featureEncoding;
 	}
 
-	public PQInput2[] getInputs() {
+	public ExampleInputArray getInputs() {
 		return inputExamples;
 	}
 
@@ -147,9 +147,6 @@ public class PQDataset2 {
 		return outputExamples;
 	}
 
-	public PQInput2 getInput(int index) {
-		return inputExamples[index];
-	}
 
 	public PQOutput2 getOutput(int index) {
 		return outputExamples[index];
@@ -209,43 +206,48 @@ public class PQDataset2 {
 				+ numTotal + " (" + (numTotal - numAdded) * 100d / numTotal
 				+ "%)");
 
-		this.inputExamples = inputExamples.toArray(new PQInput2[0]);
+		this.inputExamples = new SimpleExampleInputArray(inputExamples.size());
+		
+		for (PQInput2 pqInput2 : inputExamples) {
+			this.inputExamples.put(pqInput2);
+		}
+		
 		this.outputExamples = outputExamples.toArray(new PQOutput2[0]);
 	}
 
-	/**
-	 * Add the examples in the given dataset to this dataset.
-	 * 
-	 * @param other
-	 */
-	public void add(PQDataset2 other) throws DatasetException {
-		if (!featureEncoding.equals(other.featureEncoding))
-			throw new DatasetException("Different encodings");
-
-		// Alloc room to store both datasets (this one and the given one).
-		PQInput2[] newInputExamples = new PQInput2[inputExamples.length
-				+ other.inputExamples.length];
-		PQOutput2[] newOutputExamples = new PQOutput2[outputExamples.length
-				+ other.outputExamples.length];
-
-		// Copy (only reference) the examples in this dataset to the new arrays.
-		int idx = 0;
-		for (; idx < inputExamples.length; ++idx) {
-			newInputExamples[idx] = inputExamples[idx];
-			newOutputExamples[idx] = outputExamples[idx];
-		}
-
-		// Copy (only reference) the examples in the given dataset to the new
-		// arrays.
-		for (int idxO = 0; idxO < other.inputExamples.length; ++idxO, ++idx) {
-			newInputExamples[idx] = other.inputExamples[idxO];
-			newOutputExamples[idx] = other.outputExamples[idxO];
-		}
-
-		// Adjust the pointers of this dataset to the new arrays.
-		this.inputExamples = newInputExamples;
-		this.outputExamples = newOutputExamples;
-	}
+//	/**
+//	 * Add the examples in the given dataset to this dataset.
+//	 * 
+//	 * @param other
+//	 */
+//	public void add(PQDataset2 other) throws DatasetException {
+//		if (!featureEncoding.equals(other.featureEncoding))
+//			throw new DatasetException("Different encodings");
+//
+//		// Alloc room to store both datasets (this one and the given one).
+//		PQInput2[] newInputExamples = new PQInput2[inputExamples.length
+//				+ other.inputExamples.length];
+//		PQOutput2[] newOutputExamples = new PQOutput2[outputExamples.length
+//				+ other.outputExamples.length];
+//
+//		// Copy (only reference) the examples in this dataset to the new arrays.
+//		int idx = 0;
+//		for (; idx < inputExamples.length; ++idx) {
+//			newInputExamples[idx] = inputExamples[idx];
+//			newOutputExamples[idx] = outputExamples[idx];
+//		}
+//
+//		// Copy (only reference) the examples in the given dataset to the new
+//		// arrays.
+//		for (int idxO = 0; idxO < other.inputExamples.length; ++idxO, ++idx) {
+//			newInputExamples[idx] = other.inputExamples[idxO];
+//			newOutputExamples[idx] = other.outputExamples[idxO];
+//		}
+//
+//		// Adjust the pointers of this dataset to the new arrays.
+//		this.inputExamples = newInputExamples;
+//		this.outputExamples = newOutputExamples;
+//	}
 
 	/**
 	 * Skip blank lines and lines starting by the comment character #.
@@ -403,8 +405,10 @@ public class PQDataset2 {
 	 *            an output stream to where the dataset is saved.
 	 */
 	public void save(PrintStream ps) {
+		inputExamples.loadInOrder();
+		
 		for (int idxExample = 0; idxExample < getNumberOfExamples(); ++idxExample) {
-			PQInput2 input = inputExamples[idxExample];
+			PQInput2 input = (PQInput2)inputExamples.get(idxExample);
 			PQOutput2 output = outputExamples[idxExample];
 
 			// The sentence identifier string.
@@ -449,24 +453,25 @@ public class PQDataset2 {
 		return featureEncoding.size();
 	}
 
-	/**
-	 * Normalize all the input structures within this dataset to have the same
-	 * given norm.
-	 * 
-	 * @param norm
-	 */
-	public void normalizeInputStructures(double norm) {
-		for (PQInput2 in : inputExamples)
-			in.normalize(norm);
-	}
+//	/**
+//	 * Normalize all the input structures within this dataset to have the same
+//	 * given norm.
+//	 * 
+//	 * @param norm
+//	 */
+//	public void normalizeInputStructures(double norm) {
+//		
+//		for (PQInput2 in : inputExamples)
+//			in.normalize(norm);
+//	}
 
-	/**
-	 * Sort feature values of each token to speedup kernel functions
-	 * computations.
-	 */
-	public void sortFeatureValues() {
-		for (PQInput2 seq : inputExamples)
-			seq.sortFeatures();
-	}
+//	/**
+//	 * Sort feature values of each token to speedup kernel functions
+//	 * computations.
+//	 */
+//	public void sortFeatureValues() {
+//		for (PQInput2 seq : inputExamples)
+//			seq.sortFeatures();
+//	}
 
 }

@@ -13,8 +13,8 @@ import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.Lo
 import br.pucrio.inf.learn.structlearning.discriminative.application.pq.PQInference2PBM;
 import br.pucrio.inf.learn.structlearning.discriminative.application.pq.PQModel2;
 import br.pucrio.inf.learn.structlearning.discriminative.application.pq.data.PQDataset2;
-import br.pucrio.inf.learn.structlearning.discriminative.application.pq.data.PQInput2;
 import br.pucrio.inf.learn.structlearning.discriminative.application.pq.data.PQOutput2;
+import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInputArray;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.StringMapEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.driver.Driver.Command;
@@ -146,16 +146,18 @@ public class TestPQ2 implements Command {
 			testset.load(testCorpusFileName);
 
 			// Allocate output sequences for predictions.
-			PQInput2[] inputs = testset.getInputs();
+			ExampleInputArray inputs = testset.getInputs();
 			PQOutput2[] outputs = testset.getOutputs();
-			PQOutput2[] predicteds = new PQOutput2[inputs.length];
-			for (int idx = 0; idx < inputs.length; ++idx)
-				predicteds[idx] = (PQOutput2) inputs[idx].createOutput();
-
+			PQOutput2[] predicteds = new PQOutput2[outputs.length];
+			for (int idx = 0; idx < outputs.length; ++idx)
+				predicteds[idx] = (PQOutput2) outputs[idx].createNewObject();
+			
+			inputs.loadInOrder();
+			
 			// Fill the list of predicted outputs.
-			for (int idx = 0; idx < inputs.length; ++idx) {
+			for (int idx = 0; idx < inputs.getNumberExamples(); ++idx) {
 				// Predict (tag the output sequence).
-				inference.inference(model, inputs[idx], predicteds[idx]);
+				inference.inference(model, inputs.get(idx), predicteds[idx]);
 
 				// Increment data for evaluation.
 				int outputsSize = outputs[idx].size();
