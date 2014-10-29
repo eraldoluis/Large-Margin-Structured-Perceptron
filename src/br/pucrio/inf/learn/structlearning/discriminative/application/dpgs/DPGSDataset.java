@@ -244,7 +244,7 @@ public class DPGSDataset implements Dataset {
 	 */
 	public DPGSInput getInput(int index) {
 		throw new NotImplementedException();
-//		return inputs[index];
+		// return inputs[index];
 	}
 
 	/**
@@ -409,38 +409,58 @@ public class DPGSDataset implements Dataset {
 
 		System.out.println("Load examples");
 		do {
+
 			existExample &= parseExample(readerEdge,
 					multiValuedFeaturesIndexesEdge, listInput, listOutput,
 					null, null);
 
 			if (!existExample) {
-				break;
-			}
+				
+				if(parseExample(readerGrandParent,
+						multiValuedFeaturesIndexesGrandparent, listInput, listOutput,
+						null, null) || listInput.size() != numberExample){
+					throw new DatasetException("The numbers of instances of grandparent file is different of edges file");
+				}
+				
+				if(parseExample(readerLeftSiblings,
+						multiValuedFeaturesIndexesGrandparent, listInput, listOutput,
+						null, null) || listInput.size() != numberExample){
+					throw new DatasetException("The numbers of instances of left siblings file is different of edges file");
+				}
+				
+				if(parseExample(readerRightSiblings,
+						multiValuedFeaturesIndexesGrandparent, listInput, listOutput,
+						null, null) || listInput.size() != numberExample){
+					throw new DatasetException("The numbers of instances of right siblings file is different of edges file");
+				}
+				
+			} else {
 
-			input = listInput.get(numberExample);
-			output = listOutput.get(numberExample);
+				input = listInput.get(numberExample);
+				output = listOutput.get(numberExample);
 
-			existExample &= parseExample(readerGrandParent,
-					multiValuedFeaturesIndexesGrandparent, null, null, input,
-					output);
-			existExample &= parseExample(readerLeftSiblings,
-					multiValuedFeaturesIndexesLS, null, null, input, output);
-			existExample &= parseExample(readerRightSiblings,
-					multiValuedFeaturesIndexesRS, null, null, input, output);
+				existExample &= parseExample(readerGrandParent,
+						multiValuedFeaturesIndexesGrandparent, null, null,
+						input, output);
+				existExample &= parseExample(readerLeftSiblings,
+						multiValuedFeaturesIndexesLS, null, null, input, output);
+				existExample &= parseExample(readerRightSiblings,
+						multiValuedFeaturesIndexesRS, null, null, input, output);
 
-			model.generateFeaturesOneInput(input);
-			input.cleanBasicFeatures();
+				model.generateFeaturesOneInput(input);
+				input.cleanBasicFeatures();
 
-			inputs.put(input);
+				inputs.put(input);
 
-			// Clean input of memory
-			listInput.set(numberExample, null);
-			input = null;
+				// Clean input of memory
+				listInput.set(numberExample, null);
+				input = null;
 
-			numberExample++;
+				numberExample++;
 
-			if (numberExample % 100 == 0 && numberExample != 0) {
-				System.out.print(".");
+				if (numberExample % 100 == 0 && numberExample != 0) {
+					System.out.print(".");
+				}
 			}
 		} while (existExample);
 
@@ -453,7 +473,6 @@ public class DPGSDataset implements Dataset {
 		readerLeftSiblings.close();
 		readerRightSiblings.close();
 	}
-
 
 	private Set<Integer> loadFeatureLabelsEdge(BufferedReader reader)
 			throws IOException, DPGSException {
@@ -479,7 +498,6 @@ public class DPGSDataset implements Dataset {
 			multiValuedFeaturesIndexes.add(getEdgeFeatureIndex(label));
 		return multiValuedFeaturesIndexes;
 	}
-
 
 	private Set<Integer> loadFeatureLabelsGrandparent(BufferedReader reader)
 			throws IOException, DPGSException {
@@ -507,8 +525,6 @@ public class DPGSDataset implements Dataset {
 			multiValuedFeaturesIndexes.add(getGrandparentFeatureIndex(label));
 		return multiValuedFeaturesIndexes;
 	}
-
-
 
 	private Set<Integer> loadFeatureLabelsSiblings(BufferedReader reader)
 			throws IOException, DPGSException {
@@ -553,8 +569,6 @@ public class DPGSDataset implements Dataset {
 			featureLabels[i - 1] = labels[i].trim();
 		return featureLabels;
 	}
-
-
 
 	/**
 	 * Save dataset to the given file.
@@ -639,7 +653,7 @@ public class DPGSDataset implements Dataset {
 			DPGSOutput output = predictedOuputs[idxEx];
 			int numTokens = output.size();
 			for (int idxMod = 1; idxMod < numTokens; ++idxMod) {
-				String line = lastLine =reader.readLine();
+				String line = lastLine = reader.readLine();
 				if (line == null)
 					throw new DatasetException("Missing lines in input file");
 				if (line.trim().length() == 0)
@@ -668,13 +682,12 @@ public class DPGSDataset implements Dataset {
 				else
 					break;
 			} else {
-				if (line.trim().length() > 0){
+				if (line.trim().length() > 0) {
 					System.out.println(lastLine);
 					System.out.println(line);
 					throw new DatasetException("More lines than expected in "
 							+ "input file");
-				}
-				else if (idxEx == numExs) {
+				} else if (idxEx == numExs) {
 					/*
 					 * Make sure output file has the same length of input. This
 					 * is a requirement of the official CoNLL evaluation script.
@@ -683,7 +696,7 @@ public class DPGSDataset implements Dataset {
 
 					// Make sure all remaining lines are blank.
 					while ((line = reader.readLine()) != null) {
-						if (line.trim().length() > 0){
+						if (line.trim().length() > 0) {
 							System.out.println(numExs);
 							System.out.println(idxEx);
 							System.out.println(lastLine);
@@ -1113,7 +1126,6 @@ public class DPGSDataset implements Dataset {
 				separatorFeatureValues, basicEncoding);
 	}
 
-
 	@Override
 	public void load(String fileName) throws IOException, DatasetException {
 		throw new NotImplementedException();
@@ -1159,19 +1171,18 @@ public class DPGSDataset implements Dataset {
 
 	private void unloadBasicEncoding() throws IOException,
 			ClassNotFoundException {
-		
+
 		FileOutputStream fileOut = null;
 		BufferedOutputStream bufOut = null;
 		ObjectOutputStream objOut = null;
 
-		
-		try{
+		try {
 			fileOut = new FileOutputStream("basicEncodings");
 			bufOut = new BufferedOutputStream(fileOut);
 			objOut = new ObjectOutputStream(fileOut);
 
 			objOut.writeObject(basicEncoding);
-		}finally{
+		} finally {
 			if (objOut != null)
 				objOut.close();
 			else if (bufOut != null)
@@ -1179,7 +1190,7 @@ public class DPGSDataset implements Dataset {
 			else if (fileOut != null)
 				fileOut.close();
 		}
-		
+
 		basicEncoding = null;
 	}
 }
