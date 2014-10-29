@@ -1,5 +1,8 @@
 package br.pucrio.inf.learn.structlearning.discriminative.task;
 
+import com.sun.org.apache.xml.internal.security.encryption.AgreementMethod;
+
+import br.pucrio.inf.learn.structlearning.discriminative.algorithm.passiveagressive.PassiveAgressiveUpdate;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 
@@ -90,5 +93,8 @@ public interface Inference {
 			ExampleInput input, ExampleOutput partiallyLabeledOutput,
 			ExampleOutput referenceOutput, ExampleOutput predictedOutput,
 			double lossAnnotatedWeight, double lossNonAnnotatedWeight);
+
+	double calculateSufferLoss(ExampleOutput correctOutput, ExampleOutput predictedOutput,
+			PassiveAgressiveUpdate update);
 
 }

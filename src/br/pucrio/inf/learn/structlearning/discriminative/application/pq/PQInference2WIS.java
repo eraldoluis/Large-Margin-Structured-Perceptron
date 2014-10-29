@@ -6,7 +6,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
-
+import br.pucrio.inf.learn.structlearning.discriminative.algorithm.passiveagressive.PassiveAgressiveUpdate;
 import br.pucrio.inf.learn.structlearning.discriminative.application.pq.data.PQInput2;
 import br.pucrio.inf.learn.structlearning.discriminative.application.pq.data.PQOutput2;
 import br.pucrio.inf.learn.structlearning.discriminative.application.pq.data.Quotation;
@@ -160,5 +160,10 @@ public class PQInference2WIS implements Inference {
 			double lossAnnotatedWeight, double lossNonAnnotatedWeight) {
 		throw new NotImplementedException();
 	}
-
+	
+	@Override
+	public double calculateSufferLoss(ExampleOutput correctOutput, ExampleOutput predictedOutput,
+			PassiveAgressiveUpdate update) {
+		throw new NotImplementedException();
+	}
 }

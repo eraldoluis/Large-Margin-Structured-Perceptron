@@ -6,6 +6,7 @@ import java.util.Set;
 import java.util.TreeSet;
 
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
+import br.pucrio.inf.learn.structlearning.discriminative.algorithm.passiveagressive.PassiveAgressiveUpdate;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.DPModel;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
@@ -494,4 +495,9 @@ public class CoreferenceMaxBranchInference implements Inference {
 		return explicitClustering;
 	}
 
+	@Override
+	public double calculateSufferLoss(ExampleOutput correctOutput, ExampleOutput predictedOutput,
+			PassiveAgressiveUpdate update) {
+		throw new NotImplementedException();
+	}
 }

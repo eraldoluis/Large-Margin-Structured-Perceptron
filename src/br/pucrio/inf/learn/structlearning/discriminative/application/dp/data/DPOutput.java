@@ -3,6 +3,8 @@ package br.pucrio.inf.learn.structlearning.discriminative.application.dp.data;
 import java.io.Serializable;
 import java.util.Arrays;
 
+import sun.reflect.generics.reflectiveObjects.NotImplementedException;
+import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 
 /**
@@ -76,5 +78,10 @@ public class DPOutput implements ExampleOutput, Serializable {
 	 */
 	public int size() {
 		return heads.length;
+	}
+	
+	@Override
+	public double getFeatureVectorLengthSquared(ExampleInput input, ExampleOutput other) {
+		throw new NotImplementedException();
 	}
 }

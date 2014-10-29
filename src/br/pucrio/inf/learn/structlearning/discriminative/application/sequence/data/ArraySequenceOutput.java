@@ -3,6 +3,8 @@ package br.pucrio.inf.learn.structlearning.discriminative.application.sequence.d
 import java.util.Arrays;
 import java.util.Collection;
 
+import sun.reflect.generics.reflectiveObjects.NotImplementedException;
+import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 
 /**
@@ -65,4 +67,8 @@ public class ArraySequenceOutput implements SequenceOutput {
 		return Arrays.equals(labels, ((ArraySequenceOutput) obj).labels);
 	}
 
+	@Override
+	public double getFeatureVectorLengthSquared(ExampleInput input, ExampleOutput other) {
+		throw new NotImplementedException();
+	}
 }

@@ -1,5 +1,7 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.sequence;
 
+import sun.reflect.generics.reflectiveObjects.NotImplementedException;
+import br.pucrio.inf.learn.structlearning.discriminative.algorithm.passiveagressive.PassiveAgressiveUpdate;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceDataset;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceOutput;
@@ -473,5 +475,10 @@ public class ViterbiInference implements Inference {
 			bestFinalState = psi[token][bestFinalState];
 		}
 	}
-
+	
+	@Override
+	public double calculateSufferLoss(ExampleOutput correctOutput, ExampleOutput predictedOutput,
+			PassiveAgressiveUpdate update) {
+		throw new NotImplementedException();
+	}
 }

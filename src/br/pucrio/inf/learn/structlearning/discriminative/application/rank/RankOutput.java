@@ -4,6 +4,8 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 
+import sun.reflect.generics.reflectiveObjects.NotImplementedException;
+import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 
 /**
@@ -203,5 +205,9 @@ public class RankOutput implements ExampleOutput {
 			return 0;
 		}
 	}
-
+	
+	@Override
+	public double getFeatureVectorLengthSquared(ExampleInput input, ExampleOutput other) {
+		throw new NotImplementedException();
+	}
 }

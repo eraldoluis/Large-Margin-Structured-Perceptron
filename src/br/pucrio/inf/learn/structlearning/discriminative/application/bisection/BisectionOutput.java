@@ -4,6 +4,8 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
+import sun.reflect.generics.reflectiveObjects.NotImplementedException;
+import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 import br.pucrio.inf.learn.util.maxbranching.DisjointSets;
 import br.pucrio.inf.learn.util.maxbranching.SimpleWeightedEdge;
@@ -241,6 +243,11 @@ public class BisectionOutput implements ExampleOutput {
 			this.confirmed = confirmed;
 			this.weight = weight;
 		}
+	}
+
+	@Override
+	public double getFeatureVectorLengthSquared(ExampleInput input, ExampleOutput other) {
+		throw new NotImplementedException();
 	}
 
 }

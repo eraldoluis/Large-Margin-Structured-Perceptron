@@ -1,6 +1,7 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.dp;
 
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
+import br.pucrio.inf.learn.structlearning.discriminative.algorithm.passiveagressive.PassiveAgressiveUpdate;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.data.DPOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
@@ -143,5 +144,11 @@ public class MaximumBranchingInference implements Inference {
 
 	public void setCheckUniqueRoot(boolean val) {
 		maxBranchingAlgorithm.setCheckUniqueRoot(val);
+	}
+	
+	@Override
+	public double calculateSufferLoss(ExampleOutput correctOutput, ExampleOutput predictedOutput,
+			PassiveAgressiveUpdate update) {
+		throw new NotImplementedException();
 	}
 }

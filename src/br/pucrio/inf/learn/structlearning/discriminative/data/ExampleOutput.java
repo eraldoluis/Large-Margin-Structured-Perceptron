@@ -1,5 +1,6 @@
 package br.pucrio.inf.learn.structlearning.discriminative.data;
 
+
 /**
  * Ouput part of an example (Y).
  * 
@@ -15,5 +16,7 @@ public interface ExampleOutput {
 	 * @return
 	 */
 	ExampleOutput createNewObject();
-
+	
+	
+	double getFeatureVectorLengthSquared(ExampleInput input, ExampleOutput other);
 }

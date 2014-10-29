@@ -3,6 +3,8 @@ package br.pucrio.inf.learn.structlearning.discriminative.application.pq.data;
 import java.util.Arrays;
 import java.util.Collection;
 
+import sun.reflect.generics.reflectiveObjects.NotImplementedException;
+import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
 
 /**
@@ -58,5 +60,9 @@ public class PQOutput2 implements ExampleOutput {
 			return false;
 		return Arrays.equals(authors, ((PQOutput2) obj).authors);
 	}
-
+	
+	@Override
+	public double getFeatureVectorLengthSquared(ExampleInput input, ExampleOutput other) {
+		throw new NotImplementedException();
+	}
 }

@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.Iterator;
 
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
+import br.pucrio.inf.learn.structlearning.discriminative.algorithm.passiveagressive.PassiveAgressiveUpdate;
 import br.pucrio.inf.learn.structlearning.discriminative.application.pq.data.PQInput2;
 import br.pucrio.inf.learn.structlearning.discriminative.application.pq.data.PQOutput2;
 import br.pucrio.inf.learn.structlearning.discriminative.application.pq.data.Quotation;
@@ -231,6 +232,12 @@ public class PQInference2PBM implements Inference {
 			ExampleInput input, ExampleOutput partiallyLabeledOutput,
 			ExampleOutput referenceOutput, ExampleOutput predictedOutput,
 			double lossAnnotatedWeight, double lossNonAnnotatedWeight) {
+		throw new NotImplementedException();
+	}
+	
+	@Override
+	public double calculateSufferLoss(ExampleOutput correctOutput, ExampleOutput predictedOutput,
+			PassiveAgressiveUpdate update) {
 		throw new NotImplementedException();
 	}
 

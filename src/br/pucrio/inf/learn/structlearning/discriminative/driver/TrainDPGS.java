@@ -15,6 +15,9 @@ import org.apache.commons.logging.LogFactory;
 
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.OnlineStructuredAlgorithm.LearnRateUpdateStrategy;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.TrainingListener;
+import br.pucrio.inf.learn.structlearning.discriminative.algorithm.passiveagressive.PassiveAgressive;
+import br.pucrio.inf.learn.structlearning.discriminative.algorithm.passiveagressive.PassiveAgressive1;
+import br.pucrio.inf.learn.structlearning.discriminative.algorithm.passiveagressive.PassiveAgressive2;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.LossAugmentedPerceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.Perceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSDataset;
@@ -75,6 +78,15 @@ public class TrainDPGS implements Command {
 		 * Dual (kernelized) loss-augmented perceptron.
 		 */
 		DUAL_PERCEPTRON,
+
+		/**
+		 * Passive-Agressive algorithm (Crammer et al., 2006)
+		 */
+		PASSIVE_AGRESSIVE,
+	}
+
+	public static enum PassiveAgressiveMode {
+		NORMAL, I, II,
 	}
 
 	@SuppressWarnings("static-access")
@@ -191,7 +203,7 @@ public class TrainDPGS implements Command {
 				.withArgName("int").hasArg().withDescription("").create());
 		options.addOption(OptionBuilder
 				.withLongOpt("alg")
-				.withArgName("perc | loss | afworse | tobetter | dual")
+				.withArgName("perc | loss | afworse | tobetter | dual | pa")
 				.hasArg()
 				.withDescription(
 						"The training algorithm: "
@@ -200,6 +212,22 @@ public class TrainDPGS implements Command {
 								+ "afworse (away-from-worse perceptron), "
 								+ "tobetter (toward-better perceptron), "
 								+ "dual (dual (kernelized) perceptron")
+				.create());
+		options.addOption(OptionBuilder
+				.withLongOpt("mode")
+				.withArgName("n | 1 | 2")
+				.hasArg()
+				.withDescription(
+						"The training algorithm: "
+								+ "n (Normal Passive Agressive), "
+								+ "1 (Passive Agressive I), "
+								+ "2 (Passive Agressive II), ").create());
+		options.addOption(OptionBuilder
+				.withLongOpt("c")
+				.withArgName("double")
+				.hasArg()
+				.withDescription(
+						"C is a positive parameter which controls the influence of the slack term on the objective function")
 				.create());
 
 		// Parse the command-line arguments.
@@ -231,7 +259,8 @@ public class TrainDPGS implements Command {
 		int maxSubgradientSteps = Integer.valueOf(cmdLine.getOptionValue(
 				"maxsteps", "500"));
 		double beta = Double.valueOf(cmdLine.getOptionValue("beta", "0.001"));
-		double lossWeight = Double.parseDouble(cmdLine.getOptionValue("lossweight", "0d"));
+		double lossWeight = Double.parseDouble(cmdLine.getOptionValue(
+				"lossweight", "0d"));
 		boolean averaged = !cmdLine.hasOption("noavg");
 		String seedStr = cmdLine.getOptionValue("seed");
 		final long trainCacheSize = Long.parseLong(cmdLine.getOptionValue(
@@ -258,14 +287,16 @@ public class TrainDPGS implements Command {
 		String testRSDatasetFilename = testPrefix + ".siblings.right";
 		String script = cmdLine.getOptionValue("script");
 		boolean evalPerEpoch = cmdLine.hasOption("perepoch");
-		int perNumEpoch = Integer.parseInt(cmdLine
-				.getOptionValue("pernumepoch", "0"));
-		
-		if(evalPerEpoch && perNumEpoch == 0){
+		int perNumEpoch = Integer.parseInt(cmdLine.getOptionValue(
+				"pernumepoch", "0"));
+
+		if (evalPerEpoch && perNumEpoch == 0) {
 			perNumEpoch = 1;
 		}
 
 		AlgorithmType algType = null;
+		PassiveAgressiveMode modeType = null;
+
 		String algTypeStr = cmdLine.getOptionValue("alg", "perc");
 
 		if (algTypeStr.equals("perc"))
@@ -274,7 +305,22 @@ public class TrainDPGS implements Command {
 			algType = AlgorithmType.LOSS_PERCEPTRON;
 		else if (algTypeStr.equals("dual"))
 			algType = AlgorithmType.DUAL_PERCEPTRON;
-		else {
+		else if (algTypeStr.equals("pa")) {
+			algType = AlgorithmType.PASSIVE_AGRESSIVE;
+
+			String modeStr = cmdLine.getOptionValue("mode", "n");
+
+			if (modeStr.equals("n")) {
+				modeType = PassiveAgressiveMode.NORMAL;
+			} else if (modeStr.equals("1")) {
+				modeType = PassiveAgressiveMode.I;
+			} else if (modeStr.equals("2")) {
+				modeType = PassiveAgressiveMode.II;
+			}else{
+				modeType = PassiveAgressiveMode.NORMAL;				
+			}
+
+		} else {
 			// System.err.println("Unknown algorithm: " + algTypeStr);
 			// System.exit(1);
 			algType = AlgorithmType.PERCEPTRON;
@@ -373,8 +419,9 @@ public class TrainDPGS implements Command {
 
 				// Set modifier variables in all output structures.
 				trainDataset.setModifierVariables();
-				
-				LOG.debug("Número de exemplos do treino: " + trainDataset.getNumberOfExamples());
+
+				LOG.debug("Número de exemplos do treino: "
+						+ trainDataset.getNumberOfExamples());
 
 				// Inference algorithm for training.
 				DPGSInference inference = new DPGSInference(
@@ -388,10 +435,26 @@ public class TrainDPGS implements Command {
 					alg = new Perceptron(inference, model, numEpochs, 1d, true,
 							averaged, LearnRateUpdateStrategy.NONE);
 				else if (algType == AlgorithmType.LOSS_PERCEPTRON)
-					alg = new LossAugmentedPerceptron(inference,
-							model, numEpochs, 1d,
-							lossWeight, true, averaged,
+					alg = new LossAugmentedPerceptron(inference, model,
+							numEpochs, 1d, lossWeight, true, averaged,
 							LearnRateUpdateStrategy.NONE);
+				else if (algType == AlgorithmType.PASSIVE_AGRESSIVE) {
+
+					if (modeType == PassiveAgressiveMode.NORMAL) {
+						alg = new PassiveAgressive(inference, model, numEpochs,
+								true, averaged);
+					} else {
+						double c = Double.parseDouble(cmdLine
+								.getOptionValue("c"));
+
+						if (modeType == PassiveAgressiveMode.I) {
+							alg = new PassiveAgressive1(inference, model, numEpochs, true, averaged, c);
+						} else if (modeType == PassiveAgressiveMode.II) {
+							alg = new PassiveAgressive2(inference, model, numEpochs, true, averaged, c);
+						}
+					}
+
+				}
 
 				if (seedStr != null)
 					// User provided seed to random number generator.
@@ -590,7 +653,7 @@ public class TrainDPGS implements Command {
 		private boolean quiet;
 
 		private Inference inference;
-		
+
 		private int perNumEpoch;
 
 		public EvaluateModelListener(String script, String conllGolden,
@@ -638,11 +701,11 @@ public class TrainDPGS implements Command {
 		@Override
 		public boolean afterEpoch(Inference inferenceImpl, Model model,
 				int epoch, double loss, int iteration) {
-			
-			if(perNumEpoch != 0 &&(epoch + 1) % perNumEpoch != 0 ){
+
+			if (perNumEpoch != 0 && (epoch + 1) % perNumEpoch != 0) {
 				return true;
 			}
-			
+
 			if (averaged) {
 				try {
 					// Clone the current model to average it, if necessary.
@@ -690,8 +753,8 @@ public class TrainDPGS implements Command {
 			for (int idx = 0; idx < numberExamples; ++idx) {
 				// Predict (tag the output sequence).
 				// LOG.info("Input: " + idx);
-				inferenceImpl.inference(model, inputs.get(idx),
-						predicteds[idx]);
+				inferenceImpl
+						.inference(model, inputs.get(idx), predicteds[idx]);
 				if ((idx + 1) % 100 == 0) {
 					System.out.print(".");
 					System.out.flush();

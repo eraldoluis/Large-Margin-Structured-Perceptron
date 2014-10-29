@@ -10,6 +10,8 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
+import br.pucrio.inf.learn.structlearning.discriminative.algorithm.passiveagressive.PassiveAgressiveUpdate;
+import br.pucrio.inf.learn.structlearning.discriminative.algorithm.passiveagressive.PredictionBasedUpdate;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.AveragedParameter;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
@@ -87,7 +89,8 @@ public class DPGSInference implements Inference {
 		private boolean loopUntilNumberTokens;
 
 		public FillerWeights(int threadId, int numberThreads, DPGSInput input,
-				DPGSModel model, DPGSOutput correct, double lossWeight,boolean loopUntilNumberTokens) {
+				DPGSModel model, DPGSOutput correct, double lossWeight,
+				boolean loopUntilNumberTokens) {
 			this.threadId = threadId;
 			this.numberThreads = numberThreads;
 			this.input = input;
@@ -111,17 +114,17 @@ public class DPGSInference implements Inference {
 		@Override
 		public Integer call() throws Exception {
 			int numTkns = input.size();
-			boolean loss = (correct != null /*&& lossWeight != 0d*/);
+			boolean loss = (correct != null /* && lossWeight != 0d */);
 			int numT = loopUntilNumberTokens ? numTkns : numTkns - 1;
 			try {
-			
-			for (int idxHead = 0; idxHead < numTkns; ++idxHead) {
-				for (int idxModifier = 0; idxModifier <= numT; ++idxModifier) {
-					if (hash(idxHead, idxModifier) % numberThreads == threadId) {
-						fill(numTkns, idxHead, idxModifier, loss);
+
+				for (int idxHead = 0; idxHead < numTkns; ++idxHead) {
+					for (int idxModifier = 0; idxModifier <= numT; ++idxModifier) {
+						if (hash(idxHead, idxModifier) % numberThreads == threadId) {
+							fill(numTkns, idxHead, idxModifier, loss);
+						}
 					}
 				}
-			}
 
 			} catch (Exception e) {
 				// TODO Auto-generated catch block
@@ -146,7 +149,8 @@ public class DPGSInference implements Inference {
 		public FillerSiblingWeights(int threadId, int numberThreads,
 				DPGSInput input, DPGSModel model, DPGSOutput correct,
 				double lossWeight) {
-			super(threadId, numberThreads, input, model, correct, lossWeight,true);
+			super(threadId, numberThreads, input, model, correct, lossWeight,
+					true);
 		}
 
 		@Override
@@ -171,9 +175,10 @@ public class DPGSInference implements Inference {
 
 		protected double getLossWeight(int idxHead, int idxModifier,
 				int idxPreviousModifier, boolean loss) {
-			
-			if (!loss || correct.isPreviousModifier(idxHead, idxModifier,
-							idxPreviousModifier)){
+
+			if (!loss
+					|| correct.isPreviousModifier(idxHead, idxModifier,
+							idxPreviousModifier)) {
 				return 0.0D;
 			}
 
@@ -196,7 +201,7 @@ public class DPGSInference implements Inference {
 			 * (then it is 'idxHead + 1') of the current head (idxHead).
 			 */
 			int firstModifier = (idxModifier <= idxHead ? 0 : idxHead + 1);
-			
+
 			for (int idxPreviousModifier = firstModifier; idxPreviousModifier < idxModifier; ++idxPreviousModifier) {
 				int[] ftrs = input.getSiblingsFeatures(idxHead, idxModifier,
 						idxPreviousModifier);
@@ -236,17 +241,19 @@ public class DPGSInference implements Inference {
 		public FillerGrandparentWeights(int threadId, int numberThreads,
 				DPGSInput input, DPGSModel model, DPGSOutput correct,
 				double lossWeight) {
-			super(threadId, numberThreads, input, model, correct, lossWeight,false);
+			super(threadId, numberThreads, input, model, correct, lossWeight,
+					false);
 		}
 
 		protected double getLossWeight(int idxHead, int idxModifier,
 				int idxGrandparent, boolean loss) {
-			
-			if (!loss || (correct.getHead(idxHead) == idxGrandparent
-					&& correct.getHead(idxModifier) == idxHead)){
+
+			if (!loss
+					|| (correct.getHead(idxHead) == idxGrandparent && correct
+							.getHead(idxModifier) == idxHead)) {
 				return 0.0D;
 			}
-			
+
 			return lossWeight;
 		}
 
@@ -261,8 +268,9 @@ public class DPGSInference implements Inference {
 				// factor.
 				int[] ftrs = input.getGrandparentFeatures(idxHead, idxModifier,
 						idxGrandparent);
-//				System.out.println(idxHead + " " + idxModifier + " " + idxGrandparent);
-				
+				// System.out.println(idxHead + " " + idxModifier + " " +
+				// idxGrandparent);
+
 				if (ftrs != null) {
 					// Sum feature weights to achieve the factor
 					// weight.
@@ -285,7 +293,8 @@ public class DPGSInference implements Inference {
 		public FillerEdgeWeights(int threadId, int numberThreads,
 				DPGSInput input, DPGSModel model, DPGSOutput correct,
 				double lossWeight) {
-			super(threadId, numberThreads, input, model, correct, lossWeight,false);
+			super(threadId, numberThreads, input, model, correct, lossWeight,
+					false);
 		}
 
 		protected double getLossWeight(int idxHead, int idxModifier,
@@ -392,9 +401,9 @@ public class DPGSInference implements Inference {
 			double lossWeight) {
 		// Generate loss-augmented inference problem for the given input.
 		fillEdgeFactorWeights(model, input, referenceOutput, lossWeight);
-		
+
 		lossWeight = 0.0d;
-		
+
 		fillGrandparentFactorWeights(model, input, referenceOutput, lossWeight);
 		fillSiblingsFactorWeights(model, input, referenceOutput, lossWeight);
 
@@ -702,6 +711,206 @@ public class DPGSInference implements Inference {
 
 		// Print output.
 		System.out.println(output);
+	}
+
+	private double costP(DPGSOutput correctOutput, DPGSOutput predictedOutput) {
+		double numberWrongEdges = 0.0d;
+		int[] grandParentsCorrectOutput = correctOutput.getGrandparents();
+		int[] grandParentsPredictedOutput = predictedOutput.getGrandparents();
+
+		for (int idxHead = 0; idxHead < correctOutput.size(); ++idxHead) {
+			if (grandParentsCorrectOutput[idxHead] != grandParentsPredictedOutput[idxHead])
+				numberWrongEdges += 1.0d;
+		}
+
+		return numberWrongEdges;
+	}
+
+	@Override
+	public double calculateSufferLoss(ExampleOutput correctOutput,
+			ExampleOutput predictedOutput, PassiveAgressiveUpdate update) {
+
+		if (update == null) {
+			update = new PredictionBasedUpdate();
+		}
+
+		DPGSOutput predicted = (DPGSOutput) update.getExampleOutput(
+				correctOutput, predictedOutput);
+		DPGSOutput correct = (DPGSOutput) correctOutput;
+
+		double dif = .0d;
+		/*
+		 * For each head and modifier, check whether the predicted factor does
+		 * not correspond to the correct one and, then, update the current model
+		 * properly.
+		 */
+		int numTkns = correct.size();
+
+		for (int idxHead = 0; idxHead < numTkns; ++idxHead) {
+			// Correct and predicted grandparent heads.
+			int correctGrandparent = correct.getHead(idxHead);
+			int predictedGrandparent = predicted.getGrandparent(idxHead);
+
+			if (correctGrandparent != predictedGrandparent) {
+
+				if (predictedGrandparent != -1)
+					if (!Double
+							.isNaN(edgeFactorWeights[predictedGrandparent][idxHead]))
+						dif += edgeFactorWeights[predictedGrandparent][idxHead];
+
+				if (correctGrandparent != -1)
+					if (!Double
+							.isNaN(edgeFactorWeights[correctGrandparent][idxHead]))
+						dif += -edgeFactorWeights[correctGrandparent][idxHead];
+			}
+
+			/*
+			 * Verifiy grandparent and siblings factors for differences between
+			 * correct and predicted factors.
+			 * 
+			 * We start as previous token with the special 'idxHead' index is
+			 * the index to indicate START and END tokens for LEFT modifiers.
+			 * For RIGHT modifiers, we use the 'numTkns' index.
+			 */
+			int correctPreviousModifier = idxHead;
+			int predictedPreviousModifier = idxHead;
+			for (int idxModifier = 0; idxModifier <= numTkns; ++idxModifier) {
+				// Is this token special (START or END).
+				boolean isSpecialToken = (idxModifier == idxHead || idxModifier == numTkns);
+
+				/*
+				 * Is this modifier included in the correct or in the predicted
+				 * structures for the current head or is it a special token.
+				 * Special tokens are always present, by definition.
+				 */
+				boolean isCorrectModifier = (isSpecialToken || (correct
+						.getHead(idxModifier) == idxHead));
+				boolean isPredictedModifier = (isSpecialToken || predicted
+						.isModifier(idxHead, idxModifier));
+
+				if (!isCorrectModifier && !isPredictedModifier)
+					/*
+					 * Current modifier is neither included in the correct
+					 * structure nor the predicted structure. Thus, skip it.
+					 */
+					continue;
+
+				if (isCorrectModifier != isPredictedModifier) {
+					//
+					// Current modifier is misclassified.
+					//
+
+					if (isCorrectModifier) {
+
+						/*
+						 * Current modifier is correct but the predicted
+						 * structure does not set it as a modifier of the
+						 * current head (false negative). Thus, increment the
+						 * weight of both (grandparent and siblings) correct,
+						 * but missed, factors.
+						 */
+						if (!Double
+								.isNaN(siblingsFactorWeights[idxHead][idxModifier][correctPreviousModifier]))
+							dif += -siblingsFactorWeights[idxHead][idxModifier][correctPreviousModifier];
+
+						if (correctGrandparent != -1)
+							if (!Double
+									.isNaN(grandparentFactorWeights[idxHead][idxModifier][correctGrandparent]))
+								dif += -grandparentFactorWeights[idxHead][idxModifier][correctGrandparent];
+					} else {
+
+						/*
+						 * Current modifier is not correct but the predicted
+						 * structure does set it as a modifier of the current
+						 * head (false positive). Thus, decrement the weight of
+						 * both (grandparent and siblings) incorrectly predicted
+						 * factors.
+						 */
+						if (!Double
+								.isNaN(siblingsFactorWeights[idxHead][idxModifier][predictedPreviousModifier]))
+							dif += siblingsFactorWeights[idxHead][idxModifier][predictedPreviousModifier];
+
+						if (predictedGrandparent != -1)
+							if (!Double
+									.isNaN(grandparentFactorWeights[idxHead][idxModifier][predictedGrandparent]))
+								dif += grandparentFactorWeights[idxHead][idxModifier][predictedGrandparent];
+					}
+
+				} else {
+					/*
+					 * The current modifier has been correctly predicted for the
+					 * current head. Now, additionally check the previous
+					 * modifier and the grandparent factor.
+					 */
+
+					if (correctPreviousModifier != predictedPreviousModifier) {
+
+						/*
+						 * Modifier is correctly predited but previous modifier
+						 * is NOT. Thus, the corresponding correct siblings
+						 * factor is missing (false negative) and the predicted
+						 * one is incorrectly predicted (false positive).
+						 */
+						if (!Double
+								.isNaN(siblingsFactorWeights[idxHead][idxModifier][correctPreviousModifier]))
+							dif += -siblingsFactorWeights[idxHead][idxModifier][correctPreviousModifier];
+
+						if (!Double
+								.isNaN(siblingsFactorWeights[idxHead][idxModifier][predictedPreviousModifier]))
+							dif += siblingsFactorWeights[idxHead][idxModifier][predictedPreviousModifier];
+					}
+
+					if (!isSpecialToken
+							&& correctGrandparent != predictedGrandparent) {
+						/*
+						 * Predicted modifier is correct but grandparent head is
+						 * NOT. Thus, the corresponding correct grandparent
+						 * factor is missing (false negative) and the predicted
+						 * one is incorrectly predicted (false positive).
+						 */
+						if (correctGrandparent != -1)
+							if (!Double
+									.isNaN(grandparentFactorWeights[idxHead][idxModifier][correctGrandparent]))
+								dif += -grandparentFactorWeights[idxHead][idxModifier][correctGrandparent];
+
+						if (predictedGrandparent != -1)
+							if (!Double
+									.isNaN(grandparentFactorWeights[idxHead][idxModifier][predictedGrandparent]))
+								dif += grandparentFactorWeights[idxHead][idxModifier][predictedGrandparent];
+					}
+				}
+
+				if (isCorrectModifier) {
+					// Update correct previous modifier.
+					if (idxModifier == idxHead)
+						/*
+						 * Current token (idxToken) is the boundary token
+						 * between left and right modifiers. Thus, the previous
+						 * modifier for the next iteration is the special START
+						 * token for right modifiers, that is 'numTkns'.
+						 */
+						correctPreviousModifier = numTkns;
+					else
+						correctPreviousModifier = idxModifier;
+				}
+
+				if (isPredictedModifier) {
+					// Update predicted previous modifier.
+					if (idxModifier == idxHead)
+						/*
+						 * Current token (idxToken) is the boundary token
+						 * between left and right modifiers. Thus, the previous
+						 * modifier for the next iteration is the special START
+						 * token for right modifiers, that is 'numTkns'.
+						 */
+						predictedPreviousModifier = numTkns;
+					else
+						predictedPreviousModifier = idxModifier;
+				}
+			}
+		}
+
+		return dif + Math.sqrt(costP(correct, predicted));
 	}
 
 }
