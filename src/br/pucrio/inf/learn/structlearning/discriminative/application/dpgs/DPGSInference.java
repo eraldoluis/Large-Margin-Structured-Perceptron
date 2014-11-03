@@ -730,7 +730,7 @@ public class DPGSInference implements Inference {
 	public double calculateSufferLoss(ExampleOutput correctOutput,
 			ExampleOutput predictedOutput, PassiveAgressiveUpdate update) {
 
-		if (update == null) {
+ 		if (update == null) {
 			update = new PredictionBasedUpdate();
 		}
 
@@ -761,11 +761,11 @@ public class DPGSInference implements Inference {
 				if (correctGrandparent != -1)
 					if (!Double
 							.isNaN(edgeFactorWeights[correctGrandparent][idxHead]))
-						dif += -edgeFactorWeights[correctGrandparent][idxHead];
+						dif -= edgeFactorWeights[correctGrandparent][idxHead];
 			}
 
 			/*
-			 * Verifiy grandparent and siblings factors for differences between
+			 * Verify grandparent and siblings factors for differences between
 			 * correct and predicted factors.
 			 * 
 			 * We start as previous token with the special 'idxHead' index is
@@ -800,7 +800,7 @@ public class DPGSInference implements Inference {
 					// Current modifier is misclassified.
 					//
 
-					if (isCorrectModifier) {
+					if (isCorrectModifier) { // && !isPredictedModifier
 
 						/*
 						 * Current modifier is correct but the predicted
@@ -811,13 +811,13 @@ public class DPGSInference implements Inference {
 						 */
 						if (!Double
 								.isNaN(siblingsFactorWeights[idxHead][idxModifier][correctPreviousModifier]))
-							dif += -siblingsFactorWeights[idxHead][idxModifier][correctPreviousModifier];
+							dif -= siblingsFactorWeights[idxHead][idxModifier][correctPreviousModifier];
 
 						if (correctGrandparent != -1)
 							if (!Double
 									.isNaN(grandparentFactorWeights[idxHead][idxModifier][correctGrandparent]))
-								dif += -grandparentFactorWeights[idxHead][idxModifier][correctGrandparent];
-					} else {
+								dif -= grandparentFactorWeights[idxHead][idxModifier][correctGrandparent];
+					} else { // !isCorrectModifier && isPredictedModifier
 
 						/*
 						 * Current modifier is not correct but the predicted
@@ -836,7 +836,7 @@ public class DPGSInference implements Inference {
 								dif += grandparentFactorWeights[idxHead][idxModifier][predictedGrandparent];
 					}
 
-				} else {
+				} else { // isCorrectModifier == isPredictedModifier
 					/*
 					 * The current modifier has been correctly predicted for the
 					 * current head. Now, additionally check the previous
@@ -846,14 +846,14 @@ public class DPGSInference implements Inference {
 					if (correctPreviousModifier != predictedPreviousModifier) {
 
 						/*
-						 * Modifier is correctly predited but previous modifier
+						 * Modifier is correctly predicted but previous modifier
 						 * is NOT. Thus, the corresponding correct siblings
 						 * factor is missing (false negative) and the predicted
 						 * one is incorrectly predicted (false positive).
 						 */
 						if (!Double
 								.isNaN(siblingsFactorWeights[idxHead][idxModifier][correctPreviousModifier]))
-							dif += -siblingsFactorWeights[idxHead][idxModifier][correctPreviousModifier];
+							dif -= siblingsFactorWeights[idxHead][idxModifier][correctPreviousModifier];
 
 						if (!Double
 								.isNaN(siblingsFactorWeights[idxHead][idxModifier][predictedPreviousModifier]))

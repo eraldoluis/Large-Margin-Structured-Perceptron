@@ -415,25 +415,31 @@ public class DPGSDataset implements Dataset {
 					null, null);
 
 			if (!existExample) {
-				
-				if(parseExample(readerGrandParent,
-						multiValuedFeaturesIndexesGrandparent, listInput, listOutput,
-						null, null) || listInput.size() != numberExample){
-					throw new DatasetException("The numbers of instances of grandparent file is different of edges file");
+
+				if (parseExample(readerGrandParent,
+						multiValuedFeaturesIndexesGrandparent, listInput,
+						listOutput, null, null)
+						|| listInput.size() != numberExample) {
+					throw new DatasetException(
+							"The numbers of instances of grandparent file is different of edges file");
 				}
-				
-				if(parseExample(readerLeftSiblings,
-						multiValuedFeaturesIndexesGrandparent, listInput, listOutput,
-						null, null) || listInput.size() != numberExample){
-					throw new DatasetException("The numbers of instances of left siblings file is different of edges file");
+
+				if (parseExample(readerLeftSiblings,
+						multiValuedFeaturesIndexesGrandparent, listInput,
+						listOutput, null, null)
+						|| listInput.size() != numberExample) {
+					throw new DatasetException(
+							"The numbers of instances of left siblings file is different of edges file");
 				}
-				
-				if(parseExample(readerRightSiblings,
-						multiValuedFeaturesIndexesGrandparent, listInput, listOutput,
-						null, null) || listInput.size() != numberExample){
-					throw new DatasetException("The numbers of instances of right siblings file is different of edges file");
+
+				if (parseExample(readerRightSiblings,
+						multiValuedFeaturesIndexesGrandparent, listInput,
+						listOutput, null, null)
+						|| listInput.size() != numberExample) {
+					throw new DatasetException(
+							"The numbers of instances of right siblings file is different of edges file");
 				}
-				
+
 			} else {
 
 				input = listInput.get(numberExample);

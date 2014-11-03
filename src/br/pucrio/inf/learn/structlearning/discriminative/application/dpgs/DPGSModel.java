@@ -261,7 +261,7 @@ public class DPGSModel implements Model {
 			}
 
 			/*
-			 * Verifiy grandparent and siblings factors for differences between
+			 * Verify grandparent and siblings factors for differences between
 			 * correct and predicted factors.
 			 * 
 			 * We start as previous token with the special 'idxHead' index is
@@ -331,7 +331,7 @@ public class DPGSModel implements Model {
 									-learningRate);
 					}
 
-				} else {
+				} else { // isCorrectModifier == isPredictedModifier
 					/*
 					 * The current modifier has been correctly predicted for the
 					 * current head. Now, additionally check the previous

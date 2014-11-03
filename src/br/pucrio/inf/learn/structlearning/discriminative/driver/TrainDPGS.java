@@ -23,6 +23,7 @@ import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.Pe
 import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSDataset;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSDualInference;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSInference;
+import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSModel;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSModel.DPGSModelLoadReturn;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSOutput;
@@ -316,8 +317,8 @@ public class TrainDPGS implements Command {
 				modeType = PassiveAgressiveMode.I;
 			} else if (modeStr.equals("2")) {
 				modeType = PassiveAgressiveMode.II;
-			}else{
-				modeType = PassiveAgressiveMode.NORMAL;				
+			} else {
+				modeType = PassiveAgressiveMode.NORMAL;
 			}
 
 		} else {
@@ -359,7 +360,7 @@ public class TrainDPGS implements Command {
 						"bet-hm-postag", "bet-hg-postag", "add-head-feats",
 						"add-mod-feats", "add-gp-feats" }, new String[] {
 						"bet-hm-postag", "bet-ms-postag", "add-head-feats",
-						"add-mod-feats", "add-sib-feats" }, "|",
+						"add-mod-feats", "add-sib-feats" }, "\\|",
 						featureEncoding);
 
 				/*
@@ -417,10 +418,31 @@ public class TrainDPGS implements Command {
 						trainRSDatasetFileName, templatesFilename, model,
 						trainCacheSize, "trainInputs");
 
+				// int ftr = trainDataset.getEdgeFeatureIndex("head-lemma");
+				// trainDataset.getInputs().loadInOrder();
+				// for (int i = 0; i < 10; ++i) {
+				// DPGSInput in = (DPGSInput) trainDataset.getInputs().get(i);
+				// int numTkns = in.size();
+				// for (int head = 0; head < numTkns; ++head) {
+				// for (int mod = 0; mod < numTkns; ++mod) {
+				// int[][] ftrs = in.getBasicEdgeFeatures(head, mod);
+				// if (ftrs == null)
+				// continue;
+				// int[] ftrsVal = ftrs[ftr];
+				// System.out.printf("(%d, %d", head, mod);
+				// for (int val : ftrsVal)
+				// System.out.printf(", %d/%s", val,
+				// featureEncoding.getValueByCode(val));
+				// System.out.println();
+				// }
+				// }
+				// System.out.println("\n***********************\n");
+				// }
+
 				// Set modifier variables in all output structures.
 				trainDataset.setModifierVariables();
 
-				LOG.debug("Número de exemplos do treino: "
+				LOG.debug("NÃºmero de exemplos do treino: "
 						+ trainDataset.getNumberOfExamples());
 
 				// Inference algorithm for training.
@@ -448,9 +470,11 @@ public class TrainDPGS implements Command {
 								.getOptionValue("c"));
 
 						if (modeType == PassiveAgressiveMode.I) {
-							alg = new PassiveAgressive1(inference, model, numEpochs, true, averaged, c);
+							alg = new PassiveAgressive1(inference, model,
+									numEpochs, true, averaged, c);
 						} else if (modeType == PassiveAgressiveMode.II) {
-							alg = new PassiveAgressive2(inference, model, numEpochs, true, averaged, c);
+							alg = new PassiveAgressive2(inference, model,
+									numEpochs, true, averaged, c);
 						}
 					}
 
