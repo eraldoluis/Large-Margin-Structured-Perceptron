@@ -1,7 +1,5 @@
 package br.pucrio.inf.learn.structlearning.discriminative.task;
 
-import com.sun.org.apache.xml.internal.security.encryption.AgreementMethod;
-
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.passiveagressive.PassiveAgressiveUpdate;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;

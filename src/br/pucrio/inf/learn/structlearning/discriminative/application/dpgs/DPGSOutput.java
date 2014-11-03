@@ -2,10 +2,7 @@ package br.pucrio.inf.learn.structlearning.discriminative.application.dpgs;
 
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
@@ -230,12 +227,17 @@ public class DPGSOutput implements ExampleOutput {
 
 		DPGSOutput predicted = (DPGSOutput) outputPredicted;
 		DPGSInput in = (DPGSInput) input;
-		Map<Integer, AtomicInteger> featuresMap = new HashMap<Integer, AtomicInteger>();
+		Map<Integer, AtomicInteger> diffVectorMap = new HashMap<Integer, AtomicInteger>();
 
 		/*
-		 * For each head and modifier, check whether the predicted factor does
-		 * not correspond to the correct one and, then, update the current model
-		 * properly.
+		 * Compute the difference between the feature vectors of this output
+		 * (the correct one, usually) and the given outputPredicted. That is a
+		 * very sparse vector and, thus, we use a hash map to compute it.
+		 * 
+		 * The predicted output is given as a GS structure, that is, it is given
+		 * by grandparent and siblings variables (getGrandparent() and
+		 * isModifier() methods). The current output (the correct one) is given
+		 * by a correct tree (getHead() method).
 		 */
 		int numTkns = size();
 		int updateValue = 1;
@@ -250,17 +252,17 @@ public class DPGSOutput implements ExampleOutput {
 				if (predictedGrandparent != -1)
 					updateFeatureMap(
 							in.getEdgeFeatures(predictedGrandparent, idxHead),
-							featuresMap, updateValue);
+							diffVectorMap, updateValue);
 
 				if (correctGrandparent != -1)
 					updateFeatureMap(
 							in.getEdgeFeatures(correctGrandparent, idxHead),
-							featuresMap, -updateValue);
+							diffVectorMap, -updateValue);
 			}
 
 			/*
-			 * Verifiy grandparent and siblings factors for differences between
-			 * correct and predicted factors.
+			 * Verify all grandparent and siblings factors for differences
+			 * between correct and predicted factors.
 			 * 
 			 * We start as previous token with the special 'idxHead' index is
 			 * the index to indicate START and END tokens for LEFT modifiers.
@@ -277,8 +279,8 @@ public class DPGSOutput implements ExampleOutput {
 				 * structures for the current head or is it a special token.
 				 * Special tokens are always present, by definition.
 				 */
-				boolean isCorrectModifier = (isSpecialToken || (this.
-						getHead(idxModifier) == idxHead));
+				boolean isCorrectModifier = (isSpecialToken || (this
+						.getHead(idxModifier) == idxHead));
 				boolean isPredictedModifier = (isSpecialToken || predicted
 						.isModifier(idxHead, idxModifier));
 
@@ -305,11 +307,12 @@ public class DPGSOutput implements ExampleOutput {
 						 */
 						updateFeatureMap(in.getSiblingsFeatures(idxHead,
 								idxModifier, correctPreviousModifier),
-								featuresMap, -updateValue);
+								diffVectorMap, -updateValue);
 
 						if (correctGrandparent != -1)
-							updateFeatureMap(in.getGrandparentFeatures(idxHead, idxModifier, correctGrandparent),
-									featuresMap, -updateValue);
+							updateFeatureMap(in.getGrandparentFeatures(idxHead,
+									idxModifier, correctGrandparent),
+									diffVectorMap, -updateValue);
 					} else {
 
 						/*
@@ -321,11 +324,11 @@ public class DPGSOutput implements ExampleOutput {
 						 */
 						updateFeatureMap(in.getSiblingsFeatures(idxHead,
 								idxModifier, predictedPreviousModifier),
-								featuresMap, updateValue);
+								diffVectorMap, updateValue);
 						if (predictedGrandparent != -1)
 							updateFeatureMap(in.getGrandparentFeatures(idxHead,
 									idxModifier, predictedGrandparent),
-									featuresMap, updateValue);
+									diffVectorMap, updateValue);
 					}
 
 				} else {
@@ -345,10 +348,10 @@ public class DPGSOutput implements ExampleOutput {
 						 */
 						updateFeatureMap(in.getSiblingsFeatures(idxHead,
 								idxModifier, correctPreviousModifier),
-								featuresMap, -updateValue);
+								diffVectorMap, -updateValue);
 						updateFeatureMap(in.getSiblingsFeatures(idxHead,
 								idxModifier, predictedPreviousModifier),
-								featuresMap, updateValue);
+								diffVectorMap, updateValue);
 					}
 
 					if (!isSpecialToken
@@ -360,12 +363,13 @@ public class DPGSOutput implements ExampleOutput {
 						 * one is incorrectly predicted (false positive).
 						 */
 						if (correctGrandparent != -1)
-							updateFeatureMap(in.getGrandparentFeatures(idxHead, idxModifier, correctGrandparent),
-									featuresMap, -updateValue);
+							updateFeatureMap(in.getGrandparentFeatures(idxHead,
+									idxModifier, correctGrandparent),
+									diffVectorMap, -updateValue);
 						if (predictedGrandparent != -1)
 							updateFeatureMap(in.getGrandparentFeatures(idxHead,
 									idxModifier, predictedGrandparent),
-									featuresMap, updateValue);
+									diffVectorMap, updateValue);
 					}
 				}
 
@@ -398,16 +402,15 @@ public class DPGSOutput implements ExampleOutput {
 				}
 			}
 		}
-		
-		Collection<AtomicInteger> values = featuresMap.values();
-		double difVectorLength = 0;
-		
-		
-		for (AtomicInteger v : values) {
-			difVectorLength += Math.pow(v.doubleValue(), 2);
-		}
 
-		return difVectorLength;
+		// Compute the squared norm of the difference feature vector.
+		Collection<AtomicInteger> values = diffVectorMap.values();
+		double sqNorm = 0;
+		for (AtomicInteger v : values) {
+			double val = v.doubleValue();
+			sqNorm += val * val;
+		}
+		return sqNorm;
 	}
 
 	private void updateFeatureMap(int[] ftrs,
@@ -416,15 +419,12 @@ public class DPGSOutput implements ExampleOutput {
 			// Inexistent factor. Do nothing.
 			return;
 
-		for (int idxFtr = 0; idxFtr < ftrs.length; ++idxFtr) {
-			AtomicInteger v = featureMap.get(idxFtr);
-			
-			if(v == null){
-				v = new AtomicInteger(0);
-				featureMap.put(idxFtr, v);
-			}
-			
-			v.addAndGet(updateValue);
+		for (int ftr : ftrs) {
+			AtomicInteger v = featureMap.get(ftr);
+			if (v == null)
+				featureMap.put(ftr, new AtomicInteger(updateValue));
+			else
+				v.addAndGet(updateValue);
 		}
 	}
 }

@@ -418,10 +418,31 @@ public class TrainDPGS implements Command {
 						trainRSDatasetFileName, templatesFilename, model,
 						trainCacheSize, "trainInputs");
 
+				// int ftr = trainDataset.getEdgeFeatureIndex("head-lemma");
+				// trainDataset.getInputs().loadInOrder();
+				// for (int i = 0; i < 10; ++i) {
+				// DPGSInput in = (DPGSInput) trainDataset.getInputs().get(i);
+				// int numTkns = in.size();
+				// for (int head = 0; head < numTkns; ++head) {
+				// for (int mod = 0; mod < numTkns; ++mod) {
+				// int[][] ftrs = in.getBasicEdgeFeatures(head, mod);
+				// if (ftrs == null)
+				// continue;
+				// int[] ftrsVal = ftrs[ftr];
+				// System.out.printf("(%d, %d", head, mod);
+				// for (int val : ftrsVal)
+				// System.out.printf(", %d/%s", val,
+				// featureEncoding.getValueByCode(val));
+				// System.out.println();
+				// }
+				// }
+				// System.out.println("\n***********************\n");
+				// }
+
 				// Set modifier variables in all output structures.
 				trainDataset.setModifierVariables();
 
-				LOG.debug("Número de exemplos do treino: "
+				LOG.debug("NÃºmero de exemplos do treino: "
 						+ trainDataset.getNumberOfExamples());
 
 				// Inference algorithm for training.
