@@ -23,6 +23,7 @@ import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.Pe
 import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSDataset;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSDualInference;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSInference;
+import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSModel;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSModel.DPGSModelLoadReturn;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSOutput;
@@ -316,8 +317,8 @@ public class TrainDPGS implements Command {
 				modeType = PassiveAgressiveMode.I;
 			} else if (modeStr.equals("2")) {
 				modeType = PassiveAgressiveMode.II;
-			}else{
-				modeType = PassiveAgressiveMode.NORMAL;				
+			} else {
+				modeType = PassiveAgressiveMode.NORMAL;
 			}
 
 		} else {
@@ -359,7 +360,7 @@ public class TrainDPGS implements Command {
 						"bet-hm-postag", "bet-hg-postag", "add-head-feats",
 						"add-mod-feats", "add-gp-feats" }, new String[] {
 						"bet-hm-postag", "bet-ms-postag", "add-head-feats",
-						"add-mod-feats", "add-sib-feats" }, "|",
+						"add-mod-feats", "add-sib-feats" }, "\\|",
 						featureEncoding);
 
 				/*
@@ -448,9 +449,11 @@ public class TrainDPGS implements Command {
 								.getOptionValue("c"));
 
 						if (modeType == PassiveAgressiveMode.I) {
-							alg = new PassiveAgressive1(inference, model, numEpochs, true, averaged, c);
+							alg = new PassiveAgressive1(inference, model,
+									numEpochs, true, averaged, c);
 						} else if (modeType == PassiveAgressiveMode.II) {
-							alg = new PassiveAgressive2(inference, model, numEpochs, true, averaged, c);
+							alg = new PassiveAgressive2(inference, model,
+									numEpochs, true, averaged, c);
 						}
 					}
 
@@ -475,6 +478,7 @@ public class TrainDPGS implements Command {
 							testGPDatasetFilename, testLSDatasetFilename,
 							testRSDatasetFilename, model, testCacheSize,
 							"testInputs");
+
 					testset.setModifierVariables();
 
 					LOG.info("Evaluating...");
@@ -801,3 +805,4 @@ public class TrainDPGS implements Command {
 		}
 	}
 }
+
