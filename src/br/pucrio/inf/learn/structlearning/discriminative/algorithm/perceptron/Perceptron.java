@@ -7,6 +7,9 @@ import org.apache.commons.logging.LogFactory;
 
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.OnlineStructuredAlgorithm;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.TrainingListener;
+import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSInference;
+import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSInput;
+import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
@@ -250,8 +253,7 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 	}
 
 	public void train(ExampleInputArray inputs, ExampleOutput[] outputs) {
-		// Training examples.
-		this.inputs = inputs;
+		// Training examples.		this.inputs = inputs;
 		this.outputs = outputs;
 
 		int numbersExamples = inputs.getNumberExamples();
@@ -274,6 +276,7 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 		for (epoch = 0; epoch < numberOfEpochs; ++epoch) {
 
 			LOG.info("Perceptron epoch: " + epoch + "...");
+
 
 			if (listener != null)
 				if (!listener.beforeEpoch(inferenceImpl, model, epoch,
@@ -560,7 +563,20 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 
 		// Predict the best output with the current mobel.
 		inferenceImpl.inference(model, input, predictedOutput);
-
+		
+		//TODO: remove
+		String s = "";
+		DPGSOutput c = (DPGSOutput) referenceOutput;
+		int idxGrandparent, idxHead;
+		for(int idxModifier = 1; idxModifier < ((DPGSInput)input).size();idxModifier++){
+			idxHead = c.getHead(idxModifier);
+			idxGrandparent = c.getHead(idxHead);
+			if(idxGrandparent != -1)
+				s += ((DPGSInference)inferenceImpl).grandparentFactorWeights[idxHead][idxModifier][idxGrandparent] + ", ";
+		}
+		
+		System.out.println(s);
+		
 		// Update the current model and return the loss for this example.
 		double loss = model.update(input, referenceOutput, predictedOutput,
 				getCurrentLearningRate());

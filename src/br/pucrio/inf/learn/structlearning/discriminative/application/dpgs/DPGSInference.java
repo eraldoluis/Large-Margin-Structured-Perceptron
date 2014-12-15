@@ -51,7 +51,7 @@ public class DPGSInference implements Inference {
 	 * Grandparent factor weights for grandparent/siblings algorithm. The index
 	 * for this array is (idxHead, idxModifier, idxGrandparent).
 	 */
-	private double[][][] grandparentFactorWeights;
+	public double[][][] grandparentFactorWeights;
 
 	/**
 	 * Siblings factor weights for grandparent/siblings algorithm. The index for
@@ -268,12 +268,13 @@ public class DPGSInference implements Inference {
 				// factor.
 				int[] ftrs = input.getGrandparentFeatures(idxHead, idxModifier,
 						idxGrandparent);
-				// System.out.println(idxHead + " " + idxModifier + " " +
-				// idxGrandparent);
 
 				if (ftrs != null) {
 					// Sum feature weights to achieve the factor
 					// weight.
+					if(idxHead == 2 && idxModifier == 1 && idxGrandparent == 0){
+						idxHead = 2;
+					}
 					grandparentFactorWeightsHeadModifier[idxGrandparent] = model
 							.getFeatureListScore(ftrs);
 					// Loss value for the current edge.
@@ -406,7 +407,8 @@ public class DPGSInference implements Inference {
 
 		fillGrandparentFactorWeights(model, input, referenceOutput, lossWeight);
 		fillSiblingsFactorWeights(model, input, referenceOutput, lossWeight);
-
+		
+		
 		// Solve the inference problem.
 		maxGSAlgorithm.findMaximumGrandparentSiblings(input.size(),
 				edgeFactorWeights, grandparentFactorWeights,

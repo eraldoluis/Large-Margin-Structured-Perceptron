@@ -672,7 +672,7 @@ public class DPGSModel implements Model {
 		/*
 		 * Instantiate edge features and add them to active features list.
 		 */
-		for (int idxTpl = 0; idxTpl < grandparentTemplates.length; ++idxTpl) {
+		for (int idxTpl = 0; idxTpl < leftSiblingsTemplates.length; ++idxTpl) {
 			DPSiblingsTemplate tpl = (DPSiblingsTemplate) leftSiblingsTemplates[idxTpl];
 			try {
 				tpl.instantiateSiblingsDerivedFeatures(input, ftrs,

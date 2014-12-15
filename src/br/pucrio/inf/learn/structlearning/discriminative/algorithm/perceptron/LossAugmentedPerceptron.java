@@ -134,7 +134,7 @@ public class LossAugmentedPerceptron extends Perceptron {
 			inferenceImpl.lossAugmentedInferenceWithNonAnnotatedWeight(model,
 					input, correctOutput, referenceOutput, predictedOutput,
 					lossWeight, lossNonAnnotatedWeight);
-
+		
 		// Update the current model and return the loss for this example.
 		double loss = model.update(input, referenceOutput, predictedOutput,
 				getCurrentLearningRate());

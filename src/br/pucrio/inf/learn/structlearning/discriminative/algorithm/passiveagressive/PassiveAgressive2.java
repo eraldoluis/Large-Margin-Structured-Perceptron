@@ -18,7 +18,7 @@ public class PassiveAgressive2 extends PassiveAgressive {
 		this.c = c;
 	}
 
-	private double calculateTau(final double sufferLoss, final ExampleInput input,
+	protected double calculateTau(final double sufferLoss, final ExampleInput input,
 			final ExampleOutput correctOutput, final ExampleOutput predictedOutput) {
 		return sufferLoss/(correctOutput.getFeatureVectorLengthSquared(input, predictedOutput) +
 				1/(2*c));

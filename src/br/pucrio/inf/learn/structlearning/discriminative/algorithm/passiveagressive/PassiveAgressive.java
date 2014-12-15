@@ -77,10 +77,12 @@ public class PassiveAgressive extends Perceptron {
 
 		double sufferLoss = inferenceImpl.calculateSufferLoss(referenceOutput, predictedOutput,
 				passiveAgressiveUpdate);
-
+		
+		double tau = calculateTau(sufferLoss, input, correctOutput, predictedOutput);
+		
 		// Update the current model and return the loss for this example.
 		double loss = model.update(input, referenceOutput, predictedOutput,
-				calculateTau(sufferLoss, input, correctOutput, predictedOutput));
+				tau);
 
 		// Debug.
 		if (DebugUtil.print)
@@ -96,7 +98,7 @@ public class PassiveAgressive extends Perceptron {
 		return loss;
 	}
 
-	private double calculateTau(double sufferLoss, ExampleInput input,
+	protected double calculateTau(double sufferLoss, ExampleInput input,
 			ExampleOutput correctOutput, ExampleOutput predictedOutput) {
 		double len = correctOutput.getFeatureVectorLengthSquared(input, predictedOutput);
 		

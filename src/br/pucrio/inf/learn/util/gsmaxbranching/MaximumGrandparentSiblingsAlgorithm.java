@@ -134,15 +134,15 @@ public class MaximumGrandparentSiblingsAlgorithm {
 			double[][] dualModifierVars, int[] grandparents,
 			boolean[][] modifiers) {
 		double weight = 0d;
-		
-		for (int idxHead = 0; idxHead < numberOfNodes; ++idxHead){
+
+		for (int idxHead = 0; idxHead < numberOfNodes; ++idxHead) {
 			weight += findMaximumGrandparentSiblingsForHead(numberOfNodes,
 					idxHead, edgeFactorWeights,
 					grandparentFactorWeights[idxHead],
 					siblingsFactorWeights[idxHead], dualGrandparentVars,
 					dualModifierVars, grandparents, modifiers);
 		}
-		
+
 		return weight;
 	}
 
@@ -208,17 +208,20 @@ public class MaximumGrandparentSiblingsAlgorithm {
 			 * because this weight depends only on (idxHead, idxGrandparent).
 			 */
 			double weight = 0d;
+
 			if (idxGrandparent != -1) {
 				if (dualGrandparentVars != null)
 					weight = -dualGrandparentVars[idxGrandparent][idxHead];
-//
-//				/*
-//				 * TODO test. Additionally, we include the edge factor using the
-//				 * grandparent instead of using the modifier. This is done to
-//				 * avoid the issue of missing a grandparent factors on leaf
-//				 * tokens. In these cases, it is impossible to select the right
-//				 * grandparent (it will always be -1).
-//				 */
+				//
+				// /*
+				// * TODO test. Additionally, we include the edge factor using
+				// the
+				// * grandparent instead of using the modifier. This is done to
+				// * avoid the issue of missing a grandparent factors on leaf
+				// * tokens. In these cases, it is impossible to select the
+				// right
+				// * grandparent (it will always be -1).
+				// */
 				double edgeFactorWeight = (1 - beta)
 						* edgeFactorWeights[idxGrandparent][idxHead];
 				if (Double.isNaN(edgeFactorWeight)) {
@@ -272,23 +275,23 @@ public class MaximumGrandparentSiblingsAlgorithm {
 				 */
 				accumWeights[idxModifier] += wGrandparentFactor;
 
-//				/*
-//				* Same thing for the edge factor weight that depends only on
-//				* (idxHead, idxModifier).
-//				*/
-//				
-//				double edgeFactorWeight = (1 - beta)
-//				 * edgeFactorWeights[idxHead][idxModifier];
-//				if (Double.isNaN(edgeFactorWeight)) {
-//					// // Edge factor is invalid.
-//					previousModifiers[idxModifier] = -1;
-//					accumWeights[idxModifier] = Double.NaN;
-//					continue;
-//					// // // TODO test
-//					//edgeFactorWeight = 0d;
-//				}
-//				
-//				accumWeights[idxModifier] += edgeFactorWeight;
+				// /*
+				// * Same thing for the edge factor weight that depends only on
+				// * (idxHead, idxModifier).
+				// */
+				//
+				// double edgeFactorWeight = (1 - beta)
+				// * edgeFactorWeights[idxHead][idxModifier];
+				// if (Double.isNaN(edgeFactorWeight)) {
+				// // // Edge factor is invalid.
+				// previousModifiers[idxModifier] = -1;
+				// accumWeights[idxModifier] = Double.NaN;
+				// continue;
+				// // // // TODO test
+				// //edgeFactorWeight = 0d;
+				// }
+				//
+				// accumWeights[idxModifier] += edgeFactorWeight;
 
 				/*
 				 * Same thing for the modifier dual var that depends only on
@@ -324,11 +327,11 @@ public class MaximumGrandparentSiblingsAlgorithm {
 					wGrandparentFactor = grandparentFactorWeightsForHead[idxModifier][idxGrandparent];
 				if (Double.isNaN(wGrandparentFactor)) {
 					// Grandparent is not valid, thus skip this modifier.
-					previousModifiers[idxModifier] = -1;
-					accumWeights[idxModifier] = Double.NaN;
-					continue;
+					 previousModifiers[idxModifier] = -1;
+					 accumWeights[idxModifier] = Double.NaN;
+					 continue;
 					// // TODO test
-					// wGrandparentFactor = 0d;
+//					wGrandparentFactor = 0d;
 				}
 
 				/*
@@ -348,24 +351,23 @@ public class MaximumGrandparentSiblingsAlgorithm {
 				 */
 				accumWeights[idxModifier] += wGrandparentFactor;
 
-				
-//				 /* Same thing for the edge factor weight that depends only on
-//				 * (idxHead, idxModifier).
-//				 */
-//				 double edgeFactorWeight = (1 - beta)
-//						 * edgeFactorWeights[idxHead][idxModifier];
-//				 
-//				 if (Double.isNaN(edgeFactorWeight)) {
-//					 //Edge factor is invalid.
-//					 previousModifiers[idxModifier] = -1;
-//					 accumWeights[idxModifier] = Double.NaN;
-//					 continue;
-//					 //TODO test
-//					 edgeFactorWeight = 0d;
-//				 }
-//				
-//				 accumWeights[idxModifier] += edgeFactorWeight;
-				 
+				// /* Same thing for the edge factor weight that depends only on
+				// * (idxHead, idxModifier).
+				// */
+				// double edgeFactorWeight = (1 - beta)
+				// * edgeFactorWeights[idxHead][idxModifier];
+				//
+				// if (Double.isNaN(edgeFactorWeight)) {
+				// //Edge factor is invalid.
+				// previousModifiers[idxModifier] = -1;
+				// accumWeights[idxModifier] = Double.NaN;
+				// continue;
+				// //TODO test
+				// edgeFactorWeight = 0d;
+				// }
+				//
+				// accumWeights[idxModifier] += edgeFactorWeight;
+
 				/*
 				 * Same thing for the modifier dual var that depends only on
 				 * (idxHead, idxModifier).
@@ -416,10 +418,10 @@ public class MaximumGrandparentSiblingsAlgorithm {
 			modifiers[idxHead][idxModifier] = true;
 			idxModifier = bestPreviousModifiers[idxModifier];
 		}
-		
+
 		// IRVING MUDEI
-		if(bestWeight == Double.NEGATIVE_INFINITY){
-			bestWeight= 0.0d;
+		if (bestWeight == Double.NEGATIVE_INFINITY) {
+			bestWeight = 0.0d;
 		}
 
 		// Return the weight of the best sequence of left and right modifiers.
@@ -490,8 +492,6 @@ public class MaximumGrandparentSiblingsAlgorithm {
 		 * (idxHead, idxModifier).
 		 */
 		previousModifiers[idxModifier] = bestPreviousModifier;
-		// if (Double.isNaN(bestAccumWeight))
-		// bestAccumWeight = 0d;
 		accumWeights[idxModifier] = bestAccumWeight;
 	}
 
@@ -533,29 +533,28 @@ public class MaximumGrandparentSiblingsAlgorithm {
 		double weight = 0d;
 		double w;
 		double l;
-		double [] wh = new double [numberOfNodes];
-		
+		double[] wh = new double[numberOfNodes];
+
 		l = weight;
 
 		for (int idxHead = 0; idxHead < numberOfNodes; ++idxHead) {
 			// Parent of the current head (grandparent of its modifiers).
 			int idxGrandparent = heads[idxHead];
-			
+
 			if (idxGrandparent != -1 && dualGrandparentVars != null)
 				// Grandparent dual variable.
 				weight -= dualGrandparentVars[idxGrandparent][idxHead];
-			
+
 			if (idxGrandparent != -1) {
 				/*
 				 * TODO test
 				 */
-				w = (1 - beta)
-						* edgeFactorWeights[idxGrandparent][idxHead];
+				w = edgeFactorWeights[idxGrandparent][idxHead];
 				if (!Double.isNaN(w)) {
 					weight += w;
 				}
 			}
-			
+
 			// LEFT modifiers. The special START symbol is equal to idxHead.
 			int idxPrevModifier = idxHead;
 			for (int idxModifier = 0; idxModifier < idxHead; ++idxModifier) {
@@ -571,9 +570,9 @@ public class MaximumGrandparentSiblingsAlgorithm {
 				}
 
 				// Edge factor.
-//				w = (1 - beta) * edgeFactorWeights[idxHead][idxModifier];
-//				if (!Double.isNaN(w))
-//					weight += w;
+				// w = (1 - beta) * edgeFactorWeights[idxHead][idxModifier];
+				// if (!Double.isNaN(w))
+				// weight += w;
 
 				// Sibling factor.
 				w = siblingsFactorWeights[idxHead][idxModifier][idxPrevModifier];
@@ -608,9 +607,9 @@ public class MaximumGrandparentSiblingsAlgorithm {
 				}
 
 				// Edge factor.
-//				w = (1 - beta) * edgeFactorWeights[idxHead][idxModifier];
-//				if (!Double.isNaN(w))
-//					weight += w;
+				// w = (1 - beta) * edgeFactorWeights[idxHead][idxModifier];
+				// if (!Double.isNaN(w))
+				// weight += w;
 
 				// Sibling factor.
 				w = siblingsFactorWeights[idxHead][idxModifier][idxPrevModifier];
@@ -629,7 +628,7 @@ public class MaximumGrandparentSiblingsAlgorithm {
 			w = siblingsFactorWeights[idxHead][numberOfNodes][idxPrevModifier];
 			if (!Double.isNaN(w))
 				weight += w;
-			
+
 			wh[idxHead] = weight - l;
 			l = weight;
 		}

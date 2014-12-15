@@ -409,33 +409,36 @@ public class DPGSDataset implements Dataset {
 
 		System.out.println("Load examples");
 		do {
-
+			
+			numberExample = listInput.size();
+			
 			existExample &= parseExample(readerEdge,
 					multiValuedFeaturesIndexesEdge, listInput, listOutput,
 					null, null);
-
-			if (!existExample) {
-
-				if (parseExample(readerGrandParent,
+			
+			if(numberExample == listInput.size()){
+				parseExample(readerGrandParent,
 						multiValuedFeaturesIndexesGrandparent, listInput,
-						listOutput, null, null)
-						|| listInput.size() != numberExample) {
+						listOutput, null, null);
+				
+				if (listInput.size() != numberExample) {
 					throw new DatasetException(
 							"The numbers of instances of grandparent file is different of edges file");
 				}
-
-				if (parseExample(readerLeftSiblings,
+				
+				parseExample(readerLeftSiblings,
 						multiValuedFeaturesIndexesGrandparent, listInput,
-						listOutput, null, null)
-						|| listInput.size() != numberExample) {
+						listOutput, null, null);
+
+				if (listInput.size() != numberExample) {
 					throw new DatasetException(
 							"The numbers of instances of left siblings file is different of edges file");
 				}
-
-				if (parseExample(readerRightSiblings,
+				parseExample(readerRightSiblings,
 						multiValuedFeaturesIndexesGrandparent, listInput,
-						listOutput, null, null)
-						|| listInput.size() != numberExample) {
+						listOutput, null, null);
+
+				if (listInput.size() != numberExample) {
 					throw new DatasetException(
 							"The numbers of instances of right siblings file is different of edges file");
 				}
@@ -445,12 +448,13 @@ public class DPGSDataset implements Dataset {
 				input = listInput.get(numberExample);
 				output = listOutput.get(numberExample);
 
-				existExample &= parseExample(readerGrandParent,
+				parseExample(readerGrandParent,
 						multiValuedFeaturesIndexesGrandparent, null, null,
 						input, output);
-				existExample &= parseExample(readerLeftSiblings,
+				
+				parseExample(readerLeftSiblings,
 						multiValuedFeaturesIndexesLS, null, null, input, output);
-				existExample &= parseExample(readerRightSiblings,
+				parseExample(readerRightSiblings,
 						multiValuedFeaturesIndexesRS, null, null, input, output);
 
 				model.generateFeaturesOneInput(input);
@@ -689,8 +693,6 @@ public class DPGSDataset implements Dataset {
 					break;
 			} else {
 				if (line.trim().length() > 0) {
-					System.out.println(lastLine);
-					System.out.println(line);
 					throw new DatasetException("More lines than expected in "
 							+ "input file");
 				} else if (idxEx == numExs) {
@@ -703,11 +705,6 @@ public class DPGSDataset implements Dataset {
 					// Make sure all remaining lines are blank.
 					while ((line = reader.readLine()) != null) {
 						if (line.trim().length() > 0) {
-							System.out.println(numExs);
-							System.out.println(idxEx);
-							System.out.println(lastLine);
-							System.out.println(lastLine);
-							System.out.println(line);
 							throw new DatasetException(
 									"More lines than expected in "
 											+ "input file");

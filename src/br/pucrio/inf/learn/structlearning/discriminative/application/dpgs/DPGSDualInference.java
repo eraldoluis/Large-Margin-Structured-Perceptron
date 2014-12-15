@@ -122,6 +122,7 @@ public class DPGSDualInference implements Inference {
 	private int numPredictions;
 
 	private int numSubGradSteps;
+	public boolean provedOtimo;
 
 	/**
 	 * Create a grandparent/sibling inference object that allocates the internal
@@ -289,7 +290,6 @@ public class DPGSDualInference implements Inference {
 		if (lambda == 0d)
 			lambda = 1d;
 		
-
 		/*
 		 * Set of heads whose dual vars were updated in the previous iteration.
 		 * We only need to recalculate the GS structure for these heads.
@@ -297,6 +297,7 @@ public class DPGSDualInference implements Inference {
 		boolean[] updatedHeads = new boolean[numTkns];
 		int step;
 		double outputWeight = treeWeight;
+		this.provedOtimo = false;
 		
 		for (step = 0; step < maxNumberOfSubgradientSteps; ++step) {
 
@@ -348,6 +349,7 @@ public class DPGSDualInference implements Inference {
 			}
 			
 			if (!updated) {
+				this.provedOtimo = true;
 				LOG.info(String
 						.format("Optimum found at step %d after %d dual objective increments. Dual objective: %f. Weight: %f",
 								step, numDualObjectiveIncrements,

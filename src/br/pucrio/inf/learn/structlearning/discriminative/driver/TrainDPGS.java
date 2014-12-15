@@ -83,11 +83,7 @@ public class TrainDPGS implements Command {
 		/**
 		 * Passive-Agressive algorithm (Crammer et al., 2006)
 		 */
-		PASSIVE_AGRESSIVE,
-	}
-
-	public static enum PassiveAgressiveMode {
-		NORMAL, I, II,
+		PASSIVE_AGRESSIVE, PASSIVE_AGRESSIVE_1, PASSIVE_AGRESSIVE_2,
 	}
 
 	@SuppressWarnings("static-access")
@@ -215,15 +211,6 @@ public class TrainDPGS implements Command {
 								+ "dual (dual (kernelized) perceptron")
 				.create());
 		options.addOption(OptionBuilder
-				.withLongOpt("mode")
-				.withArgName("n | 1 | 2")
-				.hasArg()
-				.withDescription(
-						"The training algorithm: "
-								+ "n (Normal Passive Agressive), "
-								+ "1 (Passive Agressive I), "
-								+ "2 (Passive Agressive II), ").create());
-		options.addOption(OptionBuilder
 				.withLongOpt("c")
 				.withArgName("double")
 				.hasArg()
@@ -296,7 +283,6 @@ public class TrainDPGS implements Command {
 		}
 
 		AlgorithmType algType = null;
-		PassiveAgressiveMode modeType = null;
 
 		String algTypeStr = cmdLine.getOptionValue("alg", "perc");
 
@@ -306,22 +292,13 @@ public class TrainDPGS implements Command {
 			algType = AlgorithmType.LOSS_PERCEPTRON;
 		else if (algTypeStr.equals("dual"))
 			algType = AlgorithmType.DUAL_PERCEPTRON;
-		else if (algTypeStr.equals("pa")) {
+		else if (algTypeStr.equals("pa"))
 			algType = AlgorithmType.PASSIVE_AGRESSIVE;
-
-			String modeStr = cmdLine.getOptionValue("mode", "n");
-
-			if (modeStr.equals("n")) {
-				modeType = PassiveAgressiveMode.NORMAL;
-			} else if (modeStr.equals("1")) {
-				modeType = PassiveAgressiveMode.I;
-			} else if (modeStr.equals("2")) {
-				modeType = PassiveAgressiveMode.II;
-			} else {
-				modeType = PassiveAgressiveMode.NORMAL;
-			}
-
-		} else {
+		else if (algTypeStr.equals("pa1"))
+			algType = AlgorithmType.PASSIVE_AGRESSIVE_1;
+		else if (algTypeStr.equals("pa2"))
+			algType = AlgorithmType.PASSIVE_AGRESSIVE_2;
+		else {
 			// System.err.println("Unknown algorithm: " + algTypeStr);
 			// System.exit(1);
 			algType = AlgorithmType.PERCEPTRON;
@@ -418,27 +395,6 @@ public class TrainDPGS implements Command {
 						trainRSDatasetFileName, templatesFilename, model,
 						trainCacheSize, "trainInputs");
 
-				// int ftr = trainDataset.getEdgeFeatureIndex("head-lemma");
-				// trainDataset.getInputs().loadInOrder();
-				// for (int i = 0; i < 10; ++i) {
-				// DPGSInput in = (DPGSInput) trainDataset.getInputs().get(i);
-				// int numTkns = in.size();
-				// for (int head = 0; head < numTkns; ++head) {
-				// for (int mod = 0; mod < numTkns; ++mod) {
-				// int[][] ftrs = in.getBasicEdgeFeatures(head, mod);
-				// if (ftrs == null)
-				// continue;
-				// int[] ftrsVal = ftrs[ftr];
-				// System.out.printf("(%d, %d", head, mod);
-				// for (int val : ftrsVal)
-				// System.out.printf(", %d/%s", val,
-				// featureEncoding.getValueByCode(val));
-				// System.out.println();
-				// }
-				// }
-				// System.out.println("\n***********************\n");
-				// }
-
 				// Set modifier variables in all output structures.
 				trainDataset.setModifierVariables();
 
@@ -460,23 +416,25 @@ public class TrainDPGS implements Command {
 					alg = new LossAugmentedPerceptron(inference, model,
 							numEpochs, 1d, lossWeight, true, averaged,
 							LearnRateUpdateStrategy.NONE);
-				else if (algType == AlgorithmType.PASSIVE_AGRESSIVE) {
-
-					if (modeType == PassiveAgressiveMode.NORMAL) {
-						alg = new PassiveAgressive(inference, model, numEpochs,
-								true, averaged);
-					} else {
-						double c = Double.parseDouble(cmdLine
-								.getOptionValue("c"));
-
-						if (modeType == PassiveAgressiveMode.I) {
-							alg = new PassiveAgressive1(inference, model,
-									numEpochs, true, averaged, c);
-						} else if (modeType == PassiveAgressiveMode.II) {
-							alg = new PassiveAgressive2(inference, model,
-									numEpochs, true, averaged, c);
-						}
+				else if (algType == AlgorithmType.PASSIVE_AGRESSIVE)
+					alg = new PassiveAgressive(inference, model, numEpochs,
+							true, averaged);
+				else if (algType == AlgorithmType.PASSIVE_AGRESSIVE_1
+						|| algType == AlgorithmType.PASSIVE_AGRESSIVE_2) {
+					String strC = cmdLine.getOptionValue("c");
+					if (strC == null) {
+						LOG.error("The parameter c wasn't set");
+						System.exit(1);
 					}
+
+					double c = Double.parseDouble(strC);
+
+					if (algType == AlgorithmType.PASSIVE_AGRESSIVE_1)
+						alg = new PassiveAgressive1(inference, model,
+								numEpochs, true, averaged, c);
+					else
+						alg = new PassiveAgressive2(inference, model,
+								numEpochs, true, averaged, c);
 
 				}
 
@@ -513,7 +471,8 @@ public class TrainDPGS implements Command {
 
 					// // TODO test
 					// DPGSInference inferenceDual = new DPGSInference(
-					// testset.getMaxNumberOfTokens());
+					// testset.getMaxNumberOfTokens(),
+					// numThreadToFillWeight);
 					// inferenceDual.setCopyPredictionToParse(true);
 
 					EvaluateModelListener eval = new EvaluateModelListener(
@@ -572,16 +531,16 @@ public class TrainDPGS implements Command {
 				LOG.info("Evaluating...");
 
 				// Use dual inference algorithm for testing.
-				DPGSDualInference inferenceDual = new DPGSDualInference(
-						testset.getMaxNumberOfTokens());
-				inferenceDual
-						.setMaxNumberOfSubgradientSteps(maxSubgradientSteps);
-				inferenceDual.setBeta(beta);
+				// DPGSDualInference inferenceDual = new DPGSDualInference(
+				// testset.getMaxNumberOfTokens());
+				// inferenceDual
+				// .setMaxNumberOfSubgradientSteps(maxSubgradientSteps);
+				// inferenceDual.setBeta(beta);
 
 				// // TODO test
-				// DPGSInference inferenceDual = new DPGSInference(
-				// testset.getMaxNumberOfTokens());
-				// inferenceDual.setCopyPredictionToParse(true);
+				DPGSInference inferenceDual = new DPGSInference(
+						testset.getMaxNumberOfTokens(), numThreadToFillWeight);
+				inferenceDual.setCopyPredictionToParse(true);
 
 				EvaluateModelListener eval = new EvaluateModelListener(script,
 						testConllFileName, outputConllFilename, testset, false,
@@ -681,6 +640,8 @@ public class TrainDPGS implements Command {
 
 		private int perNumEpoch;
 
+		private DPGSOutput[] outputs;
+
 		public EvaluateModelListener(String script, String conllGolden,
 				String conllPredicted, DPGSDataset testset, boolean averaged,
 				Inference inference) {
@@ -696,6 +657,7 @@ public class TrainDPGS implements Command {
 			// DPGSInput[] inputs = testset.getInputs();
 			DPGSOutput[] outputs = testset.getOutputs();
 			this.predicteds = new DPGSOutput[numExs];
+			this.outputs = outputs;
 			for (int idx = 0; idx < numExs; ++idx)
 				predicteds[idx] = (DPGSOutput) outputs[idx].createNewObject();
 		}
@@ -776,10 +738,8 @@ public class TrainDPGS implements Command {
 			inputs.load(inputToLoad);
 
 			for (int idx = 0; idx < numberExamples; ++idx) {
-				// Predict (tag the output sequence).
-				// LOG.info("Input: " + idx);
-				inferenceImpl
-						.inference(model, inputs.get(idx), predicteds[idx]);
+				inferenceImpl.inference(model, inputs.get(idx), predicteds[idx]);
+
 				if ((idx + 1) % 100 == 0) {
 					System.out.print(".");
 					System.out.flush();
@@ -787,9 +747,9 @@ public class TrainDPGS implements Command {
 			}
 
 			// TODO test
-			LOG.info(String.format("# subgradient steps / prediction: %d",
-					((DPGSDualInference) inferenceImpl)
-							.getMaxNumberOfSubgradientSteps()));
+			// LOG.info(String.format("# subgradient steps / prediction: %d",
+			// ((DPGSDualInference) inferenceImpl)
+			// .getMaxNumberOfSubgradientSteps()));
 
 			try {
 				// Delete previous epoch output file if it exists.
@@ -826,4 +786,3 @@ public class TrainDPGS implements Command {
 		}
 	}
 }
-
