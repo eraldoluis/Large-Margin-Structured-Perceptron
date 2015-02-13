@@ -20,6 +20,7 @@ import br.pucrio.inf.learn.structlearning.discriminative.algorithm.passiveagress
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.passiveagressive.PassiveAgressive2;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.LossAugmentedPerceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.Perceptron;
+import br.pucrio.inf.learn.structlearning.discriminative.application.dp.Feature;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSDataset;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSDualInference;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSInference;
@@ -394,7 +395,23 @@ public class TrainDPGS implements Command {
 						trainGPDatasetFileName, trainLSDatasetFileName,
 						trainRSDatasetFileName, templatesFilename, model,
 						trainCacheSize, "trainInputs");
-
+				
+				
+				//TODO remove
+//				int [] codes = new int[]{143,147,1345,1347};
+//				for (int code : codes) {
+//					Feature feature = model.getExplicitFeatureEncoding().getValueByCode(code);
+//					int [] values = feature.getValues();
+//					System.out.println(code);
+//					System.out.println("Template index:" + feature.getTemplateIndex());
+//					
+//					for (int i = 0; i < values.length; i++) {
+//						System.out.println(trainDataset.getFeatureEncoding().getValueByCode(values[i]));
+//					}
+//				}
+			
+				
+				
 				// Set modifier variables in all output structures.
 				trainDataset.setModifierVariables();
 
@@ -531,16 +548,16 @@ public class TrainDPGS implements Command {
 				LOG.info("Evaluating...");
 
 				// Use dual inference algorithm for testing.
-				// DPGSDualInference inferenceDual = new DPGSDualInference(
-				// testset.getMaxNumberOfTokens());
-				// inferenceDual
-				// .setMaxNumberOfSubgradientSteps(maxSubgradientSteps);
-				// inferenceDual.setBeta(beta);
+				 DPGSDualInference inferenceDual = new DPGSDualInference(
+				 testset.getMaxNumberOfTokens());
+				 inferenceDual
+				 .setMaxNumberOfSubgradientSteps(maxSubgradientSteps);
+				 inferenceDual.setBeta(beta);
 
 				// // TODO test
-				DPGSInference inferenceDual = new DPGSInference(
-						testset.getMaxNumberOfTokens(), numThreadToFillWeight);
-				inferenceDual.setCopyPredictionToParse(true);
+//				DPGSInference inferenceDual = new DPGSInference(
+//						testset.getMaxNumberOfTokens(), numThreadToFillWeight);
+//				inferenceDual.setCopyPredictionToParse(true);
 
 				EvaluateModelListener eval = new EvaluateModelListener(script,
 						testConllFileName, outputConllFilename, testset, false,
@@ -548,6 +565,8 @@ public class TrainDPGS implements Command {
 				eval.setQuiet(true);
 				eval.afterEpoch(inferenceDual, model, -1, -1d, -1);
 			}
+			
+			trainDataset.getDPGSInputArray().close();
 
 			LOG.info("Training done!");
 
@@ -776,6 +795,8 @@ public class TrainDPGS implements Command {
 			} catch (DatasetException e) {
 				LOG.error("Saving test file with predicted column", e);
 			}
+			
+			inputs.close();
 
 			return true;
 		}

@@ -9,7 +9,9 @@ import br.pucrio.inf.learn.structlearning.discriminative.algorithm.OnlineStructu
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.TrainingListener;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSInference;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSInput;
+import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSModel;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSOutput;
+import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.AveragedParameter;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.data.SequenceOutput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
@@ -23,7 +25,6 @@ import br.pucrio.inf.learn.util.DebugUtil;
  * Perceptron-trained linear classifier with structural examples. This class
  * implements the averaged version of the algorithm.
  * 
- * @author eraldof
  * 
  */
 public class Perceptron implements OnlineStructuredAlgorithm {
@@ -253,7 +254,8 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 	}
 
 	public void train(ExampleInputArray inputs, ExampleOutput[] outputs) {
-		// Training examples.		this.inputs = inputs;
+		// Training examples.
+		this.inputs = inputs;
 		this.outputs = outputs;
 
 		int numbersExamples = inputs.getNumberExamples();
@@ -276,7 +278,6 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 		for (epoch = 0; epoch < numberOfEpochs; ++epoch) {
 
 			LOG.info("Perceptron epoch: " + epoch + "...");
-
 
 			if (listener != null)
 				if (!listener.beforeEpoch(inferenceImpl, model, epoch,
@@ -501,7 +502,7 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 					// Randomize the order to process the training examples.
 					idxEx = random.nextInt(inputsA.getNumberExamples());
 
-				inputsA.load(new int [idxEx]);
+				inputsA.load(new int[idxEx]);
 				/*
 				 * Update the current model weights according with the predicted
 				 * output for this training example.
@@ -517,8 +518,8 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 				if (randomize)
 					// Randomize the order to process the training examples.
 					idxEx = random.nextInt(inputsB.getNumberExamples());
-				
-				inputsB.load(new int [idxEx]);
+
+				inputsB.load(new int[idxEx]);
 
 				/*
 				 * Update the current model weights according with the predicted
@@ -563,20 +564,141 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 
 		// Predict the best output with the current mobel.
 		inferenceImpl.inference(model, input, predictedOutput);
-		
-		//TODO: remove
-		String s = "";
-		DPGSOutput c = (DPGSOutput) referenceOutput;
-		int idxGrandparent, idxHead;
-		for(int idxModifier = 1; idxModifier < ((DPGSInput)input).size();idxModifier++){
-			idxHead = c.getHead(idxModifier);
-			idxGrandparent = c.getHead(idxHead);
-			if(idxGrandparent != -1)
-				s += ((DPGSInference)inferenceImpl).grandparentFactorWeights[idxHead][idxModifier][idxGrandparent] + ", ";
-		}
-		
-		System.out.println(s);
-		
+
+		// TODO: remove
+//		String s = "Grandparent\n";
+//		DPGSOutput c = (DPGSOutput) referenceOutput;
+//		int idxGrandparent, idxHead;
+//		double total, negativos;
+//		
+//		total = negativos = 0.0d;
+//		
+//		for (int idxModifier = 1; idxModifier < ((DPGSInput) input).size(); idxModifier++) {
+//			idxHead = c.getHead(idxModifier);
+//			idxGrandparent = -1;
+//
+//			if (idxHead != -1)
+//				idxGrandparent = c.getHead(idxHead);
+//
+//			if (idxGrandparent != -1) {
+//				double w = ((DPGSInference) inferenceImpl).grandparentFactorWeights[idxHead][idxModifier][idxGrandparent];
+//				if (w < 0 + Integer.MAX_VALUE) {
+//					total++;
+//					if(w < 0.0d ){
+//						negativos++;
+//					}
+//					s += "\t"
+//							+ String.format("(%d,%d,%d) %f [", idxHead,
+//									idxModifier, idxGrandparent, w);
+//
+//					int[] ftrs = ((DPGSInput) input).getGrandparentFeatures(
+//							idxHead, idxModifier, idxGrandparent);
+//
+//					s += "[ ";
+//					if (ftrs != null) {
+//						for (int i = 0; i < ftrs.length; i++) {
+//							AveragedParameter p = ((DPGSModel) model)
+//									.getParameters().get(ftrs[i]);
+//
+//							if (ftrs[i] == 10239) {
+//								((DPGSModel) model)
+//										.getExplicitFeatureEncoding()
+//										.getValues();
+//							}
+//							String s2;
+//							if (p == null) {
+//								s2 = "null";
+//							} else {
+//								s2 = String.valueOf(p.get());
+//							}
+//							s += ftrs[i] + " (" + s2 + "), ";
+//						}
+//					}
+//					s += " ]\n";
+//				}
+//			}
+//		}
+//		
+//		s+= "Perc negativos: " + ((negativos == 0) ? 0 : negativos /total) ;
+//
+//		s += "\n\nSiblings\n";
+//		
+//		int idxSibling;
+//		boolean change;
+//		
+//		total = negativos = 0.0d;
+//
+//		for (idxHead = 0; idxHead < ((DPGSInput) input).size(); idxHead++) {
+//			
+//			idxSibling = idxHead;
+//			change = false;
+//			for (int idxModifier = 1; idxModifier <= ((DPGSInput) input).size(); idxModifier++) {
+//				
+//				if (idxModifier == ((DPGSInput) input).size() ){
+//				
+//				}else if(idxHead == idxModifier){
+//					change = true;
+//				} else if (!c.isModifier(idxHead, idxModifier)) {
+//						continue;
+//				}
+//
+//					double w = ((DPGSInference) inferenceImpl).siblingsFactorWeights[idxHead][idxModifier][idxSibling];
+//					
+//					total++;
+//					if(w < 0.0d ){
+//						negativos++;
+//					}
+//					
+//					if (w < 0 + Integer.MAX_VALUE) {
+//						s += "\t"
+//								+ String.format("(%d,%d,%d) %f [", idxHead,
+//										idxModifier, idxSibling, w);
+//
+//						int[] ftrs = ((DPGSInput) input).getSiblingsFeatures(
+//								idxHead, idxModifier, idxSibling);
+//
+//						s += "[ ";
+//						if (ftrs != null) {
+//							for (int i = 0; i < ftrs.length; i++) {
+//								AveragedParameter p = ((DPGSModel) model)
+//										.getParameters().get(ftrs[i]);
+//
+//								if (ftrs[i] == 10239) {
+//									((DPGSModel) model)
+//											.getExplicitFeatureEncoding()
+//											.getValues();
+//								}
+//								String s2;
+//								if (p == null) {
+//									s2 = "null";
+//								} else {
+//									s2 = String.valueOf(p.get());
+//								}
+//								s += ftrs[i] + " (" + s2 + "), ";
+//							}
+//						}
+//						s += " ]\n";
+//					}
+//					if(change){
+//						idxSibling = ((DPGSInput) input).size();
+//						change = false;
+//					}else{
+//						idxSibling = idxModifier;
+//					}
+//			}
+//		}
+//		
+//		s+= "Perc negativos: " + (negativos /total) ;
+//
+////		System.out.println(input.getId() + " \n " + s + "\n\n");
+//		 System.out.println(input.getId());
+//		//
+//		 System.out.println("\nCorreto:");
+//		 System.out.println(referenceOutput);
+//		 System.out.println("\nPredito:");
+//		 System.out.println(predictedOutput);
+//		 System.out.println("\nUpdate:");
+
 		// Update the current model and return the loss for this example.
 		double loss = model.update(input, referenceOutput, predictedOutput,
 				getCurrentLearningRate());

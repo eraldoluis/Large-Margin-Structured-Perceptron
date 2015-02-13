@@ -51,6 +51,7 @@ public class DPGSInference implements Inference {
 	 * Grandparent factor weights for grandparent/siblings algorithm. The index
 	 * for this array is (idxHead, idxModifier, idxGrandparent).
 	 */
+	//TODO voltar para private
 	public double[][][] grandparentFactorWeights;
 
 	/**
@@ -68,7 +69,8 @@ public class DPGSInference implements Inference {
 	 * 'numberOfNodes', that is we create an additional position is every
 	 * siblings array to store this special START/END node.
 	 */
-	private double[][][] siblingsFactorWeights;
+	//TODO voltar para private
+	public double[][][] siblingsFactorWeights;
 
 	/**
 	 * Whether to copy the grandparent/siblings prediction to the parse
@@ -211,7 +213,7 @@ public class DPGSInference implements Inference {
 							+ getLossWeight(idxHead, idxModifier,
 									idxPreviousModifier, loss);
 				else
-					siblingsFactorWeightsHeadModifier[idxPreviousModifier] = Double.NaN;
+					siblingsFactorWeightsHeadModifier[idxPreviousModifier]= Double.NaN;
 			}
 
 			/*
@@ -272,9 +274,7 @@ public class DPGSInference implements Inference {
 				if (ftrs != null) {
 					// Sum feature weights to achieve the factor
 					// weight.
-					if(idxHead == 2 && idxModifier == 1 && idxGrandparent == 0){
-						idxHead = 2;
-					}
+					
 					grandparentFactorWeightsHeadModifier[idxGrandparent] = model
 							.getFeatureListScore(ftrs);
 					// Loss value for the current edge.
@@ -309,10 +309,15 @@ public class DPGSInference implements Inference {
 		protected void fill(int numberTokens, int idxHead, int idxModifier,
 				boolean loss) {
 
-			edgeFactorWeights[idxHead][idxModifier] = model
-					.getFeatureListScore(input.getEdgeFeatures(idxHead,
-							idxModifier))
-					+ getLossWeight(idxHead, idxModifier, loss);
+			int [] ftrs = input.getEdgeFeatures(idxHead,idxModifier);
+			
+			if (ftrs != null) {
+				edgeFactorWeights[idxHead][idxModifier] = model
+						.getFeatureListScore(ftrs)
+						+ getLossWeight(idxHead, idxModifier, loss);
+			} else{
+				edgeFactorWeights[idxHead][idxModifier] = Double.NaN;
+			}
 		}
 	}
 
@@ -477,38 +482,6 @@ public class DPGSInference implements Inference {
 			e.printStackTrace();
 		}
 
-		// // Loss augmented?
-		// boolean loss = (correct != null && lossWeight != 0d);
-		//
-		// int numTkns = input.size();
-		// for (int idxHead = 0; idxHead < numTkns; ++idxHead) {
-		// double[][] grandparentFactorWeightsHead =
-		// grandparentFactorWeights[idxHead];
-		// for (int idxModifier = 0; idxModifier < numTkns; ++idxModifier) {
-		// double[] grandparentFactorWeightsHeadModifier =
-		// grandparentFactorWeightsHead[idxModifier];
-		// // Loss weight for the current edge (idxHead, idxModifier).
-		// double lossWeightEdge = 0d;
-		// if (loss && correct.getHead(idxModifier) != idxHead)
-		// lossWeightEdge = lossWeight;
-		// // Fill factor weights for each grandparent.
-		// for (int idxGrandparent = 0; idxGrandparent < numTkns;
-		// ++idxGrandparent) {
-		// // Get list of features for the current siblings factor.
-		// int[] ftrs = input.getGrandparentFeatures(idxHead,
-		// idxModifier, idxGrandparent);
-		// if (ftrs != null) {
-		// // Sum feature weights to achieve the factor weight.
-		// grandparentFactorWeightsHeadModifier[idxGrandparent] = model
-		// .getFeatureListScore(ftrs);
-		// // Loss value for the current edge.
-		// grandparentFactorWeightsHeadModifier[idxGrandparent] +=
-		// lossWeightEdge;
-		// } else
-		// grandparentFactorWeightsHeadModifier[idxGrandparent] = Double.NaN;
-		// }
-		// }
-		// }
 	}
 
 	/**

@@ -44,6 +44,10 @@ public class SimpleExampleInputArray implements ExampleInputArray {
 	public void loadInOrder() {
 		
 	}
+	
+	public void close(){
+		
+	}
 
 	@Override
 	public void put(Collection<ExampleInput> inputs) throws IOException,

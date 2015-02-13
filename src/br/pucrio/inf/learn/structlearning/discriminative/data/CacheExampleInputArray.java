@@ -41,13 +41,14 @@ public class CacheExampleInputArray implements ExampleInputArray {
 	private Thread producerThread;
 	private Object notifyConsumer;
 	private Object notifyProducer;
+	private boolean continueProducing;
 	
 
 	private class DPGSInputRunnable implements Runnable {
 		@Override
 		public void run() {
 			synchronized (notifyProducer) {
-				while (true) {
+				while (continueProducing) {
 					while (!indexToLoad.isEmpty()) {
 						Integer i = indexToLoad.poll();
 
@@ -186,6 +187,8 @@ public class CacheExampleInputArray implements ExampleInputArray {
 		rAccessFile.setLength(0);
 		// INSTANCE CHANNEL
 		channel = rAccessFile.getChannel();
+		
+		this.continueProducing = true;
 
 		producerThread.start();
 	}
@@ -343,6 +346,13 @@ public class CacheExampleInputArray implements ExampleInputArray {
 			put(exampleInput);
 		}
 		
+	}
+	
+	public void close(){
+		synchronized (notifyProducer) {
+			this.continueProducing = false;
+			notifyProducer.notify();
+		}
 	}
 
 	/*

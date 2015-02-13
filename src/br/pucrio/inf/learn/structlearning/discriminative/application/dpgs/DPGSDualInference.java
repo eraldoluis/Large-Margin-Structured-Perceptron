@@ -1,6 +1,9 @@
 package br.pucrio.inf.learn.structlearning.discriminative.application.dpgs;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -241,7 +244,7 @@ public class DPGSDualInference implements Inference {
 		++numPredictions;
 
 		// Dual objetive function value in the previous iteration.
-		double prevDualObjectiveValue = Double.NaN;
+		double prevDualObjectiveValue;
 		// Number of tokens in the current input.
 		int numTkns = input.size();
 		// Number of times that the dual objective has been incremented.
@@ -268,6 +271,8 @@ public class DPGSDualInference implements Inference {
 			gsWeight += dualObjectiveValues[idxHead];
 			dualObjectiveValue += dualObjectiveValues[idxHead];
 		}
+		
+		prevDualObjectiveValue = dualObjectiveValue;
 
 		// Current best solution.
 		
@@ -283,13 +288,14 @@ public class DPGSDualInference implements Inference {
 		 * the grandparent/siblings structure and the parse structure under the
 		 * grandparent/siblings objective function.
 		 */
-		lambda = gsWeight - treeWeight;
+		lambda = dualObjectiveValue - treeWeight;
+	
 
 		LOG.info("input " + a++ + " lambda " + lambda);
 		
 		if (lambda == 0d)
 			lambda = 1d;
-		
+
 		/*
 		 * Set of heads whose dual vars were updated in the previous iteration.
 		 * We only need to recalculate the GS structure for these heads.
@@ -307,10 +313,16 @@ public class DPGSDualInference implements Inference {
 			// Step size.
 			double stepSize = lambda / (1 + numDualObjectiveIncrements);
 			
-			//LOG.info("stepsize " + stepSize);
+//			LOG.info("stepsize " + stepSize);
 			
 			// Update dual variables.
 			boolean updated = false;
+			
+			//TODO remove
+			List<String> changedG = new ArrayList<>();
+			List<String> changedS = new ArrayList<>();
+			
+			
 			for (int idxHead = 0; idxHead < numTkns; ++idxHead) {
 				for (int idxModifier = 0; idxModifier < numTkns; ++idxModifier) {
 					/*
@@ -332,6 +344,9 @@ public class DPGSDualInference implements Inference {
 							dualGrandparentVariables[idxHead][idxModifier] -= stepSize;
 						else
 							dualGrandparentVariables[idxHead][idxModifier] += stepSize;
+						
+						
+						changedG.add("(" + idxHead + "," + idxModifier +") = " + dualGrandparentVariables[idxHead][idxModifier]);
 					}
 
 					// Modifier variable differs from parse.
@@ -344,10 +359,28 @@ public class DPGSDualInference implements Inference {
 							dualModifierVariables[idxHead][idxModifier] -= stepSize;
 						else
 							dualModifierVariables[idxHead][idxModifier] += stepSize;
+						
+						changedS.add("(" + idxHead + "," + idxModifier +") = " + dualModifierVariables[idxHead][idxModifier]);
 					}
 				}
 			}
-			
+			//TODO remove
+//		System.out.println("GRANDPARENT: ");
+//		
+//		for (String string : changedG) {
+//			System.out.println(string);
+//		}
+//		
+//		System.out.println("\n\n");
+//		
+//		System.out.println("SIBLINGS: ");
+//		
+//		for (String string : changedS) {
+//			System.out.println(string);
+//		}
+//		
+//		System.out.println("\n\n");
+		
 			if (!updated) {
 				this.provedOtimo = true;
 				LOG.info(String
@@ -429,7 +462,7 @@ public class DPGSDualInference implements Inference {
 				/*
 				 * Decrement step size whenever the dual function increases. An
 				 * increase in the dual function means that the algorithm passed
-				 * over the optimum. Thus, the step size is too large.
+				 * over dthe optimum. Thus, the step size is too large.
 				 */
 				++numDualObjectiveIncrements;
 

@@ -425,6 +425,9 @@ public class DPGSModel implements Model {
 			return;
 		for (int idxFtr = 0; idxFtr < ftrs.length; ++idxFtr)
 			updateFeatureParam(ftrs[idxFtr], learnRate);
+		
+		//TODO remove
+//		System.out.println(String.format("E(%d,%d) %f ", idxHead, idxModifier,learnRate));
 	}
 
 	/**
@@ -443,8 +446,14 @@ public class DPGSModel implements Model {
 		if (ftrs == null)
 			// Inexistent factor. Do nothing.
 			return;
-		for (int idxFtr = 0; idxFtr < ftrs.length; ++idxFtr)
+		for (int idxFtr = 0; idxFtr < ftrs.length; ++idxFtr){
+			//TODO remove
+//			if(ftrs[idxFtr] == 10239){
+//				System.out.println(String.format("%s(%d,%d,%d): %f", input.getId(), idxHead,idxModifier, idxGrandparent, learnRate));
+//			}
 			updateFeatureParam(ftrs[idxFtr], learnRate);
+		}
+//		System.out.println(String.format("G(%d,%d,%d) %f ", idxHead, idxModifier,idxGrandparent,learnRate));
 	}
 
 	/**
@@ -465,6 +474,9 @@ public class DPGSModel implements Model {
 			return;
 		for (int idxFtr = 0; idxFtr < ftrs.length; ++idxFtr)
 			updateFeatureParam(ftrs[idxFtr], learnRate);
+		
+		//TODO: remove
+//		System.out.println(String.format("S(%d,%d,%d) %f ", idxHead, idxModifier,idxSibling,learnRate));
 	}
 
 	/**

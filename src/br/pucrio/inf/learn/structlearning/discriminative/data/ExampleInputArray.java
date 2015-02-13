@@ -15,4 +15,6 @@ public interface ExampleInputArray {
 
 	void load(int[] index);
 	void loadInOrder();
+	
+	void close();
 }

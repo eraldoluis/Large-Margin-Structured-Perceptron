@@ -133,13 +133,14 @@ public class MapEncoding<ValueType> implements FeatureEncoding<ValueType>, Seria
 			throw new NullPointerException("You can not insert a null value.");
 
 		Integer code = mapFromValueToCode.get(value);
-		if (code == null) {
+		if (code == null) {			
 			if (readOnly)
 				return UNSEEN_VALUE_CODE;
 			code = mapFromCodeToValue.size();
 			mapFromCodeToValue.add(value);
 			mapFromValueToCode.put(value, code);
 		}
+		
 
 		return code;
 	}
