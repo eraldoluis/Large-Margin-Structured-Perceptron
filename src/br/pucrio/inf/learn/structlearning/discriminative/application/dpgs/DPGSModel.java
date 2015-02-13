@@ -300,7 +300,7 @@ public class DPGSModel implements Model {
 					loss += 2d;
 
 					if (isCorrectModifier) {
-						
+
 						/*
 						 * Current modifier is correct but the predicted
 						 * structure does not set it as a modifier of the
@@ -310,12 +310,14 @@ public class DPGSModel implements Model {
 						 */
 						updateSiblingsFactorParams(input, idxHead, idxModifier,
 								correctPreviousModifier, learningRate);
-						if (correctGrandparent != -1)
-							updateGrandparentFactorParams(input, idxHead,
-									idxModifier, correctGrandparent,
-									learningRate);
+
+						if (correctGrandparent == -1)
+							correctGrandparent = idxHead;
+
+						updateGrandparentFactorParams(input, idxHead,
+								idxModifier, correctGrandparent, learningRate);
 					} else {
-						
+
 						/*
 						 * Current modifier is not correct but the predicted
 						 * structure does set it as a modifier of the current
@@ -325,10 +327,13 @@ public class DPGSModel implements Model {
 						 */
 						updateSiblingsFactorParams(input, idxHead, idxModifier,
 								predictedPreviousModifier, -learningRate);
-						if (predictedGrandparent != -1)
-							updateGrandparentFactorParams(input, idxHead,
-									idxModifier, predictedGrandparent,
-									-learningRate);
+
+						if (predictedGrandparent == -1)
+							predictedGrandparent = idxHead;
+
+						updateGrandparentFactorParams(input, idxHead,
+								idxModifier, predictedGrandparent,
+								-learningRate);
 					}
 
 				} else { // isCorrectModifier == isPredictedModifier
@@ -365,14 +370,18 @@ public class DPGSModel implements Model {
 						 * factor is missing (false negative) and the predicted
 						 * one is incorrectly predicted (false positive).
 						 */
-						if (correctGrandparent != -1)
-							updateGrandparentFactorParams(input, idxHead,
-									idxModifier, correctGrandparent,
-									learningRate);
-						if (predictedGrandparent != -1)
-							updateGrandparentFactorParams(input, idxHead,
-									idxModifier, predictedGrandparent,
-									-learningRate);
+						if (correctGrandparent == -1)
+							correctGrandparent = idxHead;
+
+						updateGrandparentFactorParams(input, idxHead,
+								idxModifier, correctGrandparent, learningRate);
+						
+						if (predictedGrandparent == -1)
+							predictedGrandparent = idxHead;
+						
+						updateGrandparentFactorParams(input, idxHead,
+								idxModifier, predictedGrandparent,
+								-learningRate);
 					}
 				}
 
@@ -425,9 +434,10 @@ public class DPGSModel implements Model {
 			return;
 		for (int idxFtr = 0; idxFtr < ftrs.length; ++idxFtr)
 			updateFeatureParam(ftrs[idxFtr], learnRate);
-		
-		//TODO remove
-//		System.out.println(String.format("E(%d,%d) %f ", idxHead, idxModifier,learnRate));
+
+		// TODO remove
+		// System.out.println(String.format("E(%d,%d) %f ", idxHead,
+		// idxModifier,learnRate));
 	}
 
 	/**
@@ -446,14 +456,16 @@ public class DPGSModel implements Model {
 		if (ftrs == null)
 			// Inexistent factor. Do nothing.
 			return;
-		for (int idxFtr = 0; idxFtr < ftrs.length; ++idxFtr){
-			//TODO remove
-//			if(ftrs[idxFtr] == 10239){
-//				System.out.println(String.format("%s(%d,%d,%d): %f", input.getId(), idxHead,idxModifier, idxGrandparent, learnRate));
-//			}
+		for (int idxFtr = 0; idxFtr < ftrs.length; ++idxFtr) {
+			// TODO remove
+			// if(ftrs[idxFtr] == 10239){
+			// System.out.println(String.format("%s(%d,%d,%d): %f",
+			// input.getId(), idxHead,idxModifier, idxGrandparent, learnRate));
+			// }
 			updateFeatureParam(ftrs[idxFtr], learnRate);
 		}
-//		System.out.println(String.format("G(%d,%d,%d) %f ", idxHead, idxModifier,idxGrandparent,learnRate));
+		// System.out.println(String.format("G(%d,%d,%d) %f ", idxHead,
+		// idxModifier,idxGrandparent,learnRate));
 	}
 
 	/**
@@ -474,9 +486,10 @@ public class DPGSModel implements Model {
 			return;
 		for (int idxFtr = 0; idxFtr < ftrs.length; ++idxFtr)
 			updateFeatureParam(ftrs[idxFtr], learnRate);
-		
-		//TODO: remove
-//		System.out.println(String.format("S(%d,%d,%d) %f ", idxHead, idxModifier,idxSibling,learnRate));
+
+		// TODO: remove
+		// System.out.println(String.format("S(%d,%d,%d) %f ", idxHead,
+		// idxModifier,idxSibling,learnRate));
 	}
 
 	/**
@@ -721,7 +734,7 @@ public class DPGSModel implements Model {
 		ExampleInputArray inputArray = dataset.getInputs();
 
 		inputArray.loadInOrder();
-		
+
 		for (int idxEx = 0; idxEx < numExs; ++idxEx) {
 			// Current input structure.
 			DPGSInput input = (DPGSInput) inputArray.get(idxEx);
@@ -918,51 +931,56 @@ public class DPGSModel implements Model {
 		}
 	}
 
-	static public DPGSModelLoadReturn load(String fileName) throws ClassNotFoundException, IOException{
+	static public DPGSModelLoadReturn load(String fileName)
+			throws ClassNotFoundException, IOException {
 		FileInputStream input = null;
 		BufferedInputStream bufInput = null;
 		ObjectInputStream objInput = null;
 		DPGSModel model;
 		DPGSDataset dataset;
-		
+
 		try {
 			input = new FileInputStream(fileName);
 			bufInput = new BufferedInputStream(input);
 			objInput = new ObjectInputStream(bufInput);
-	
+
 			int root = objInput.readInt();
-			
+
 			model = new DPGSModel(root);
-			
+
 			model.edgeTemplates = (DPGSTemplate[]) objInput.readObject();
 			model.grandparentTemplates = (DPGSTemplate[]) objInput.readObject();
-			model.leftSiblingsTemplates = (DPGSTemplate[]) objInput.readObject();
-			model.rightSiblingsTemplates = (DPGSTemplate[]) objInput.readObject();
-			model.parameters = (Map<Integer, AveragedParameter>) objInput.readObject();
-			model.explicitEncoding = (MapEncoding<Feature>) objInput.readObject();
-		
+			model.leftSiblingsTemplates = (DPGSTemplate[]) objInput
+					.readObject();
+			model.rightSiblingsTemplates = (DPGSTemplate[]) objInput
+					.readObject();
+			model.parameters = (Map<Integer, AveragedParameter>) objInput
+					.readObject();
+			model.explicitEncoding = (MapEncoding<Feature>) objInput
+					.readObject();
+
 			dataset = DPGSDataset.loadCore(objInput);
 		} finally {
-			if(input != null)
+			if (input != null)
 				input.close();
-		
-			if(bufInput != null)
+
+			if (bufInput != null)
 				bufInput.close();
-			
-			if(objInput != null)
+
+			if (objInput != null)
 				objInput.close();
 		}
-		
+
 		return new DPGSModelLoadReturn(model, dataset);
 	}
-	
+
 	@Override
 	public void save(String fileName, Dataset dataset) throws IOException,
 			FileNotFoundException {
 		FileOutputStream output = null;
 		BufferedOutputStream bufOutput = null;
 		ObjectOutputStream objOut = null;
-		
+
 		try {
 			output = new FileOutputStream(fileName);
 			bufOutput = new BufferedOutputStream(output);
@@ -975,21 +993,20 @@ public class DPGSModel implements Model {
 			objOut.writeObject(this.rightSiblingsTemplates);
 			objOut.writeObject(this.parameters);
 			objOut.writeObject(this.explicitEncoding);
-			((DPGSDataset)dataset).saveCore(objOut);
+			((DPGSDataset) dataset).saveCore(objOut);
 
 			objOut.flush();
 		} finally {
-			
-			if(objOut != null)
+
+			if (objOut != null)
 				objOut.close();
-			else if(bufOutput != null)
-				bufOutput.close();			
-			else if(output != null)
-					output.close();
-			
+			else if (bufOutput != null)
+				bufOutput.close();
+			else if (output != null)
+				output.close();
+
 		}
-			
-			
+
 	}
 
 	/**
@@ -1001,8 +1018,9 @@ public class DPGSModel implements Model {
 	public int getNumberOfUpdatedParameters() {
 		return parameters.size();
 	}
-	
-	private void loadExplicitEncoding() throws IOException, ClassNotFoundException {
+
+	private void loadExplicitEncoding() throws IOException,
+			ClassNotFoundException {
 		File file = new File("explicitEncoding");
 		if (!file.exists()) {
 			if (explicitEncoding == null)
@@ -1031,19 +1049,18 @@ public class DPGSModel implements Model {
 
 	private void unloadExplicitEncoding() throws IOException,
 			ClassNotFoundException {
-		
+
 		FileOutputStream fileOut = null;
 		BufferedOutputStream bufOut = null;
 		ObjectOutputStream objOut = null;
 
-		
-		try{
+		try {
 			fileOut = new FileOutputStream("explicitEncoding");
 			bufOut = new BufferedOutputStream(fileOut);
 			objOut = new ObjectOutputStream(fileOut);
 
 			objOut.writeObject(explicitEncoding);
-		}finally{
+		} finally {
 			if (objOut != null)
 				objOut.close();
 			else if (bufOut != null)
@@ -1051,16 +1068,15 @@ public class DPGSModel implements Model {
 			else if (fileOut != null)
 				fileOut.close();
 		}
-		
+
 		explicitEncoding = null;
 	}
-	
-	
-	static public class DPGSModelLoadReturn{
-		
+
+	static public class DPGSModelLoadReturn {
+
 		private DPGSModel model;
 		private DPGSDataset dataset;
-		
+
 		private DPGSModelLoadReturn(DPGSModel model, DPGSDataset dataset) {
 			super();
 			this.model = model;

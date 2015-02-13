@@ -200,6 +200,7 @@ public class MaximumGrandparentSiblingsAlgorithm {
 
 		double bestWeight = Double.NEGATIVE_INFINITY;
 		int bestGrandParent = -1;
+		
 		for (int idxGrandparent = -1; idxGrandparent < numberOfNodes; ++idxGrandparent) {
 			/*
 			 * Weight of the complete solution for (i) the given head, (ii) the
@@ -208,6 +209,13 @@ public class MaximumGrandparentSiblingsAlgorithm {
 			 * because this weight depends only on (idxHead, idxGrandparent).
 			 */
 			double weight = 0d;
+			
+			/*
+			 * Ensures that the head will not be parent of itself   
+			 */
+			if(idxGrandparent == idxHead){
+				continue;
+			}
 
 			if (idxGrandparent != -1) {
 				if (dualGrandparentVars != null)
@@ -247,8 +255,23 @@ public class MaximumGrandparentSiblingsAlgorithm {
 				 * of its needs to be considered.
 				 */
 				double wGrandparentFactor = 0d;
+				
 				if (idxGrandparent != -1)
 					wGrandparentFactor = grandparentFactorWeightsForHead[idxModifier][idxGrandparent];
+				else{
+					
+					wGrandparentFactor = grandparentFactorWeightsForHead[idxModifier][idxHead];
+					
+					/*
+					 * Not all special factors were generated for which vertex.
+					 * So the wGrandparentFactor is going to be a NAN for most of the vertex and then,
+					 * the algorithm is going to ignore these vertex when the grandparent is equal to -1.   
+					 */
+					if (Double.isNaN(wGrandparentFactor)) {
+						wGrandparentFactor = 0d;
+					}
+				}
+				
 				if (Double.isNaN(wGrandparentFactor)) {
 					// Grandparent is not valid, thus skip this modifier.
 					previousModifiers[idxModifier] = -1;
@@ -325,6 +348,19 @@ public class MaximumGrandparentSiblingsAlgorithm {
 				double wGrandparentFactor = 0d;
 				if (idxGrandparent != -1)
 					wGrandparentFactor = grandparentFactorWeightsForHead[idxModifier][idxGrandparent];
+				else{	
+					wGrandparentFactor = grandparentFactorWeightsForHead[idxModifier][idxHead];
+					
+					/*
+					 * Not all special factors were generated for which vertex.
+					 * So the wGrandparentFactor is going to be a NAN for most of the vertex and then,
+					 * the algorithm is going to ignore these vertex when the grandparent is equal to -1.   
+					 */
+					if (Double.isNaN(wGrandparentFactor)) {
+						wGrandparentFactor = 0d;
+					}
+				}
+				
 				if (Double.isNaN(wGrandparentFactor)) {
 					// Grandparent is not valid, thus skip this modifier.
 					 previousModifiers[idxModifier] = -1;
@@ -389,7 +425,7 @@ public class MaximumGrandparentSiblingsAlgorithm {
 			weight += accumWeights[numberOfNodes];
 
 			// Store the best solution among all grandparents.
-			if (weight > bestWeight) {
+			if (weight > bestWeight || (bestGrandParent == -1 && weight == bestWeight)) {
 				for (int idx = 0; idx <= numberOfNodes; ++idx)
 					bestPreviousModifiers[idx] = previousModifiers[idx];
 				bestWeight = weight;
@@ -565,9 +601,12 @@ public class MaximumGrandparentSiblingsAlgorithm {
 				if (idxGrandparent != -1) {
 					// Grandparent factor.
 					w = grandparentFactorWeights[idxHead][idxModifier][idxGrandparent];
-					if (!Double.isNaN(w))
-						weight += w;
+				}else{
+					w = grandparentFactorWeights[idxHead][idxModifier][idxHead];
 				}
+				
+				if (!Double.isNaN(w))
+					weight += w;
 
 				// Edge factor.
 				// w = (1 - beta) * edgeFactorWeights[idxHead][idxModifier];
@@ -602,10 +641,12 @@ public class MaximumGrandparentSiblingsAlgorithm {
 				if (idxGrandparent != -1) {
 					// Grandparent factor.
 					w = grandparentFactorWeights[idxHead][idxModifier][idxGrandparent];
-					if (!Double.isNaN(w))
-						weight += w;
+				}else{
+					w = grandparentFactorWeights[idxHead][idxModifier][idxHead];
 				}
 
+				if (!Double.isNaN(w))
+					weight += w;
 				// Edge factor.
 				// w = (1 - beta) * edgeFactorWeights[idxHead][idxModifier];
 				// if (!Double.isNaN(w))
