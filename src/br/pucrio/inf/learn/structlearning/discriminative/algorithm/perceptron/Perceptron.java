@@ -690,14 +690,14 @@ public class Perceptron implements OnlineStructuredAlgorithm {
 //		
 //		s+= "Perc negativos: " + (negativos /total) ;
 //
-////		System.out.println(input.getId() + " \n " + s + "\n\n");
-//		 System.out.println(input.getId());
-//		//
-//		 System.out.println("\nCorreto:");
-//		 System.out.println(referenceOutput);
-//		 System.out.println("\nPredito:");
-//		 System.out.println(predictedOutput);
-//		 System.out.println("\nUpdate:");
+//		System.out.println(input.getId() + " \n " + s + "\n\n");
+		 System.out.println(input.getId());
+		//
+		 System.out.println("\nCorreto:");
+		 System.out.println(referenceOutput);
+		 System.out.println("\nPredito:");
+		 System.out.println(predictedOutput);
+		 System.out.println("\nUpdate:");
 
 		// Update the current model and return the loss for this example.
 		double loss = model.update(input, referenceOutput, predictedOutput,

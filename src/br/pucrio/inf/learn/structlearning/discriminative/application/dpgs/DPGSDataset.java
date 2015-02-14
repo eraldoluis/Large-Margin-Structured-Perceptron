@@ -472,6 +472,7 @@ public class DPGSDataset implements Dataset {
 					System.out.print(".");
 				}
 			}
+			
 		} while (existExample);
 
 		System.out.println("");

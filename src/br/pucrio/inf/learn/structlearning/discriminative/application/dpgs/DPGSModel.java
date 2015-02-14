@@ -249,16 +249,16 @@ public class DPGSModel implements Model {
 			int correctGrandparent = outputCorrect.getHead(idxHead);
 			int predictedGrandparent = outputPredicted.getGrandparent(idxHead);
 
-			if (correctGrandparent != predictedGrandparent) {
-				// Update edge factor parameter.
-				loss += 1d; // Edge factor contribution.
-				if (predictedGrandparent != -1)
-					updateEdgeFactorParams(input, predictedGrandparent,
-							idxHead, -learningRate);
-				if (correctGrandparent != -1)
-					updateEdgeFactorParams(input, correctGrandparent, idxHead,
-							learningRate);
-			}
+//			if (correctGrandparent != predictedGrandparent) {
+//				// Update edge factor parameter.
+//				loss += 1d; // Edge factor contribution.
+//				if (predictedGrandparent != -1)
+//					updateEdgeFactorParams(input, predictedGrandparent,
+//							idxHead, -learningRate);
+//				if (correctGrandparent != -1)
+//					updateEdgeFactorParams(input, correctGrandparent, idxHead,
+//							learningRate);
+//			}
 
 			/*
 			 * Verify grandparent and siblings factors for differences between
@@ -297,7 +297,7 @@ public class DPGSModel implements Model {
 					//
 
 					// Siblings and grandparent factors contribution.
-					loss += 2d;
+					loss += 3d;
 
 					if (isCorrectModifier) {
 
@@ -310,6 +310,9 @@ public class DPGSModel implements Model {
 						 */
 						updateSiblingsFactorParams(input, idxHead, idxModifier,
 								correctPreviousModifier, learningRate);
+						
+						updateEdgeFactorParams(input, idxHead,
+								idxModifier, learningRate);
 
 						if (correctGrandparent == -1)
 							correctGrandparent = idxHead;
@@ -327,6 +330,9 @@ public class DPGSModel implements Model {
 						 */
 						updateSiblingsFactorParams(input, idxHead, idxModifier,
 								predictedPreviousModifier, -learningRate);
+						
+						updateEdgeFactorParams(input, idxHead,
+								idxModifier, -learningRate);
 
 						if (predictedGrandparent == -1)
 							predictedGrandparent = idxHead;
@@ -357,6 +363,18 @@ public class DPGSModel implements Model {
 								correctPreviousModifier, learningRate);
 						updateSiblingsFactorParams(input, idxHead, idxModifier,
 								predictedPreviousModifier, -learningRate);
+					}
+					
+					if(isSpecialToken && idxHead == idxModifier && correctGrandparent != predictedGrandparent){
+						loss += 1d;
+						if (correctGrandparent != -1)
+							updateGrandparentFactorParams(input, idxHead,
+								idxModifier, correctGrandparent, learningRate);
+						
+						if (predictedGrandparent != -1)
+							updateGrandparentFactorParams(input, idxHead,
+								idxModifier, predictedGrandparent,
+								-learningRate);
 					}
 
 					if (!isSpecialToken
@@ -436,8 +454,8 @@ public class DPGSModel implements Model {
 			updateFeatureParam(ftrs[idxFtr], learnRate);
 
 		// TODO remove
-		// System.out.println(String.format("E(%d,%d) %f ", idxHead,
-		// idxModifier,learnRate));
+		 System.out.println(String.format("E(%d,%d) %f ", idxHead,
+		 idxModifier,learnRate));
 	}
 
 	/**
@@ -464,8 +482,8 @@ public class DPGSModel implements Model {
 			// }
 			updateFeatureParam(ftrs[idxFtr], learnRate);
 		}
-		// System.out.println(String.format("G(%d,%d,%d) %f ", idxHead,
-		// idxModifier,idxGrandparent,learnRate));
+		 System.out.println(String.format("G(%d,%d,%d) %f ", idxHead,
+		 idxModifier,idxGrandparent,learnRate));
 	}
 
 	/**
@@ -488,8 +506,8 @@ public class DPGSModel implements Model {
 			updateFeatureParam(ftrs[idxFtr], learnRate);
 
 		// TODO: remove
-		// System.out.println(String.format("S(%d,%d,%d) %f ", idxHead,
-		// idxModifier,idxSibling,learnRate));
+		 System.out.println(String.format("S(%d,%d,%d) %f ", idxHead,
+		 idxModifier,idxSibling,learnRate));
 	}
 
 	/**
