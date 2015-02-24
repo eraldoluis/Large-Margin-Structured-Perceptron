@@ -566,8 +566,6 @@ public class TrainDPGS implements Command {
 				eval.afterEpoch(inferenceDual, model, -1, -1d, -1);
 			}
 			
-			trainDataset.getDPGSInputArray().close();
-
 			LOG.info("Training done!");
 
 		} catch (Exception e) {

@@ -249,16 +249,16 @@ public class DPGSModel implements Model {
 			int correctGrandparent = outputCorrect.getHead(idxHead);
 			int predictedGrandparent = outputPredicted.getGrandparent(idxHead);
 
-//			if (correctGrandparent != predictedGrandparent) {
-//				// Update edge factor parameter.
-//				loss += 1d; // Edge factor contribution.
-//				if (predictedGrandparent != -1)
-//					updateEdgeFactorParams(input, predictedGrandparent,
-//							idxHead, -learningRate);
-//				if (correctGrandparent != -1)
-//					updateEdgeFactorParams(input, correctGrandparent, idxHead,
-//							learningRate);
-//			}
+			if (correctGrandparent != predictedGrandparent) {
+				// Update edge factor parameter.
+				loss += 1d; // Edge factor contribution.
+				if (predictedGrandparent != -1)
+					updateEdgeFactorParams(input, predictedGrandparent,
+							idxHead, -learningRate);
+				if (correctGrandparent != -1)
+					updateEdgeFactorParams(input, correctGrandparent, idxHead,
+							learningRate);
+			}
 
 			/*
 			 * Verify grandparent and siblings factors for differences between
@@ -365,17 +365,17 @@ public class DPGSModel implements Model {
 								predictedPreviousModifier, -learningRate);
 					}
 					
-					if(isSpecialToken && idxHead == idxModifier && correctGrandparent != predictedGrandparent){
-						loss += 1d;
-						if (correctGrandparent != -1)
-							updateGrandparentFactorParams(input, idxHead,
-								idxModifier, correctGrandparent, learningRate);
-						
-						if (predictedGrandparent != -1)
-							updateGrandparentFactorParams(input, idxHead,
-								idxModifier, predictedGrandparent,
-								-learningRate);
-					}
+//					if(isSpecialToken && idxHead == idxModifier && correctGrandparent != predictedGrandparent){
+//						loss += 1d;
+//						if (correctGrandparent != -1)
+//							updateGrandparentFactorParams(input, idxHead,
+//								idxModifier, correctGrandparent, learningRate);
+//						
+//						if (predictedGrandparent != -1)
+//							updateGrandparentFactorParams(input, idxHead,
+//								idxModifier, predictedGrandparent,
+//								-learningRate);
+//					}
 
 					if (!isSpecialToken
 							&& correctGrandparent != predictedGrandparent) {
