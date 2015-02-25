@@ -342,48 +342,16 @@ public class TrainDPGS implements Command {
 						featureEncoding);
 
 				/*
-				 * LOG.info(String.format("Loading training edge dataset (%s)..."
-				 * , trainEdgeDatasetFileName));
-				 * trainDataset.loadEdgeFactors(trainEdgeDatasetFileName);
-				 * 
-				 * LOG.info(String.format(
-				 * "Loading training left siblings dataset (%s)...",
-				 * trainLSDatasetFileName));
-				 * trainDataset.loadSiblingsFactors(trainLSDatasetFileName);
-				 * 
-				 * LOG.info(String.format(
-				 * "Loading training right siblings dataset (%s)...",
-				 * trainRSDatasetFileName));
-				 * trainDataset.loadSiblingsFactors(trainRSDatasetFileName);
-				 */
-				/*
 				 * Grandparent factors shall be the last ones to avoid problems
 				 * with short sentences (1 ordinary token), since grandparent
 				 * factors do not exist for such short sentences.
 				 */
-				/*
-				 * LOG.info(String.format(
-				 * "Loading training grandparent dataset (%s)...",
-				 * trainGPDatasetFileName));
-				 * trainDataset.loadGrandparentFactors(trainGPDatasetFileName);
-				 */
-
 				// Template-based model.
 				LOG.info("Allocating initial model...");
 
 				// Model.
 				model = new DPGSModel(0);
 
-				// Templates.
-				/*
-				 * model.loadEdgeTemplates(templatesEdgeFileName, trainDataset);
-				 * model.loadGrandparentTemplates(templatesGPFileName,
-				 * trainDataset);
-				 * model.loadLeftSiblingsTemplates(templatesLSFileName,
-				 * trainDataset);
-				 * model.loadRightSiblingsTemplates(templatesRSFileName,
-				 * trainDataset);
-				 */
 				// Generate derived features from templates.
 				/* model.generateFeatures(trainDataset); */
 
@@ -395,23 +363,7 @@ public class TrainDPGS implements Command {
 						trainGPDatasetFileName, trainLSDatasetFileName,
 						trainRSDatasetFileName, templatesFilename, model,
 						trainCacheSize, "trainInputs");
-				
-				
-				//TODO remove
-//				int [] codes = new int[]{143,147,1345,1347};
-//				for (int code : codes) {
-//					Feature feature = model.getExplicitFeatureEncoding().getValueByCode(code);
-//					int [] values = feature.getValues();
-//					System.out.println(code);
-//					System.out.println("Template index:" + feature.getTemplateIndex());
-//					
-//					for (int i = 0; i < values.length; i++) {
-//						System.out.println(trainDataset.getFeatureEncoding().getValueByCode(values[i]));
-//					}
-//				}
-			
-				
-				
+					
 				// Set modifier variables in all output structures.
 				trainDataset.setModifierVariables();
 
@@ -461,14 +413,7 @@ public class TrainDPGS implements Command {
 
 				if (testConllFileName != null && perNumEpoch > 0) {
 					LOG.info("Loading test factors...");
-					/*
-					 * DPGSDataset testset = new DPGSDataset(trainDataset);
-					 * testset.loadEdgeFactors(testEdgeDatasetFilename);
-					 * testset.loadSiblingsFactors(testLSDatasetFilename);
-					 * testset.loadSiblingsFactors(testRSDatasetFilename);
-					 * testset.loadGrandparentFactors(testGPDatasetFilename);
-					 * model.generateFeatures(testset);
-					 */
+					
 					DPGSDataset testset = new DPGSDataset(trainDataset);
 					testset.loadExamplesAndGenerate(testEdgeDatasetFilename,
 							testGPDatasetFilename, testLSDatasetFilename,
@@ -486,11 +431,6 @@ public class TrainDPGS implements Command {
 							.setMaxNumberOfSubgradientSteps(maxSubgradientSteps);
 					inferenceDual.setBeta(beta);
 
-					// // TODO test
-					// DPGSInference inferenceDual = new DPGSInference(
-					// testset.getMaxNumberOfTokens(),
-					// numThreadToFillWeight);
-					// inferenceDual.setCopyPredictionToParse(true);
 
 					EvaluateModelListener eval = new EvaluateModelListener(
 							script, testConllFileName, outputConllFilename,
@@ -505,9 +445,7 @@ public class TrainDPGS implements Command {
 				// Train model.
 				alg.train(trainDataset.getDPGSInputArray(),
 						trainDataset.getOutputs());
-				// alg.train(trainDataset.getInputs(),trainDataset.getOutputs()
-				// );
-
+				
 				LOG.info(String.format("# updated parameters: %d",
 						model.getNumberOfUpdatedParameters()));
 
@@ -553,11 +491,6 @@ public class TrainDPGS implements Command {
 				 inferenceDual
 				 .setMaxNumberOfSubgradientSteps(maxSubgradientSteps);
 				 inferenceDual.setBeta(beta);
-
-				// // TODO test
-//				DPGSInference inferenceDual = new DPGSInference(
-//						testset.getMaxNumberOfTokens(), numThreadToFillWeight);
-//				inferenceDual.setCopyPredictionToParse(true);
 
 				EvaluateModelListener eval = new EvaluateModelListener(script,
 						testConllFileName, outputConllFilename, testset, false,
@@ -762,12 +695,7 @@ public class TrainDPGS implements Command {
 					System.out.flush();
 				}
 			}
-
-			// TODO test
-			// LOG.info(String.format("# subgradient steps / prediction: %d",
-			// ((DPGSDualInference) inferenceImpl)
-			// .getMaxNumberOfSubgradientSteps()));
-
+			
 			try {
 				// Delete previous epoch output file if it exists.
 				File o = new File(conllPredicted);

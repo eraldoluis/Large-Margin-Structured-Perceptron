@@ -272,7 +272,6 @@ public class DPGSDualInference implements Inference {
 
 		dualObjectiveValue = getGraphWeight(output, numTkns);
 
-		double gsWeight = 0;
 		// Fill the complete maximum grandparent/siblings structure.
 		for (int idxHead = 0; idxHead < numTkns; ++idxHead) {
 			dualObjectiveValues[idxHead] = maxGSAlgorithm
@@ -283,17 +282,9 @@ public class DPGSDualInference implements Inference {
 							dualGrandparentVariables, dualModifierVariables,
 							output.getGrandparents(), output.getModifiers());
 
-		}
-
-		for (int idxHead = 0; idxHead < numTkns; ++idxHead) {
-			dualObjectiveValues[idxHead] -= getDuplicatesValuesEdgesOfHead(
-					output, idxHead);
-
-			gsWeight += dualObjectiveValues[idxHead];
 			dualObjectiveValue += dualObjectiveValues[idxHead];
+
 		}
-		
-		calculateWeightOfZ(output, numTkns);
 
 		prevDualObjectiveValue = dualObjectiveValue;
 
@@ -326,7 +317,6 @@ public class DPGSDualInference implements Inference {
 		int step;
 		double outputWeight = treeWeight;
 		this.provedOtimo = false;
-		boolean[][] oldModifiers = new boolean[numTkns][numTkns];
 
 		for (step = 0; step < maxNumberOfSubgradientSteps; ++step) {
 
@@ -378,6 +368,15 @@ public class DPGSDualInference implements Inference {
 
 			if (!updated) {
 				this.provedOtimo = true;
+				
+				if (Math.abs(dualObjectiveValue - outputWeight) > 1.0e-8) {
+					LOG.error("A arvore foram consideradas iguais, porém possuem pesos diferentes." + "Dual objective : " + dualObjectiveValue
+							+ ". Weight " + outputWeight);
+					
+					LOG.error(output.toString());
+					
+				}
+				
 				LOG.info(String
 						.format("Optimum found at step %d after %d dual objective increments. Dual objective: %f. Weight: %f",
 								step, numDualObjectiveIncrements,
@@ -389,12 +388,6 @@ public class DPGSDualInference implements Inference {
 												grandparentFactorWeights,
 												siblingsFactorWeights, null,
 												null)));
-				// LOG.info("\n" + output.toString());
-
-				maxGSAlgorithm.calcObjectiveValueOfParse(output.getHeads(),
-						output.size(), edgeFactorWeights,
-						grandparentFactorWeights, siblingsFactorWeights,
-						dualGrandparentVariables, dualModifierVariables);
 
 				// Stop if the optimality condition is reached.
 				break;
@@ -446,14 +439,8 @@ public class DPGSDualInference implements Inference {
 			 * Compute the best GS structure for heads whose dual variables have
 			 * been updated.
 			 */
-			double hy = dualObjectiveValue;
-			gsWeight = 0.0;
-			
 			for (int idxHead = 0; idxHead < numTkns; ++idxHead) {
 				if (updatedHeads[idxHead]) {
-					System.arraycopy(output.getModifiers()[idxHead], 0,
-							oldModifiers[idxHead], 0, numTkns);
-
 					dualObjectiveValues[idxHead] = maxGSAlgorithm
 							.findMaximumGrandparentSiblingsForHead(numTkns,
 									idxHead, edgeFactorWeights,
@@ -464,54 +451,16 @@ public class DPGSDualInference implements Inference {
 									output.getGrandparents(),
 									output.getModifiers());
 				}
-				
-				gsWeight += dualObjectiveValues[idxHead];
+
 				dualObjectiveValue += dualObjectiveValues[idxHead];
 			}
 
-			double w;
-			w = 0.0d;
-			
-			
-			for (int idxHead = 0; idxHead < numTkns; ++idxHead) {
-				if (updatedHeads[idxHead]) {
-					w = getDuplicatesValuesEdgesOfHead(output, idxHead);
-					dualObjectiveValues[idxHead] -= w;
-					dualObjectiveValue -= w;
-
-					for (int idxModifier = 0; idxModifier < numTkns; idxModifier++) {
-						if (oldModifiers[idxHead][idxModifier] != output
-								.isModifier(idxHead, idxModifier))
-							if (output.getGrandparent(idxModifier) == idxHead
-									&& !updatedHeads[idxModifier]) {
-								if (oldModifiers[idxHead][idxModifier]) {
-									dualObjectiveValues[idxModifier] += (1 - beta)
-											* edgeFactorWeights[idxHead][idxModifier];
-									dualObjectiveValue += (1 - beta)
-											* edgeFactorWeights[idxHead][idxModifier];
-								} else {
-									dualObjectiveValues[idxModifier] -= (1 - beta)
-											* edgeFactorWeights[idxHead][idxModifier];
-									dualObjectiveValue -= (1 - beta)
-											* edgeFactorWeights[idxHead][idxModifier];
-								}
-							}
-					}
-				}
-			}
-
-			gsWeight = dualObjectiveValue - hy;
-			
-
-			double weight = calculateWeightOfZ(output, numTkns);
-//
-//			if(weight != gsWeight){
-//				System.out.println(step + " -- Diferença do peso de z : " + weight + " " + gsWeight);
-//			}
-
-			if (dualObjectiveValue < outputWeight) {
-				System.out.println("Arvore é maior no " + step + " tamanho "
-						+ (dualObjectiveValue - outputWeight));
+			if (dualObjectiveValue - outputWeight < -1.0e-8) {
+				LOG.error("A arvore foi maior no step " + step
+						+ "( dualobjective : " + dualObjectiveValue
+						+ ", weight " + outputWeight + ") "+ " diferença: " + (dualObjectiveValue - outputWeight) );
+				
+				LOG.error(output.toString());
 			}
 
 			if (dualObjectiveValue > prevDualObjectiveValue)
@@ -541,77 +490,6 @@ public class DPGSDualInference implements Inference {
 			output.setHead(tkn, bestOutput[tkn]);
 	}
 
-	private double calculateWeightOfZ(DPGSOutput output, int numTkns) {
-		double weight = 0.0d;
-		int idxGrandparent;
-		double total = weight;
-
-		for (int idxHead = 0; idxHead < numTkns; ++idxHead) {
-			weight = 0.0d;
-					
-			idxGrandparent = output.getGrandparent(idxHead);
-
-			if (idxGrandparent != -1) {
-				
-				if(!output.isModifier(idxGrandparent, idxHead))
-					weight += (1 - beta) * edgeFactorWeights[idxGrandparent][idxHead];
-				if (dualGrandparentVariables != null)
-					weight -= dualGrandparentVariables[idxGrandparent][idxHead];
-			}
-
-			int idxPrev = idxHead;
-
-			for (int idxMod = 0; idxMod < idxHead; idxMod++) {
-				if (output.isModifier(idxHead, idxMod)) {
-
-					if (idxGrandparent != -1) {
-						weight += grandparentFactorWeights[idxHead][idxMod][idxGrandparent];
-					} else {
-						weight += grandparentFactorWeights[idxHead][idxMod][idxHead];
-					}
-
-					weight += (1 - beta) * edgeFactorWeights[idxHead][idxMod];
-					
-					weight += siblingsFactorWeights[idxHead][idxMod][idxPrev];
-
-					if (dualModifierVariables != null)
-						weight -= dualModifierVariables[idxHead][idxMod];
-					
-					idxPrev = idxMod;
-				}
-			}
-
-			weight += siblingsFactorWeights[idxHead][idxHead][idxPrev];
-
-			idxPrev = numTkns;
-
-			for (int idxMod = idxHead + 1; idxMod < numTkns; idxMod++) {
-				if (output.isModifier(idxHead, idxMod)) {
-					weight += edgeFactorWeights[idxHead][idxMod];
-
-					if (idxGrandparent != -1) {
-						weight += grandparentFactorWeights[idxHead][idxMod][idxGrandparent];
-					} else {
-						weight += grandparentFactorWeights[idxHead][idxMod][idxHead];
-					}
-
-					weight += siblingsFactorWeights[idxHead][idxMod][idxPrev];
-					
-					if (dualModifierVariables != null)
-						weight -= dualModifierVariables[idxHead][idxMod];
-					
-					idxPrev = idxMod;
-				}
-			}
-			
-			weight += siblingsFactorWeights[idxHead][numTkns][idxPrev];
-			
-			total += weight;
-
-		}
-		return total;
-	}
-
 	private void copyGraph() {
 		// Copy Graph Values
 		for (int i = 0; i < graph.length; i++) {
@@ -632,26 +510,6 @@ public class DPGSDualInference implements Inference {
 			}
 		}
 		return dualObjectiveValue;
-	}
-
-	private double getDuplicatesValuesEdges(DPGSOutput output) {
-		double w = 0.0d;
-
-		for (int idxHead = 0; idxHead < output.size(); idxHead++) {
-			w += getDuplicatesValuesEdgesOfHead(output, idxHead);
-		}
-
-		return w;
-	}
-
-	private double getDuplicatesValuesEdgesOfHead(DPGSOutput output, int idxHead) {
-		int idxGrandparent = output.getGrandparent(idxHead);
-
-		if (idxGrandparent == -1 || !output.isModifier(idxGrandparent, idxHead)) {
-			return 0.0d;
-		}
-
-		return (1 - beta) * edgeFactorWeights[idxGrandparent][idxHead];
 	}
 
 	public static void printDualVars(int numTkns, double[][] vars) {

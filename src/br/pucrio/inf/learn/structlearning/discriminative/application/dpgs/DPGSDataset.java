@@ -470,7 +470,7 @@ public class DPGSDataset implements Dataset {
 
 				if (numberExample % 100 == 0 && numberExample != 0) {
 					System.out.print(".");
-				}
+				}	
 			}
 			
 		} while (existExample);

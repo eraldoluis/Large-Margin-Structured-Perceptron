@@ -23,21 +23,18 @@ import java.util.TreeSet;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dp.Feature;
 import br.pucrio.inf.learn.structlearning.discriminative.application.sequence.AveragedParameter;
 import br.pucrio.inf.learn.structlearning.discriminative.data.Dataset;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInput;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInputArray;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleOutput;
-import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.MapEncoding;
-import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.StringMapEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.task.Model;
 
 /**
  * Represent a dependecy parsing model with gradparent and modifiers paramenters
- * by means of a set of templates that conjoing basic features within the input
+	 * by means of a set of templates that conjoing basic features within the input
  * structure.
  * 
  * @author eraldo
@@ -363,19 +360,7 @@ public class DPGSModel implements Model {
 								correctPreviousModifier, learningRate);
 						updateSiblingsFactorParams(input, idxHead, idxModifier,
 								predictedPreviousModifier, -learningRate);
-					}
-					
-//					if(isSpecialToken && idxHead == idxModifier && correctGrandparent != predictedGrandparent){
-//						loss += 1d;
-//						if (correctGrandparent != -1)
-//							updateGrandparentFactorParams(input, idxHead,
-//								idxModifier, correctGrandparent, learningRate);
-//						
-//						if (predictedGrandparent != -1)
-//							updateGrandparentFactorParams(input, idxHead,
-//								idxModifier, predictedGrandparent,
-//								-learningRate);
-//					}
+					}	
 
 					if (!isSpecialToken
 							&& correctGrandparent != predictedGrandparent) {
@@ -452,10 +437,6 @@ public class DPGSModel implements Model {
 			return;
 		for (int idxFtr = 0; idxFtr < ftrs.length; ++idxFtr)
 			updateFeatureParam(ftrs[idxFtr], learnRate);
-
-		// TODO remove
-		 System.out.println(String.format("E(%d,%d) %f ", idxHead,
-		 idxModifier,learnRate));
 	}
 
 	/**
@@ -474,16 +455,9 @@ public class DPGSModel implements Model {
 		if (ftrs == null)
 			// Inexistent factor. Do nothing.
 			return;
-		for (int idxFtr = 0; idxFtr < ftrs.length; ++idxFtr) {
-			// TODO remove
-			// if(ftrs[idxFtr] == 10239){
-			// System.out.println(String.format("%s(%d,%d,%d): %f",
-			// input.getId(), idxHead,idxModifier, idxGrandparent, learnRate));
-			// }
+		for (int idxFtr = 0; idxFtr < ftrs.length; ++idxFtr) 
 			updateFeatureParam(ftrs[idxFtr], learnRate);
-		}
-		 System.out.println(String.format("G(%d,%d,%d) %f ", idxHead,
-		 idxModifier,idxGrandparent,learnRate));
+		
 	}
 
 	/**
@@ -504,10 +478,6 @@ public class DPGSModel implements Model {
 			return;
 		for (int idxFtr = 0; idxFtr < ftrs.length; ++idxFtr)
 			updateFeatureParam(ftrs[idxFtr], learnRate);
-
-		// TODO: remove
-		 System.out.println(String.format("S(%d,%d,%d) %f ", idxHead,
-		 idxModifier,idxSibling,learnRate));
 	}
 
 	/**
