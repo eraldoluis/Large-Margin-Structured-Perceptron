@@ -255,6 +255,8 @@ public class MaximumGrandparentSiblingsAlgorithm {
 				 * This case is possible because de factor G(h,m,h) is not NaN now. 
 				 */
 				if(idxModifier == idxGrandparent){
+					previousModifiers[idxModifier] = -1;
+					accumWeights[idxModifier] = Double.NaN;
 					continue;
 				}
 				
@@ -352,6 +354,16 @@ public class MaximumGrandparentSiblingsAlgorithm {
 
 			// Process the modifiers on the RIGHT side of the current head.
 			for (int idxModifier = idxHead + 1; idxModifier < numberOfNodes; ++idxModifier) {
+				
+				/*
+				 * In a certain idxHead shouldn't be possible that there is a modifier equal to grandparent. 
+				 */
+				if(idxModifier == idxGrandparent){
+					previousModifiers[idxModifier] = -1;
+					accumWeights[idxModifier] = Double.NaN;
+					continue;
+				}
+				
 				/*
 				 * Grandparent factor weight, which is fixed for the current
 				 * modifier. That is it does not consider the siblings of this
@@ -462,8 +474,13 @@ public class MaximumGrandparentSiblingsAlgorithm {
 		// Fill modifiers array with LEFT modifiers.
 		int idxModifier = bestPreviousModifiers[idxHead];
 		while (idxModifier != idxHead) {
+			try{
 			modifiers[idxHead][idxModifier] = true;
-			idxModifier = bestPreviousModifiers[idxModifier];
+			idxModifier = bestPreviousModifiers[idxModifier];}
+			catch(Exception ex){
+				ex.printStackTrace();
+				throw ex;
+			}
 		}
 		// Fill modifiers array with RIGHT modifiers.
 		idxModifier = bestPreviousModifiers[numberOfNodes];
@@ -519,17 +536,13 @@ public class MaximumGrandparentSiblingsAlgorithm {
 			if (Double.isNaN(wSiblingsFactor))
 				// Skip inexistent factors.
 				continue;
-			// // TODO test
-			// wSiblingsFactor = 0d;
 
 			// Weight accumulated up to the previous modifier.
 			double accumWeight = accumWeights[idxPrevModifier];
 			if (Double.isNaN(accumWeight))
 				// Skip inexistent path.
 				continue;
-			// // TODO test
-			// accumWeight = 0d;
-
+			
 			// Accumulated weight up to the modifier.
 			accumWeight += wSiblingsFactor;
 
