@@ -309,10 +309,16 @@ public class DPGSOutput implements ExampleOutput {
 								idxModifier, correctPreviousModifier),
 								diffVectorMap, -updateValue);
 
-						if (correctGrandparent != -1)
-							updateFeatureMap(in.getGrandparentFeatures(idxHead,
-									idxModifier, correctGrandparent),
-									diffVectorMap, -updateValue);
+						updateFeatureMap(
+								in.getEdgeFeatures(idxHead, idxModifier),
+								diffVectorMap, -updateValue);
+
+						if (correctGrandparent == -1)
+							correctGrandparent = idxHead;
+
+						updateFeatureMap(in.getGrandparentFeatures(idxHead,
+								idxModifier, correctGrandparent),
+								diffVectorMap, -updateValue);
 					} else {
 
 						/*
@@ -325,10 +331,17 @@ public class DPGSOutput implements ExampleOutput {
 						updateFeatureMap(in.getSiblingsFeatures(idxHead,
 								idxModifier, predictedPreviousModifier),
 								diffVectorMap, updateValue);
-						if (predictedGrandparent != -1)
-							updateFeatureMap(in.getGrandparentFeatures(idxHead,
-									idxModifier, predictedGrandparent),
-									diffVectorMap, updateValue);
+
+						updateFeatureMap(
+								in.getEdgeFeatures(idxHead, idxModifier),
+								diffVectorMap, updateValue);
+
+						if (predictedGrandparent == -1)
+							predictedGrandparent = idxHead;
+
+						updateFeatureMap(in.getGrandparentFeatures(idxHead,
+								idxModifier, predictedGrandparent),
+								diffVectorMap, updateValue);
 					}
 
 				} else {
@@ -362,12 +375,17 @@ public class DPGSOutput implements ExampleOutput {
 						 * factor is missing (false negative) and the predicted
 						 * one is incorrectly predicted (false positive).
 						 */
-						if (correctGrandparent != -1)
-							updateFeatureMap(in.getGrandparentFeatures(idxHead,
-									idxModifier, correctGrandparent),
-									diffVectorMap, -updateValue);
-						if (predictedGrandparent != -1)
-							updateFeatureMap(in.getGrandparentFeatures(idxHead,
+						if (correctGrandparent == -1)
+							correctGrandparent = idxHead;
+						
+						updateFeatureMap(in.getGrandparentFeatures(idxHead,
+								idxModifier, correctGrandparent),
+								diffVectorMap, -updateValue);
+						
+						if (predictedGrandparent == -1)
+							predictedGrandparent = idxHead;
+						
+						updateFeatureMap(in.getGrandparentFeatures(idxHead,
 									idxModifier, predictedGrandparent),
 									diffVectorMap, updateValue);
 					}

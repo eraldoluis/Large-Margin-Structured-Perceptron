@@ -51,8 +51,7 @@ public class DPGSInference implements Inference {
 	 * Grandparent factor weights for grandparent/siblings algorithm. The index
 	 * for this array is (idxHead, idxModifier, idxGrandparent).
 	 */
-	//TODO voltar para private
-	public double[][][] grandparentFactorWeights;
+	private double[][][] grandparentFactorWeights;
 
 	/**
 	 * Siblings factor weights for grandparent/siblings algorithm. The index for
@@ -69,8 +68,7 @@ public class DPGSInference implements Inference {
 	 * 'numberOfNodes', that is we create an additional position is every
 	 * siblings array to store this special START/END node.
 	 */
-	//TODO voltar para private
-	public double[][][] siblingsFactorWeights;
+	private double[][][] siblingsFactorWeights;
 
 	/**
 	 * Whether to copy the grandparent/siblings prediction to the parse
@@ -80,6 +78,10 @@ public class DPGSInference implements Inference {
 
 	private ExecutorService executor;
 	private int numberThreadsToFillWeight;
+
+	private double edgeWeightLoss = 1.0d;
+	private double grandparentWeightLoss = 0.0d;
+	private double siblingWeightLoss = 0.0d;
 
 	private abstract class FillerWeights implements Callable<Integer>, Runnable {
 		private int threadId;
@@ -210,10 +212,11 @@ public class DPGSInference implements Inference {
 				if (ftrs != null)
 					siblingsFactorWeightsHeadModifier[idxPreviousModifier] = model
 							.getFeatureListScore(ftrs)
-							+ getLossWeight(idxHead, idxModifier,
+							+ siblingWeightLoss
+							* getLossWeight(idxHead, idxModifier,
 									idxPreviousModifier, loss);
 				else
-					siblingsFactorWeightsHeadModifier[idxPreviousModifier]= Double.NaN;
+					siblingsFactorWeightsHeadModifier[idxPreviousModifier] = Double.NaN;
 			}
 
 			/*
@@ -232,7 +235,8 @@ public class DPGSInference implements Inference {
 			if (ftrs != null)
 				siblingsFactorWeightsHeadModifier[idxSTART] = model
 						.getFeatureListScore(ftrs)
-						+ getLossWeight(idxHead, idxModifier, idxSTART, loss);
+						+ siblingWeightLoss
+						* getLossWeight(idxHead, idxModifier, idxSTART, loss);
 			else
 				siblingsFactorWeightsHeadModifier[idxSTART] = Double.NaN;
 		}
@@ -274,12 +278,13 @@ public class DPGSInference implements Inference {
 				if (ftrs != null) {
 					// Sum feature weights to achieve the factor
 					// weight.
-					
+
 					grandparentFactorWeightsHeadModifier[idxGrandparent] = model
 							.getFeatureListScore(ftrs);
 					// Loss value for the current edge.
-					grandparentFactorWeightsHeadModifier[idxGrandparent] += getLossWeight(
-							idxHead, idxModifier, idxGrandparent, loss);
+					grandparentFactorWeightsHeadModifier[idxGrandparent] += grandparentWeightLoss
+							* getLossWeight(idxHead, idxModifier,
+									idxGrandparent, loss);
 					;
 				} else
 					grandparentFactorWeightsHeadModifier[idxGrandparent] = Double.NaN;
@@ -300,22 +305,29 @@ public class DPGSInference implements Inference {
 
 		protected double getLossWeight(int idxHead, int idxModifier,
 				boolean loss) {
-			if (!loss || correct.getHead(idxModifier) == idxHead)
-				return 0.0D;
-			return lossWeight;
+
+			double lossToReturn = 0.0d;
+
+			if (loss) {
+				if (correct.getHead(idxModifier) != idxHead) {
+					lossToReturn += lossWeight;
+				}
+
+			}
+			return lossToReturn;
 		}
 
 		@Override
 		protected void fill(int numberTokens, int idxHead, int idxModifier,
 				boolean loss) {
 
-			int [] ftrs = input.getEdgeFeatures(idxHead,idxModifier);
-			
+			int[] ftrs = input.getEdgeFeatures(idxHead, idxModifier);
 			if (ftrs != null) {
 				edgeFactorWeights[idxHead][idxModifier] = model
 						.getFeatureListScore(ftrs)
-						+ getLossWeight(idxHead, idxModifier, loss);
-			} else{
+						+ edgeWeightLoss
+						* getLossWeight(idxHead, idxModifier, loss);
+			} else {
 				edgeFactorWeights[idxHead][idxModifier] = Double.NaN;
 			}
 		}
@@ -408,12 +420,11 @@ public class DPGSInference implements Inference {
 		// Generate loss-augmented inference problem for the given input.
 		fillEdgeFactorWeights(model, input, referenceOutput, lossWeight);
 
-		lossWeight = 0.0d;
+		// lossWeight = 0.0d;
 
 		fillGrandparentFactorWeights(model, input, referenceOutput, lossWeight);
 		fillSiblingsFactorWeights(model, input, referenceOutput, lossWeight);
-		
-		
+
 		// Solve the inference problem.
 		maxGSAlgorithm.findMaximumGrandparentSiblings(input.size(),
 				edgeFactorWeights, grandparentFactorWeights,
@@ -705,7 +716,7 @@ public class DPGSInference implements Inference {
 	public double calculateSufferLoss(ExampleOutput correctOutput,
 			ExampleOutput predictedOutput, PassiveAgressiveUpdate update) {
 
- 		if (update == null) {
+		if (update == null) {
 			update = new PredictionBasedUpdate();
 		}
 
@@ -752,7 +763,7 @@ public class DPGSInference implements Inference {
 			for (int idxModifier = 0; idxModifier <= numTkns; ++idxModifier) {
 				// Is this token special (START or END).
 				boolean isSpecialToken = (idxModifier == idxHead || idxModifier == numTkns);
-
+				
 				/*
 				 * Is this modifier included in the correct or in the predicted
 				 * structures for the current head or is it a special token.
@@ -788,10 +799,16 @@ public class DPGSInference implements Inference {
 								.isNaN(siblingsFactorWeights[idxHead][idxModifier][correctPreviousModifier]))
 							dif -= siblingsFactorWeights[idxHead][idxModifier][correctPreviousModifier];
 
-						if (correctGrandparent != -1)
-							if (!Double
-									.isNaN(grandparentFactorWeights[idxHead][idxModifier][correctGrandparent]))
-								dif -= grandparentFactorWeights[idxHead][idxModifier][correctGrandparent];
+						if (!Double
+								.isNaN(edgeFactorWeights[idxHead][idxModifier]))
+							dif -= edgeFactorWeights[idxHead][idxModifier];
+
+						if (correctGrandparent == -1)
+							correctGrandparent = idxHead;
+
+						if (!Double
+								.isNaN(grandparentFactorWeights[idxHead][idxModifier][correctGrandparent]))
+							dif -= grandparentFactorWeights[idxHead][idxModifier][correctGrandparent];
 					} else { // !isCorrectModifier && isPredictedModifier
 
 						/*
@@ -805,10 +822,16 @@ public class DPGSInference implements Inference {
 								.isNaN(siblingsFactorWeights[idxHead][idxModifier][predictedPreviousModifier]))
 							dif += siblingsFactorWeights[idxHead][idxModifier][predictedPreviousModifier];
 
-						if (predictedGrandparent != -1)
-							if (!Double
-									.isNaN(grandparentFactorWeights[idxHead][idxModifier][predictedGrandparent]))
-								dif += grandparentFactorWeights[idxHead][idxModifier][predictedGrandparent];
+						if (!Double
+								.isNaN(edgeFactorWeights[idxHead][idxModifier]))
+							dif += edgeFactorWeights[idxHead][idxModifier];
+
+						if (predictedGrandparent == -1)
+							predictedGrandparent = idxHead;
+
+						if (!Double
+								.isNaN(grandparentFactorWeights[idxHead][idxModifier][predictedGrandparent]))
+							dif += grandparentFactorWeights[idxHead][idxModifier][predictedGrandparent];
 					}
 
 				} else { // isCorrectModifier == isPredictedModifier
@@ -843,15 +866,19 @@ public class DPGSInference implements Inference {
 						 * factor is missing (false negative) and the predicted
 						 * one is incorrectly predicted (false positive).
 						 */
-						if (correctGrandparent != -1)
-							if (!Double
-									.isNaN(grandparentFactorWeights[idxHead][idxModifier][correctGrandparent]))
-								dif += -grandparentFactorWeights[idxHead][idxModifier][correctGrandparent];
+						if (correctGrandparent == -1)
+							correctGrandparent = idxHead;
 
-						if (predictedGrandparent != -1)
-							if (!Double
-									.isNaN(grandparentFactorWeights[idxHead][idxModifier][predictedGrandparent]))
-								dif += grandparentFactorWeights[idxHead][idxModifier][predictedGrandparent];
+						if (!Double
+								.isNaN(grandparentFactorWeights[idxHead][idxModifier][correctGrandparent]))
+							dif += -grandparentFactorWeights[idxHead][idxModifier][correctGrandparent];
+
+						if (predictedGrandparent == -1)
+							predictedGrandparent = idxHead;
+						
+						if (!Double
+								.isNaN(grandparentFactorWeights[idxHead][idxModifier][predictedGrandparent]))
+							dif += grandparentFactorWeights[idxHead][idxModifier][predictedGrandparent];
 					}
 				}
 

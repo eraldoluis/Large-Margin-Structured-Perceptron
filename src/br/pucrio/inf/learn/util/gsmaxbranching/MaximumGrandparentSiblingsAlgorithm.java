@@ -474,13 +474,8 @@ public class MaximumGrandparentSiblingsAlgorithm {
 		// Fill modifiers array with LEFT modifiers.
 		int idxModifier = bestPreviousModifiers[idxHead];
 		while (idxModifier != idxHead) {
-			try{
 			modifiers[idxHead][idxModifier] = true;
-			idxModifier = bestPreviousModifiers[idxModifier];}
-			catch(Exception ex){
-				ex.printStackTrace();
-				throw ex;
-			}
+			idxModifier = bestPreviousModifiers[idxModifier];
 		}
 		// Fill modifiers array with RIGHT modifiers.
 		idxModifier = bestPreviousModifiers[numberOfNodes];

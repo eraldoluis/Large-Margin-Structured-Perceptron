@@ -34,7 +34,7 @@ import br.pucrio.inf.learn.structlearning.discriminative.task.Model;
 
 /**
  * Represent a dependecy parsing model with gradparent and modifiers paramenters
-	 * by means of a set of templates that conjoing basic features within the input
+ * by means of a set of templates that conjoing basic features within the input
  * structure.
  * 
  * @author eraldo
@@ -307,9 +307,9 @@ public class DPGSModel implements Model {
 						 */
 						updateSiblingsFactorParams(input, idxHead, idxModifier,
 								correctPreviousModifier, learningRate);
-						
-						updateEdgeFactorParams(input, idxHead,
-								idxModifier, learningRate);
+
+						updateEdgeFactorParams(input, idxHead, idxModifier,
+								learningRate);
 
 						if (correctGrandparent == -1)
 							correctGrandparent = idxHead;
@@ -327,9 +327,9 @@ public class DPGSModel implements Model {
 						 */
 						updateSiblingsFactorParams(input, idxHead, idxModifier,
 								predictedPreviousModifier, -learningRate);
-						
-						updateEdgeFactorParams(input, idxHead,
-								idxModifier, -learningRate);
+
+						updateEdgeFactorParams(input, idxHead, idxModifier,
+								-learningRate);
 
 						if (predictedGrandparent == -1)
 							predictedGrandparent = idxHead;
@@ -360,7 +360,7 @@ public class DPGSModel implements Model {
 								correctPreviousModifier, learningRate);
 						updateSiblingsFactorParams(input, idxHead, idxModifier,
 								predictedPreviousModifier, -learningRate);
-					}	
+					}
 
 					if (!isSpecialToken
 							&& correctGrandparent != predictedGrandparent) {
@@ -378,10 +378,10 @@ public class DPGSModel implements Model {
 
 						updateGrandparentFactorParams(input, idxHead,
 								idxModifier, correctGrandparent, learningRate);
-						
+
 						if (predictedGrandparent == -1)
 							predictedGrandparent = idxHead;
-						
+
 						updateGrandparentFactorParams(input, idxHead,
 								idxModifier, predictedGrandparent,
 								-learningRate);
@@ -455,9 +455,9 @@ public class DPGSModel implements Model {
 		if (ftrs == null)
 			// Inexistent factor. Do nothing.
 			return;
-		for (int idxFtr = 0; idxFtr < ftrs.length; ++idxFtr) 
+		for (int idxFtr = 0; idxFtr < ftrs.length; ++idxFtr)
 			updateFeatureParam(ftrs[idxFtr], learnRate);
-		
+
 	}
 
 	/**

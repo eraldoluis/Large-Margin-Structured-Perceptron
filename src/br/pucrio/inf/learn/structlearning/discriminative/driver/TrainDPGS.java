@@ -1,10 +1,5 @@
 package br.pucrio.inf.learn.structlearning.discriminative.driver;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStreamReader;
-
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.OptionBuilder;
 import org.apache.commons.cli.Options;
@@ -20,16 +15,16 @@ import br.pucrio.inf.learn.structlearning.discriminative.algorithm.passiveagress
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.passiveagressive.PassiveAgressive2;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.LossAugmentedPerceptron;
 import br.pucrio.inf.learn.structlearning.discriminative.algorithm.perceptron.Perceptron;
-import br.pucrio.inf.learn.structlearning.discriminative.application.dp.Feature;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSDataset;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSDualInference;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSInference;
-import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSInput;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSModel;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSModel.DPGSModelLoadReturn;
 import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.DPGSOutput;
+import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.evaluate.Accuracy;
+import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.evaluate.Metric;
+import br.pucrio.inf.learn.structlearning.discriminative.application.dpgs.evaluate.PrecisionRecallF1;
 import br.pucrio.inf.learn.structlearning.discriminative.data.Dataset;
-import br.pucrio.inf.learn.structlearning.discriminative.data.DatasetException;
 import br.pucrio.inf.learn.structlearning.discriminative.data.ExampleInputArray;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.FeatureEncoding;
 import br.pucrio.inf.learn.structlearning.discriminative.data.encoding.StringMapEncoding;
@@ -201,7 +196,8 @@ public class TrainDPGS implements Command {
 				.withArgName("int").hasArg().withDescription("").create());
 		options.addOption(OptionBuilder
 				.withLongOpt("alg")
-				.withArgName("perc | loss | afworse | tobetter | dual | pa")
+				.withArgName(
+						"perc | loss | afworse | tobetter | dual | pa | pa1 | pa2")
 				.hasArg()
 				.withDescription(
 						"The training algorithm: "
@@ -218,6 +214,24 @@ public class TrainDPGS implements Command {
 				.withDescription(
 						"C is a positive parameter which controls the influence of the slack term on the objective function")
 				.create());
+
+		options.addOption(OptionBuilder
+				.withLongOpt("metric")
+				.withArgName("prec_rec | acc ")
+				.hasArg()
+				.withDescription(
+						"Type of metric is going to realize:"
+								+ "prec_rec(Precision,Recall e F1 Score), acc(Accuracy)")
+				.create());
+
+		options.addOption(OptionBuilder
+				.withLongOpt("inferencetest")
+				.withArgName("dual | simple")
+				.hasArg()
+				.withDescription(
+						"Type of inference to use in test:"
+								+ " dual (DPGSDualInference), "
+								+ " simple (DPGSInference)").create());
 
 		// Parse the command-line arguments.
 		CommandLine cmdLine = null;
@@ -305,6 +319,29 @@ public class TrainDPGS implements Command {
 			algType = AlgorithmType.PERCEPTRON;
 		}
 
+		MetricType metricType = null;
+
+		String metricTypeStr = cmdLine.getOptionValue("metric", "acc");
+
+		if (metricTypeStr.equals("acc"))
+			metricType = MetricType.ACCURACY;
+		else if (metricTypeStr.equals("prec_rec"))
+			metricType = MetricType.PRECISION_RECALL_F1;
+		else
+			metricType = MetricType.ACCURACY;
+
+		InferenceType inferenceType = null;
+		String inferenceTypeStr = cmdLine.getOptionValue("inferencetest",
+				"dual");
+
+		if (inferenceTypeStr.equals("dual"))
+			inferenceType = InferenceType.DUAL;
+		else if (inferenceTypeStr.equals("simple"))
+			inferenceType = InferenceType.SIMPLE;
+		else {
+			inferenceType = InferenceType.DUAL;
+		}
+
 		/*
 		 * Options --testconll, --outputconll and --test must always be provided
 		 * together.
@@ -319,6 +356,7 @@ public class TrainDPGS implements Command {
 		DPGSDataset trainDataset = null;
 		FeatureEncoding<String> featureEncoding = null;
 		DPGSModel model;
+		Inference inferenceTest = null;
 
 		try {
 
@@ -363,7 +401,7 @@ public class TrainDPGS implements Command {
 						trainGPDatasetFileName, trainLSDatasetFileName,
 						trainRSDatasetFileName, templatesFilename, model,
 						trainCacheSize, "trainInputs");
-					
+
 				// Set modifier variables in all output structures.
 				trainDataset.setModifierVariables();
 
@@ -371,7 +409,7 @@ public class TrainDPGS implements Command {
 						+ trainDataset.getNumberOfExamples());
 
 				// Inference algorithm for training.
-				DPGSInference inference = new DPGSInference(
+				Inference inference = new DPGSInference(
 						trainDataset.getMaxNumberOfTokens(),
 						numThreadToFillWeight);
 
@@ -413,7 +451,7 @@ public class TrainDPGS implements Command {
 
 				if (testConllFileName != null && perNumEpoch > 0) {
 					LOG.info("Loading test factors...");
-					
+
 					DPGSDataset testset = new DPGSDataset(trainDataset);
 					testset.loadExamplesAndGenerate(testEdgeDatasetFilename,
 							testGPDatasetFilename, testLSDatasetFilename,
@@ -424,18 +462,36 @@ public class TrainDPGS implements Command {
 
 					LOG.info("Evaluating...");
 
-					// Use dual inference algorithm for testing.
-					DPGSDualInference inferenceDual = new DPGSDualInference(
-							testset.getMaxNumberOfTokens());
-					inferenceDual
-							.setMaxNumberOfSubgradientSteps(maxSubgradientSteps);
-					inferenceDual.setBeta(beta);
+					if (inferenceType == InferenceType.DUAL) {
+						// Use dual inference algorithm for testing.
+						DPGSDualInference inferenceDual = new DPGSDualInference(
+								testset.getMaxNumberOfTokens());
+						inferenceDual
+								.setMaxNumberOfSubgradientSteps(maxSubgradientSteps);
+						inferenceDual.setBeta(beta);
 
+						inferenceTest = inferenceDual;
+
+					} else if (inferenceType == InferenceType.SIMPLE) {
+						DPGSInference inferenceSimple = new DPGSInference(
+								testset.getMaxNumberOfTokens(),
+								numThreadToFillWeight);
+						inferenceSimple.setCopyPredictionToParse(true);
+
+						inferenceTest = inferenceSimple;
+
+					}
+
+					Metric metric = null;
+
+					if (metricType == MetricType.ACCURACY)
+						metric = new Accuracy(script, testConllFileName,
+								outputConllFilename, true, testset);
+					else if (metricType == MetricType.PRECISION_RECALL_F1)
+						metric = new PrecisionRecallF1();
 
 					EvaluateModelListener eval = new EvaluateModelListener(
-							script, testConllFileName, outputConllFilename,
-							testset, averaged, inferenceDual);
-					eval.setQuiet(true);
+							metric, testset, averaged, inferenceTest);
 					eval.setNumberEpochsToEvalute(perNumEpoch);
 					alg.setListener(eval);
 
@@ -445,7 +501,7 @@ public class TrainDPGS implements Command {
 				// Train model.
 				alg.train(trainDataset.getDPGSInputArray(),
 						trainDataset.getOutputs());
-				
+
 				LOG.info(String.format("# updated parameters: %d",
 						model.getNumberOfUpdatedParameters()));
 
@@ -485,20 +541,40 @@ public class TrainDPGS implements Command {
 
 				LOG.info("Evaluating...");
 
-				// Use dual inference algorithm for testing.
-				 DPGSDualInference inferenceDual = new DPGSDualInference(
-				 testset.getMaxNumberOfTokens());
-				 inferenceDual
-				 .setMaxNumberOfSubgradientSteps(maxSubgradientSteps);
-				 inferenceDual.setBeta(beta);
+				if (inferenceType == InferenceType.DUAL) {
+					// Use dual inference algorithm for testing.
+					DPGSDualInference inferenceDual = new DPGSDualInference(
+							testset.getMaxNumberOfTokens());
+					inferenceDual
+							.setMaxNumberOfSubgradientSteps(maxSubgradientSteps);
+					inferenceDual.setBeta(beta);
 
-				EvaluateModelListener eval = new EvaluateModelListener(script,
-						testConllFileName, outputConllFilename, testset, false,
-						inferenceDual);
+					inferenceTest = inferenceDual;
+
+				} else if (inferenceType == InferenceType.SIMPLE) {
+					DPGSInference inferenceSimple = new DPGSInference(
+							testset.getMaxNumberOfTokens(),
+							numThreadToFillWeight);
+					inferenceSimple.setCopyPredictionToParse(true);
+
+					inferenceTest = inferenceSimple;
+				}
+
+				Metric metric = null;
+
+				if (metricType == MetricType.ACCURACY)
+					metric = new Accuracy(script, testConllFileName,
+							outputConllFilename, true, testset);
+				else if (metricType == MetricType.PRECISION_RECALL_F1)
+					metric = new PrecisionRecallF1();
+
+				EvaluateModelListener eval = new EvaluateModelListener(metric,
+						testset, false, inferenceTest);
+
 				eval.setQuiet(true);
-				eval.afterEpoch(inferenceDual, model, -1, -1d, -1);
+				eval.afterEpoch(inferenceTest, model, -1, -1d, -1);
 			}
-			
+
 			LOG.info("Training done!");
 
 		} catch (Exception e) {
@@ -507,62 +583,20 @@ public class TrainDPGS implements Command {
 		}
 	}
 
-	public static void evaluateWithConllScripts(String script,
-			String conllGolden, String conllPredicted, boolean quiet)
-			throws IOException, CommandException, InterruptedException {
-		// Command to evaluate the predicted information.
-		String cmd = String.format("perl %s -g %s -s %s%s", script,
-				conllGolden, conllPredicted, (quiet ? " -q" : ""));
-		execCommandAndRedirectOutputAndError(cmd, null);
+	
+
+	
+
+	private enum InferenceType {
+		SIMPLE, DUAL;
 	}
 
-	/**
-	 * Execute the given system command and redirects its standard and error
-	 * outputs to the standard and error outputs of the JVM process.
-	 * 
-	 * @param command
-	 * @param path
-	 * @throws IOException
-	 * @throws CommandException
-	 * @throws InterruptedException
-	 */
-	private static void execCommandAndRedirectOutputAndError(String command,
-			File path) throws IOException, CommandException,
-			InterruptedException {
-		String line;
-
-		// Execute command.
-		LOG.info("Running command: " + command);
-		Process p = Runtime.getRuntime().exec(command, null, path);
-
-		// Redirect standard output of process.
-		BufferedReader out = new BufferedReader(new InputStreamReader(
-				p.getInputStream()));
-		while ((line = out.readLine()) != null)
-			System.out.println(line);
-		out.close();
-
-		// Redirect error output of process.
-		BufferedReader error = new BufferedReader(new InputStreamReader(
-				p.getErrorStream()));
-		while ((line = error.readLine()) != null)
-			System.err.println(line);
-		error.close();
-
-		if (p.waitFor() != 0)
-			throw new CommandException("Command exit with non-zero status");
+	private enum MetricType {
+		ACCURACY, PRECISION_RECALL_F1, RECALL;
 	}
 
-	private static class CommandException extends Exception {
-		/**
-		 * Auto-generated serial version ID.
-		 */
-		private static final long serialVersionUID = 6582860853130630178L;
 
-		public CommandException(String message) {
-			super(message);
-		}
-	}
+	
 
 	/**
 	 * Training listener to evaluate models after each epoch.
@@ -572,11 +606,7 @@ public class TrainDPGS implements Command {
 	 */
 	private static class EvaluateModelListener implements TrainingListener {
 
-		private String script;
-
-		private String conllGolden;
-
-		private String conllPredicted;
+		private Metric typeMetric;
 
 		private DPGSDataset testset;
 
@@ -592,12 +622,9 @@ public class TrainDPGS implements Command {
 
 		private DPGSOutput[] outputs;
 
-		public EvaluateModelListener(String script, String conllGolden,
-				String conllPredicted, DPGSDataset testset, boolean averaged,
-				Inference inference) {
-			this.script = script;
-			this.conllGolden = conllGolden;
-			this.conllPredicted = conllPredicted;
+		public EvaluateModelListener(Metric typeMetric, DPGSDataset testset,
+				boolean averaged, Inference inference) {
+			this.typeMetric = typeMetric;
 			this.testset = testset;
 			this.averaged = averaged;
 			this.inference = inference;
@@ -688,40 +715,17 @@ public class TrainDPGS implements Command {
 			inputs.load(inputToLoad);
 
 			for (int idx = 0; idx < numberExamples; ++idx) {
-				inferenceImpl.inference(model, inputs.get(idx), predicteds[idx]);
+				inferenceImpl
+						.inference(model, inputs.get(idx), predicteds[idx]);
 
 				if ((idx + 1) % 100 == 0) {
 					System.out.print(".");
 					System.out.flush();
 				}
 			}
-			
-			try {
-				// Delete previous epoch output file if it exists.
-				File o = new File(conllPredicted);
-				if (o.exists())
-					o.delete();
 
-				LOG.info(String
-						.format("Saving input CoNLL file (%s) to output file (%s) with predicted columns",
-								conllGolden, conllPredicted));
-				testset.save(conllGolden, conllPredicted, predicteds);
+			typeMetric.evaluate(epoch, outputs, predicteds);
 
-				try {
-					LOG.info("Evaluation after epoch " + epoch + ":");
-					// Execute CoNLL evaluation scripts.
-					evaluateWithConllScripts(script, conllGolden,
-							conllPredicted, quiet);
-				} catch (Exception e) {
-					LOG.error("Running evaluation scripts", e);
-				}
-
-			} catch (IOException e) {
-				LOG.error("Saving test file with predicted column", e);
-			} catch (DatasetException e) {
-				LOG.error("Saving test file with predicted column", e);
-			}
-			
 			inputs.close();
 
 			return true;
