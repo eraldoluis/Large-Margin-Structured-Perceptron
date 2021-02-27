@@ -41,7 +41,7 @@ The main responsabilities of each class and interface are:
 
 In the following sequence diagram, we present an overview of the operations within a typical training loop.
 
-![LMSP-train-sequence](https://user-images.githubusercontent.com/708031/109401391-c2dd5200-7924-11eb-86f6-23b9dd614a7c.png)
+![LMSP-train-sequence](https://user-images.githubusercontent.com/708031/109402301-2cf8f580-792b-11eb-8b79-b718e155385b.png)
 
 The client code (the training script) must create the `Dataset` object and obtain the list of inputs and outputs.
 It then passes those to the training algorithm (a `Perceptron` object, for example)
