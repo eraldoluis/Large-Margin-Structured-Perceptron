@@ -39,4 +39,23 @@ The main responsabilities of each class and interface are:
 
 ## Training loop
 
+In the following sequence diagram, we present an overview of the operations within a typical training loop.
+
 ![LMSP-train-sequence](https://user-images.githubusercontent.com/708031/109401391-c2dd5200-7924-11eb-86f6-23b9dd614a7c.png)
+
+The client code (the training script) must create the `Dataset` object and obtain the list of inputs and outputs.
+It then passes those to the training algorithm (a `Perceptron` object, for example)
+  that will execute the training loop.
+
+In a typical iteration of the training loop, the algorithm will
+  randomly select a training example (the pair `in`, `out`),
+  call the `inference(...)` method of the `Inference` object to obtain a predicted structure `pred`,
+  and finally update the model weights considering the difference between the correct structure `out` and the predicted one `pred`.
+
+
+## Framework Instantiations
+
+If you want to learn about a specific instantiation of the framework,
+  you can have a look at the sub-packages of the package [`application`](https://github.com/eraldoluis/Large-Margin-Structured-Perceptron/tree/master/src/br/pucrio/inf/learn/structlearning/discriminative/application).
+And, in the package [`driver`](https://github.com/eraldoluis/Large-Margin-Structured-Perceptron/tree/master/src/br/pucrio/inf/learn/structlearning/discriminative/driver)
+  you can find the training scripts for each instantiation.
