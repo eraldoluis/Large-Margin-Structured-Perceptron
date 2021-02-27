@@ -4,6 +4,11 @@
 Author: Eraldo R. Fernandes
 (C) 2011
 
+
+## Framework overview
+
+If you want to learn more about the architecture and internals of the framework, have a look [here](README-dev.md).
+
 ## What is structured learning?
 
 Structured learning consists in learning a mapping from inputs to structured
