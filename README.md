@@ -35,7 +35,7 @@ The are also some instantiations of the framework for different tasks:
 * coreference resolution.
 
 
-## How to execute an included instance of the framework?
+## How to execute an instance of the framework?
 
 The common entry point for all instantiations is the command
 
