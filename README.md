@@ -1,8 +1,11 @@
 
 # Largin Margin Structured Perceptron
 
-Author: Eraldo R. Fernandes
+Main developer: Eraldo R. Fernandes
 (C) 2011
+
+This repository includes a Structured Learning Framework for Natural Language Processing problems.
+It comprises the implementation of [Eraldo's PhD dissertation](https://github.com/eraldoluis/Large-Margin-Structured-Perceptron/files/6055774/efernandes_certificada.pdf).
 
 
 ## What is structured learning?
