@@ -23,18 +23,18 @@ The main responsabilities of each class and interface are:
   ```
   This method gets an input `in`, its correct output `out`, the current prediction `pred`, the learning rate `lr` and
     must update the model parameters according to the difference between `out` and `pred`.
-* [**`Inference`**]() &nbsp;&nbsp; 
+* [**`Inference`**](https://github.com/eraldoluis/Large-Margin-Structured-Perceptron/blob/master/src/br/pucrio/inf/learn/structlearning/discriminative/task/Inference.java) &nbsp;&nbsp; 
   This interface represents the inference algorithm, i.e., the algorithm that predicts an output structure for a given input and model.
   The inference method is:
   ```java
   void inference(Model model, ExampleInput input, ExampleOutput output);
   ```
-* [**`Dataset`**]() &nbsp;&nbsp; 
+* [**`Dataset`**](https://github.com/eraldoluis/Large-Margin-Structured-Perceptron/blob/master/src/br/pucrio/inf/learn/structlearning/discriminative/data/Dataset.java) &nbsp;&nbsp; 
   This interface must be implemented to provide training examples,
     usualy by reading them from a file.
-* [**`ExampleInput`**]() &nbsp;&nbsp; 
+* [**`ExampleInput`**](https://github.com/eraldoluis/Large-Margin-Structured-Perceptron/blob/master/src/br/pucrio/inf/learn/structlearning/discriminative/data/ExampleInput.java) &nbsp;&nbsp; 
   This interface represents the input features of an example.
-* [**`ExampleOutput`**]() &nbsp;&nbsp; 
+* [**`ExampleOutput`**](https://github.com/eraldoluis/Large-Margin-Structured-Perceptron/blob/master/src/br/pucrio/inf/learn/structlearning/discriminative/data/ExampleOutput.java) &nbsp;&nbsp; 
   This interface represents the output structure of an example.
 
 ## Training loop
