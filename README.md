@@ -27,6 +27,7 @@ There are implementations of different variations of the structured perceptron a
 * vanilla,
 * large margin, and
 * dual (kernelized).
+
 The are also some instantiations of the framework for different tasks:
 * sequence labeling (POS tagging, text chunking, etc.),
 * dependency parsing,
